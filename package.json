@@ -1,0 +1,18 @@
+{
+  "name": "afterburner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A browser dogfighting game. Fly a jet, shoot down waves of enemy fighters before they shoot you down.",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.js",
+    "start": "node scripts/serve.js",
+    "build": "bun run scripts/build.js",
+    "preview": "node scripts/serve.js"
+  },
+  "engines": {
+    "node": ">=20.11"
+  },
+  "keywords": ["game", "canvas", "arcade"],
+  "license": "MIT"
+}
