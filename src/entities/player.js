@@ -4,6 +4,9 @@
  * The flight model is the heart of the game. Turn rate scales *inversely*
  * with airspeed, so slowing down turns tighter. That one rule is what makes
  * throttle management, rather than reflexes, decide a turning fight.
+ *
+ * Per-airframe numbers live on `player.stats` (see PLANES in config.js); only
+ * the handful of properties every jet shares come from PLAYER.
  */
 
 import { clamp, angDiff, rand } from "../core/math.js";
@@ -11,7 +14,8 @@ import { input, isDown } from "../core/input.js";
 import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
-  PLAYER, LOCK, ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
+  PLAYER, PLANES, DEFAULT_PLANE, LOCK,
+  ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
 import { fireGun, fireMissile } from "./weapons.js";
 import { explode, addShake } from "./effects.js";
@@ -19,16 +23,19 @@ import { explode, addShake } from "./effects.js";
 /** Ticks between the jet being hit and the game-over screen appearing. */
 const DEATH_DELAY = 72;
 
-export function createPlayer() {
+export function createPlayer(planeId = DEFAULT_PLANE) {
+  const stats = PLANES[planeId] ?? PLANES[DEFAULT_PLANE];
   return {
+    /** The chosen airframe's full stat block. */
+    stats,
     x: 0,
     y: 0,
     angle: -Math.PI / 2, // nose north
-    speed: 4.2,
-    hp: PLAYER.maxHp,
+    speed: stats.cruiseSpeed,
+    hp: stats.maxHp,
     alive: true,
     gunCooldown: 0,
-    missiles: PLAYER.maxMissiles,
+    missiles: stats.maxMissiles,
     missileCooldown: 0,
     invuln: PLAYER.spawnInvuln,
     /** Current lock target, or null. */
@@ -62,7 +69,7 @@ export function updatePlayer(world) {
 
   if ((input.mouse.left || isDown("Space")) && p.gunCooldown <= 0) {
     fireGun(world, p, true);
-    p.gunCooldown = PLAYER.gunCooldown;
+    p.gunCooldown = p.stats.gunCooldown;
   }
   if ((input.mouse.right || isDown("KeyF", "KeyX")) && p.missileCooldown <= 0) {
     fireMissile(world);
@@ -83,19 +90,28 @@ function applySteering(p) {
       input.mouse.y - viewport.h / 2,
       input.mouse.x - viewport.w / 2,
     );
-    turn = clamp(angDiff(desired, p.angle) / PLAYER.turnRate, -1, 1);
+    turn = clamp(angDiff(desired, p.angle) / p.stats.turnRate, -1, 1);
   }
 
-  const agility = PLAYER.turnRate * (1.35 - 0.5 * (p.speed / PLAYER.maxSpeed));
-  p.angle += turn * agility;
+  p.angle += turn * agility(p);
+}
+
+/**
+ * Effective turn rate. Flying slower turns tighter, which is why throttle
+ * management decides a turning fight — and why a low minSpeed is an agility
+ * stat in disguise.
+ */
+export function agility(p) {
+  return p.stats.turnRate * (1.35 - 0.5 * (p.speed / p.stats.maxSpeed));
 }
 
 function applyThrottle(p) {
+  const s = p.stats;
   const burning = isDown("KeyW", "ArrowUp", "ShiftLeft", "ShiftRight");
   const braking = isDown("KeyS", "ArrowDown");
 
-  const target = burning ? PLAYER.maxSpeed : braking ? PLAYER.minSpeed : PLAYER.cruiseSpeed;
-  p.speed += clamp(target - p.speed, -PLAYER.brake, PLAYER.accel);
+  const target = burning ? s.maxSpeed : braking ? s.minSpeed : s.cruiseSpeed;
+  p.speed += clamp(target - p.speed, -s.brake, s.accel);
   p.boost = burning ? Math.min(p.boost + 0.12, 1) : Math.max(p.boost - 0.08, 0);
 }
 

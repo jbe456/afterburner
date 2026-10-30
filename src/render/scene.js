@@ -150,7 +150,7 @@ function drawAircraft(ctx, world) {
   const { player, enemies, time } = world;
 
   for (const e of enemies) drawJetShadow(ctx, e.x, e.y, e.angle, ENEMY_TYPES[e.type].scale);
-  if (player.alive) drawJetShadow(ctx, player.x, player.y, player.angle, 1.05);
+  if (player.alive) drawJetShadow(ctx, player.x, player.y, player.angle, player.stats.scale);
 
   for (const e of enemies) {
     const type = ENEMY_TYPES[e.type];
@@ -162,8 +162,9 @@ function drawAircraft(ctx, world) {
     // Blink while the spawn invulnerability lasts.
     const blink = player.invuln > 0 && Math.floor(time / 4) % 2 === 0;
     if (!blink) {
-      drawJet(ctx, player.x, player.y, player.angle, 1.05,
-        "#3f8fd4", "#8fd3ff", false, 0.35 + player.boost * 0.65, time);
+      const s = player.stats;
+      drawJet(ctx, player.x, player.y, player.angle, s.scale,
+        s.color, s.accent, false, 0.35 + player.boost * 0.65, time);
     }
   }
 }

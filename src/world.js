@@ -10,9 +10,9 @@ import { rand } from "./core/math.js";
 import { ARENA_HALF } from "./config.js";
 import { createPlayer } from "./entities/player.js";
 
-export function createWorld() {
+export function createWorld(planeId) {
   return {
-    player: createPlayer(),
+    player: createPlayer(planeId),
 
     // Entity pools
     enemies: [],

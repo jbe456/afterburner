@@ -2,7 +2,7 @@
 
 import { dist2 } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { PICKUPS, PLAYER } from "../config.js";
+import { PICKUPS } from "../config.js";
 import { burst } from "./effects.js";
 import { showBanner } from "../world.js";
 
@@ -29,10 +29,10 @@ export function updatePickups(world) {
     if (dist2(p, player) >= PICKUPS.pickupRadius ** 2) continue;
 
     if (p.kind === "repair") {
-      player.hp = Math.min(PLAYER.maxHp, player.hp + PICKUPS.repairAmount);
+      player.hp = Math.min(player.stats.maxHp, player.hp + PICKUPS.repairAmount);
       showBanner(world, `+${PICKUPS.repairAmount} HULL`, 60);
     } else {
-      player.missiles = Math.min(PLAYER.maxMissiles, player.missiles + PICKUPS.ammoAmount);
+      player.missiles = Math.min(player.stats.maxMissiles, player.missiles + PICKUPS.ammoAmount);
       showBanner(world, `+${PICKUPS.ammoAmount} MISSILES`, 60);
     }
 

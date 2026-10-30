@@ -8,11 +8,16 @@
     "dev": "node scripts/serve.js",
     "start": "node scripts/serve.js",
     "build": "bun run scripts/build.js",
-    "preview": "node scripts/serve.js"
+    "preview": "node scripts/serve.js",
+    "test": "node scripts/check-balance.js"
   },
   "engines": {
     "node": ">=20.11"
   },
-  "keywords": ["game", "canvas", "arcade"],
+  "keywords": [
+    "game",
+    "canvas",
+    "arcade"
+  ],
   "license": "MIT"
 }

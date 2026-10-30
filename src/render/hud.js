@@ -9,7 +9,7 @@
 import { TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import {
-  PLAYER, ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK,
+  ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK,
 } from "../config.js";
 
 const MONO = "ui-monospace, monospace";
@@ -54,14 +54,15 @@ function drawDamageVignette(ctx, world) {
 /** Hull, throttle and missile rack, stacked top-left. */
 function drawInstruments(ctx, world) {
   const p = world.player;
+  const s = p.stats;
   ctx.textAlign = "left";
   ctx.font = `11px ${MONO}`;
 
-  // Hull
+  // Hull — labelled with the airframe so you can see what you picked.
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("HULL", 22, 32);
+  ctx.fillText(s.name, 22, 32);
   const barW = 230, barH = 13;
-  const hpFrac = Math.max(0, p.hp / PLAYER.maxHp);
+  const hpFrac = Math.max(0, p.hp / s.maxHp);
   ctx.fillStyle = "rgba(0,0,0,.45)";
   ctx.fillRect(22, 40, barW, barH);
   ctx.fillStyle = hpFrac > 0.5 ? "#4fd48a" : hpFrac > 0.25 ? "#ffd166" : "#ff5c5c";
@@ -77,7 +78,7 @@ function drawInstruments(ctx, world) {
   ctx.font = `11px ${MONO}`;
   ctx.fillStyle = "#6f8ba6";
   ctx.fillText("THR", 22, 76);
-  const thrFrac = (p.speed - PLAYER.minSpeed) / (PLAYER.maxSpeed - PLAYER.minSpeed);
+  const thrFrac = (p.speed - s.minSpeed) / (s.maxSpeed - s.minSpeed);
   ctx.fillStyle = "rgba(0,0,0,.45)";
   ctx.fillRect(52, 67, 160, 8);
   ctx.fillStyle = p.boost > 0.4 ? "#8fd3ff" : "#4a89c0";
@@ -86,7 +87,7 @@ function drawInstruments(ctx, world) {
   // Missile rack
   ctx.fillStyle = "#6f8ba6";
   ctx.fillText("MSL", 22, 100);
-  for (let i = 0; i < PLAYER.maxMissiles; i++) {
+  for (let i = 0; i < s.maxMissiles; i++) {
     ctx.fillStyle = i < p.missiles ? "#ffd166" : "rgba(255,209,102,.16)";
     ctx.fillRect(52 + i * 15, 91, 9, 9);
   }

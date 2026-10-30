@@ -17,7 +17,7 @@ import { simulate } from "./simulate.js";
 import { startWave } from "./waves.js";
 import { drawScene } from "./render/scene.js";
 import { drawHud, drawPauseOverlay } from "./render/hud.js";
-import { showMenu, showGameOver, hideOverlay } from "./ui/screens.js";
+import { showMenu, showGameOver, hideOverlay, getSelectedPlane } from "./ui/screens.js";
 
 /** @type {"menu"|"playing"|"dead"} */
 let screen = "menu";
@@ -32,19 +32,25 @@ initInput(canvas, {
   onGesture: initAudio,
 });
 
+/** Launch with whichever airframe the hangar currently has selected. */
 function startRun() {
   initAudio();
   resumeAudio();
-  world = createWorld();
+  world = createWorld(getSelectedPlane());
   screen = "playing";
   paused = false;
   hideOverlay();
   startWave(world);
 }
 
+function returnToHangar() {
+  screen = "menu";
+  showMenu(startRun);
+}
+
 function endRun() {
   screen = "dead";
-  showGameOver(world, startRun);
+  showGameOver(world, startRun, returnToHangar);
 }
 
 // --- frame loop -------------------------------------------------------------

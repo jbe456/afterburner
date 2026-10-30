@@ -5,7 +5,8 @@
       "name": "game",
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/serve.js"],
-      "port": 8765
+      "port": 8765,
+      "autoPort": true
     }
   ]
 }

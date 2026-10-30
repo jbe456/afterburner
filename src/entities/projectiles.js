@@ -5,7 +5,7 @@
 
 import { dist2, angDiff, steer, rand } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { MISSILE, PLAYER } from "../config.js";
+import { MISSILE } from "../config.js";
 import { burst, explode, addShake } from "./effects.js";
 import { damageEnemy } from "./enemy.js";
 import { damagePlayer } from "./player.js";
@@ -31,7 +31,7 @@ export function updateBullets(world) {
         damageEnemy(world, hit, b.damage, b.x, b.y);
         bullets.splice(i, 1);
       }
-    } else if (player.alive && player.invuln <= 0 && dist2(b, player) < (PLAYER.radius + 5) ** 2) {
+    } else if (player.alive && player.invuln <= 0 && dist2(b, player) < (player.stats.radius + 5) ** 2) {
       damagePlayer(world, b.damage);
       burst(world, b.x, b.y, 7, "#ff9a6b", 3.5, 3, 18);
       addShake(world, 4);

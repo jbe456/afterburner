@@ -1,19 +1,30 @@
-/** Best score persistence. Wrapped because localStorage throws in private mode. */
+/**
+ * Small persisted preferences. Every call is wrapped because localStorage
+ * throws outright in private-browsing modes rather than failing softly.
+ */
 
-const KEY = "afterburner.best";
+const BEST_KEY = "afterburner.best";
+const PLANE_KEY = "afterburner.plane";
 
-export function loadBest() {
+function read(key) {
   try {
-    return Number(localStorage.getItem(KEY)) || 0;
+    return localStorage.getItem(key);
   } catch {
-    return 0;
+    return null;
   }
 }
 
-export function saveBest(score) {
+function write(key, value) {
   try {
-    localStorage.setItem(KEY, String(score));
+    localStorage.setItem(key, value);
   } catch {
     /* nothing we can do, and nothing worth breaking the game over */
   }
 }
+
+export const loadBest = () => Number(read(BEST_KEY)) || 0;
+export const saveBest = (score) => write(BEST_KEY, String(score));
+
+/** Remembers the last airframe flown, so the hangar opens on your favourite. */
+export const loadPlane = () => read(PLANE_KEY);
+export const savePlane = (id) => write(PLANE_KEY, id);

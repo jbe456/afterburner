@@ -15,24 +15,84 @@ export const ARENA_DAMAGE_EDGE = ARENA_HALF - 120;
 export const ARENA_WARN_EDGE = ARENA_HALF - 1000;
 export const EDGE_DAMAGE_PER_TICK = 0.16; // ~9.6 hp/sec
 
-// --- player -----------------------------------------------------------------
+// --- playable airframes -----------------------------------------------------
+/**
+ * The four jets the player can choose from.
+ *
+ * These are deliberately balanced so that no airframe beats another on every
+ * axis — each one wins some comparisons and loses others. The axes are hull,
+ * top speed, agility (turn rate), firepower (sustained DPS), missile load and
+ * hitbox size. Before changing a number, check the plane still *loses* to each
+ * of the others at something.
+ *
+ * Note that agility interacts with speed: see player.js, where turn rate is
+ * scaled by how slowly you are flying. A low `minSpeed` is therefore an
+ * agility stat in disguise.
+ */
+export const PLANES = {
+  viper: {
+    id: "viper",
+    name: "VIPER",
+    role: "Interceptor",
+    blurb: "No weaknesses, no records. Forgiving to fly.",
+    color: "#3f7fd4", accent: "#8fd3ff", scale: 1.05,
+    maxHp: 100, radius: 16,
+    minSpeed: 2.2, cruiseSpeed: 4.6, maxSpeed: 8.5,
+    turnRate: 0.052, accel: 0.085, brake: 0.14,
+    gunCooldown: 5, gunDamage: 9, gunSpread: 0.012, bulletSpeed: 15,
+    maxMissiles: 6, missileCooldown: 42,
+  },
+
+  wraith: {
+    id: "wraith",
+    name: "WRAITH",
+    role: "Knife-fighter",
+    blurb: "Turns inside anything, and a small target. Folds if they catch you.",
+    color: "#35c99a", accent: "#9ff0d0", scale: 0.85,
+    maxHp: 70, radius: 13,
+    minSpeed: 1.8, cruiseSpeed: 4.3, maxSpeed: 7.6,
+    turnRate: 0.068, accel: 0.10, brake: 0.17,
+    gunCooldown: 6, gunDamage: 7, gunSpread: 0.020, bulletSpeed: 14,
+    maxMissiles: 4, missileCooldown: 48,
+  },
+
+  bastion: {
+    id: "bastion",
+    name: "BASTION",
+    role: "Gunship",
+    blurb: "Hits hardest, soaks the most. A big, slow target.",
+    color: "#6b7f9e", accent: "#b9cce4", scale: 1.31,
+    maxHp: 150, radius: 20,
+    minSpeed: 2.4, cruiseSpeed: 4.0, maxSpeed: 7.0,
+    turnRate: 0.036, accel: 0.06, brake: 0.11,
+    gunCooldown: 5, gunDamage: 12, gunSpread: 0.020, bulletSpeed: 15,
+    maxMissiles: 9, missileCooldown: 34,
+  },
+
+  sabre: {
+    id: "sabre",
+    name: "SABRE",
+    role: "Energy fighter",
+    blurb: "Fastest guns and airframe. Bleeds energy in a turn fight.",
+    color: "#2fb0d4", accent: "#9fe4ff", scale: 0.98,
+    maxHp: 85, radius: 15,
+    minSpeed: 2.8, cruiseSpeed: 5.4, maxSpeed: 10.2,
+    turnRate: 0.046, accel: 0.11, brake: 0.12,
+    gunCooldown: 4, gunDamage: 8, gunSpread: 0.010, bulletSpeed: 18,
+    maxMissiles: 5, missileCooldown: 38,
+  },
+};
+
+export const PLANE_IDS = Object.keys(PLANES);
+export const DEFAULT_PLANE = "viper";
+
+/** Sustained cannon damage per tick — the player fires two barrels at once. */
+export const planeDps = (plane) => (2 * plane.gunDamage) / plane.gunCooldown;
+
+/** Properties every airframe shares. */
 export const PLAYER = {
-  maxHp: 100,
-  radius: 16,
-  minSpeed: 2.2,
-  cruiseSpeed: 4.6,
-  maxSpeed: 8.5,
-  /** Base turn rate; see player.js — turning is tighter when slow. */
-  turnRate: 0.052,
-  accel: 0.085,
-  brake: 0.14,
-  gunCooldown: 5,
-  gunDamage: 9,
-  gunSpread: 0.012,
-  bulletSpeed: 15,
   bulletLife: 60,
-  maxMissiles: 6,
-  missileCooldown: 42,
+  /** Ticks of spawn protection, during which the jet blinks. */
   spawnInvuln: 90,
   trailLength: 26,
 };
