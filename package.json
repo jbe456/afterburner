@@ -9,7 +9,7 @@
     "start": "node scripts/serve.js",
     "build": "bun run scripts/build.js",
     "preview": "node scripts/serve.js",
-    "test": "node scripts/check-balance.js"
+    "test": "node scripts/check-balance.js && node scripts/check-bomb.js"
   },
   "engines": {
     "node": ">=20.11"

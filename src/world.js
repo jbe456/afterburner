@@ -18,6 +18,7 @@ export function createWorld(planeId) {
     enemies: [],
     bullets: [],
     missiles: [],
+    bombs: [],
     pickups: [],
     particles: [],
     rings: [],
@@ -39,6 +40,10 @@ export function createWorld(planeId) {
     // Presentation state
     shake: 0,
     hitFlash: 0,
+    /** 0..1 white-out from a bomb detonation. */
+    blastFlash: 0,
+    /** True while the player sits inside a live bomb's radius; drives the HUD warning. */
+    playerInBlast: false,
     camX: 0,
     camY: 0,
     banner: { text: "", time: 0 },

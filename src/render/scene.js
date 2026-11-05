@@ -9,7 +9,7 @@
 import { rand, TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import { input } from "../core/input.js";
-import { ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK } from "../config.js";
+import { ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK, BOMB } from "../config.js";
 import { drawJet, drawJetShadow } from "./jet.js";
 
 const GRID = 320;
@@ -29,6 +29,7 @@ export function drawScene(world) {
   ctx.translate(w / 2 - world.camX + rand(-s, s), h / 2 - world.camY + rand(-s, s));
 
   drawBoundary(ctx);
+  drawBombs(ctx, world);
   drawPickups(ctx, world);
   drawTrails(ctx, world);
   drawAircraft(ctx, world);
@@ -124,6 +125,62 @@ function drawPickups(ctx, world) {
     ctx.textBaseline = "middle";
     ctx.fillText(repair ? "+" : "M", p.x, p.y + bob + 1);
     ctx.globalAlpha = 1;
+  }
+}
+
+/**
+ * Live bombs, drawn under everything else, each with the blast radius it will
+ * clear. Showing the real radius is what makes the weapon fair: you can see
+ * whether you are out of it rather than having to guess.
+ */
+function drawBombs(ctx, world) {
+  for (const bomb of world.bombs) {
+    const urgency = 1 - bomb.fuse / BOMB.fuse;
+    const seconds = Math.ceil(bomb.fuse / 60);
+    // Blink faster as the fuse runs down.
+    const blinkRate = Math.max(4, Math.round(26 - urgency * 22));
+    const lit = Math.floor(world.time / blinkRate) % 2 === 0;
+
+    // Danger zone
+    ctx.save();
+    ctx.globalAlpha = 0.1 + urgency * 0.3;
+    ctx.fillStyle = "#ff3b2f";
+    ctx.beginPath();
+    ctx.arc(bomb.x, bomb.y, BOMB.blastRadius, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 0.35 + urgency * 0.55;
+    ctx.strokeStyle = lit ? "#ff6b5c" : "#ff3b2f";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([22, 16]);
+    ctx.lineDashOffset = -world.time * 0.6;
+    ctx.beginPath();
+    ctx.arc(bomb.x, bomb.y, BOMB.blastRadius, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Casing
+    ctx.save();
+    ctx.translate(bomb.x, bomb.y);
+    ctx.fillStyle = "#2b3542";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 13, 8, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#47556a";
+    ctx.fillRect(-13, -2, 26, 4);
+    ctx.fillStyle = lit ? "#ff5544" : "#5a2520";
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    // Countdown, sat just above the casing
+    ctx.font = "bold 20px ui-monospace, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = urgency > 0.7 ? "#ff5544" : "#ffd166";
+    ctx.fillText(String(seconds), bomb.x, bomb.y - 24);
+    ctx.textBaseline = "alphabetic";
   }
 }
 

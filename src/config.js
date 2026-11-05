@@ -110,6 +110,32 @@ export const MISSILE = {
   hitRadius: 16,
 };
 
+/**
+ * The bomb: dropped in place rather than fired, sits still, then levels
+ * everything inside its blast radius — enemy jets and your own alike.
+ *
+ * The fuse is long and the radius is survivable only if you leave: at cruise
+ * speed five seconds buys well over 1000 units of separation, so clearing a
+ * 500-unit blast is easy *if* you commit to running the moment you drop it.
+ * Dropping one mid-turn, or to kill something already on your tail, is how it
+ * kills you too. That tension is the whole point of the weapon.
+ */
+export const BOMB = {
+  /** Five seconds at 60 Hz. */
+  fuse: 300,
+  blastRadius: 500,
+  /** Lethal to any airframe, friend or foe — there is no partial damage. */
+  damage: 999,
+  maxCarried: 3,
+  /** Ticks between drops, so the whole rack can't be emptied on one spot. */
+  dropCooldown: 45,
+  /** Ticks between fuse beeps early on; it accelerates as detonation nears. */
+  slowBeepInterval: 60,
+  fastBeepInterval: 10,
+  /** Within this much of the fuse ending, the warning goes solid red. */
+  panicTicks: 90,
+};
+
 /** Missile lock-on, acquired by holding a target inside a forward cone. */
 export const LOCK = {
   cone: 0.44,
@@ -177,6 +203,7 @@ export const PICKUPS = {
   repairShare: 0.6,
   repairAmount: 30,
   ammoAmount: 3,
+  bombAmount: 1,
   life: 700,
   pickupRadius: 42,
 };

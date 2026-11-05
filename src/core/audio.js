@@ -86,6 +86,18 @@ export const sfx = {
   },
   hit: () => noise(0.1, 0.25, 2200, 400),
   lock: () => tone(1250, 0.05, "square", 0.05),
+  bombArm: () => {
+    tone(140, 0.18, "square", 0.1, 70);
+    noise(0.2, 0.12, 900);
+  },
+  /** Fuse beep; `urgency` 0..1 raises the pitch as detonation nears. */
+  bombTick: (urgency) => tone(880 + urgency * 700, 0.05, "square", 0.05 + urgency * 0.05),
+  /** Deeper and longer than a normal explosion — this one is supposed to scare you. */
+  nuke: () => {
+    noise(1.8, 0.75, 2200, 40);
+    tone(48, 1.6, "sine", 0.5, 18);
+    tone(120, 0.9, "sawtooth", 0.25, 30);
+  },
   pickup: () => {
     tone(620, 0.09, "sine", 0.14);
     setTimeout(() => tone(930, 0.13, "sine", 0.14), 70);

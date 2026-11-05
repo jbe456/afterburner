@@ -9,7 +9,7 @@
 import { TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import {
-  ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK,
+  ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, BOMB,
 } from "../config.js";
 
 const MONO = "ui-monospace, monospace";
@@ -23,6 +23,7 @@ export function drawHud(world) {
   const { ctx } = viewport;
   ctx.textBaseline = "alphabetic";
 
+  drawBlastFlash(ctx, world);
   drawDamageVignette(ctx, world);
   drawInstruments(ctx, world);
   drawScoreline(ctx, world);
@@ -91,6 +92,24 @@ function drawInstruments(ctx, world) {
     ctx.fillStyle = i < p.missiles ? "#ffd166" : "rgba(255,209,102,.16)";
     ctx.fillRect(52 + i * 15, 91, 9, 9);
   }
+
+  // Bomb rack
+  ctx.fillStyle = "#6f8ba6";
+  ctx.fillText("BMB", 22, 120);
+  for (let i = 0; i < BOMB.maxCarried; i++) {
+    ctx.fillStyle = i < p.bombs ? "#ff6b4a" : "rgba(255,107,74,.16)";
+    ctx.beginPath();
+    ctx.arc(56 + i * 15, 116, 4.5, 0, TAU);
+    ctx.fill();
+  }
+}
+
+/** Whites out the screen the instant a bomb goes off. */
+function drawBlastFlash(ctx, world) {
+  if (world.blastFlash <= 0) return;
+  const a = Math.min(1, world.blastFlash);
+  ctx.fillStyle = `rgba(255,245,225,${(a * 0.85).toFixed(3)})`;
+  ctx.fillRect(0, 0, viewport.w, viewport.h);
 }
 
 function drawScoreline(ctx, world) {
@@ -203,6 +222,24 @@ function drawRadar(ctx, world) {
     ctx.fill();
   }
 
+  for (const bomb of world.bombs) {
+    const dx = ((bomb.x - world.player.x) / RADAR_RANGE) * RADAR_RADIUS;
+    const dy = ((bomb.y - world.player.y) / RADAR_RANGE) * RADAR_RADIUS;
+    if (Math.hypot(dx, dy) > RADAR_RADIUS - 3) continue;
+    // Ring showing the blast radius to scale, plus a blinking core.
+    ctx.strokeStyle = "rgba(255,70,50,.55)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx + dx, cy + dy, (BOMB.blastRadius / RADAR_RANGE) * RADAR_RADIUS, 0, TAU);
+    ctx.stroke();
+    if (Math.floor(world.time / 8) % 2 === 0) {
+      ctx.fillStyle = "#ff5544";
+      ctx.beginPath();
+      ctx.arc(cx + dx, cy + dy, 3, 0, TAU);
+      ctx.fill();
+    }
+  }
+
   for (const p of world.pickups) {
     const dx = ((p.x - world.player.x) / RADAR_RANGE) * RADAR_RADIUS;
     const dy = ((p.y - world.player.y) / RADAR_RANGE) * RADAR_RADIUS;
@@ -240,6 +277,8 @@ function drawWarnings(ctx, world) {
   if (!p.alive) return;
 
   const warnings = [];
+  // Standing in your own blast is the most urgent thing on screen.
+  if (world.playerInBlast) warnings.push("IN BLAST RADIUS — GET CLEAR");
   if (p.hp < 30) warnings.push("HULL CRITICAL");
 
   const beyondWarn = Math.abs(p.x) > ARENA_WARN_EDGE || Math.abs(p.y) > ARENA_WARN_EDGE;

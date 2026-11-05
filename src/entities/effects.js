@@ -66,5 +66,6 @@ export function updateEffects(world) {
 
   if (world.shake > 0) world.shake *= 0.88;
   if (world.hitFlash > 0) world.hitFlash -= 0.04;
+  if (world.blastFlash > 0) world.blastFlash -= 0.022;
   if (world.banner.time > 0) world.banner.time--;
 }

@@ -14,10 +14,10 @@ import { input, isDown } from "../core/input.js";
 import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
-  PLAYER, PLANES, DEFAULT_PLANE, LOCK,
+  PLAYER, PLANES, DEFAULT_PLANE, LOCK, BOMB,
   ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
-import { fireGun, fireMissile } from "./weapons.js";
+import { fireGun, fireMissile, dropBomb } from "./weapons.js";
 import { explode, addShake } from "./effects.js";
 
 /** Ticks between the jet being hit and the game-over screen appearing. */
@@ -37,6 +37,9 @@ export function createPlayer(planeId = DEFAULT_PLANE) {
     gunCooldown: 0,
     missiles: stats.maxMissiles,
     missileCooldown: 0,
+    /** Bombs are carried identically by every airframe — see BOMB in config.js. */
+    bombs: BOMB.maxCarried,
+    bombCooldown: 0,
     invuln: PLAYER.spawnInvuln,
     /** Current lock target, or null. */
     lock: null,
@@ -65,6 +68,7 @@ export function updatePlayer(world) {
 
   if (p.gunCooldown > 0) p.gunCooldown--;
   if (p.missileCooldown > 0) p.missileCooldown--;
+  if (p.bombCooldown > 0) p.bombCooldown--;
   if (p.invuln > 0) p.invuln--;
 
   if ((input.mouse.left || isDown("Space")) && p.gunCooldown <= 0) {
@@ -73,6 +77,9 @@ export function updatePlayer(world) {
   }
   if ((input.mouse.right || isDown("KeyF", "KeyX")) && p.missileCooldown <= 0) {
     fireMissile(world);
+  }
+  if (isDown("KeyB") && p.bombCooldown <= 0) {
+    dropBomb(world);
   }
 
   updateLock(world, p);

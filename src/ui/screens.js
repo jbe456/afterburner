@@ -19,6 +19,7 @@ const CONTROLS = [
   ["S", "Throttle back (turns tighter)"],
   ["Click / Space", "Cannon"],
   ["Right click / F", "Missile (needs lock)"],
+  ["B", "Drop bomb (5s fuse, kills you too)"],
   ["P", "Pause"],
 ];
 

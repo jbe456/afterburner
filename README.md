@@ -19,7 +19,7 @@ because ES modules can't be loaded over `file://`. It runs on Node and Bun alike
 
 ```bash
 bun run build    # bundles everything into dist/index.html
-npm test         # checks no airframe dominates another
+npm test         # balance invariant + bomb behaviour
 ```
 
 The build inlines the JS and CSS into a single self-contained HTML file you can
@@ -55,11 +55,28 @@ hand-authored, so the UI cannot drift out of sync with how the planes fly.
 | `S` | Throttle back |
 | Left click / `Space` | Cannon |
 | Right click / `F` | Fire missile (needs a lock) |
+| `B` | Drop bomb |
 | `P` | Pause |
 
 Turn rate scales *inversely* with airspeed, so slowing down turns tighter.
 That one rule is what makes throttle management, rather than reflexes, decide
 a turning fight.
+
+### The bomb
+
+`B` leaves a bomb where you are. It does not move, it cannot be shot down, and
+five seconds later it kills **every aircraft within 500 units — including
+yours**. The blast radius is drawn on the ground and on the radar while the
+fuse burns, and the HUD warns you while you are standing in it.
+
+Five seconds buys well over a thousand units of separation if you leave
+immediately, so escaping is easy. Dropping one mid-turn, or to shake something
+already on your tail, is how it takes you with it. That tension is the weapon.
+
+Every airframe carries the same three bombs, so the choice of plane stays the
+tradeoff the hangar advertises; ammo crates resupply them. `npm test` asserts
+the fuse length and that the blast kills friend and foe alike at the exact
+radius boundary.
 
 ## Layout
 
@@ -82,6 +99,7 @@ src/
 │   ├── enemy.js        Spawning, AI state machine, damage resolution
 │   ├── weapons.js      Firing: trigger pull to projectile
 │   ├── projectiles.js  Flight and impact of bullets and missiles
+│   ├── bombs.js        Dropped bombs: fuse, blast, indiscriminate kills
 │   ├── pickups.js      Repair and ammo crates
 │   └── effects.js      Particles, shockwaves, screen shake (cosmetic only)
 ├── render/             Drawing only; never mutates game state
@@ -93,7 +111,8 @@ src/
 scripts/
 ├── serve.js            Dev server
 ├── build.js            Single-file bundler
-└── check-balance.js    Asserts no airframe dominates another
+├── check-balance.js    Asserts no airframe dominates another
+└── check-bomb.js       Asserts the bomb's fuse and its friendly fire
 ```
 
 ## How a frame works
@@ -102,7 +121,7 @@ scripts/
 requestAnimationFrame
         │
         ├─ simulate(world) × N     fixed 60 Hz steps, N depends on elapsed time
-        │     player → enemies → projectiles → pickups → effects → waves
+        │     player → enemies → projectiles → bombs → pickups → effects → waves
         │
         ├─ drawScene(world)        world-space pass, behind the HUD
         └─ drawHud(world)          screen-space instruments

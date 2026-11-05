@@ -5,7 +5,7 @@
 
 import { rand } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { PLAYER, ENEMY, ENEMY_TYPES } from "../config.js";
+import { PLAYER, ENEMY, ENEMY_TYPES, BOMB } from "../config.js";
 import { muzzleFlash, addShake } from "./effects.js";
 
 /**
@@ -76,4 +76,25 @@ export function fireMissile(world) {
 
   sfx.missile();
   addShake(world, 3);
+}
+
+/**
+ * Leave a bomb at the jet's current position. It inherits no velocity — the
+ * whole point is that it stays put while you do not.
+ */
+export function dropBomb(world) {
+  const player = world.player;
+  if (player.bombs <= 0 || player.bombCooldown > 0) return;
+
+  player.bombs--;
+  player.bombCooldown = BOMB.dropCooldown;
+
+  world.bombs.push({
+    // Drop from the tail so it doesn't appear to spawn on the nose.
+    x: player.x - Math.cos(player.angle) * 18,
+    y: player.y - Math.sin(player.angle) * 18,
+    fuse: BOMB.fuse,
+  });
+
+  sfx.bombArm();
 }
