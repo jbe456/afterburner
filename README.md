@@ -19,7 +19,7 @@ because ES modules can't be loaded over `file://`. It runs on Node and Bun alike
 
 ```bash
 bun run build    # bundles everything into dist/index.html
-npm test         # roster invariants + bomb behaviour
+npm test         # roster invariants + weapon and bomb behaviour
 ```
 
 The build inlines the JS and CSS into a single self-contained HTML file you can
@@ -50,6 +50,40 @@ plane is better than another at both.
 fails if one is never-worse, then fires each jet's gun and missiles and
 samples its turn rate and hitbox, failing if anything other than hull and top
 speed differs.
+
+## Loadout
+
+Separately from the airframe you pick a cannon, a missile and a bomb. Every
+plane can carry any combination, and the same no-dominance rule applies inside
+each category.
+
+| Cannon | | |
+| --- | --- | --- |
+| **M61 Vulcan** | 216 dps, 2 barrels | Highest sustained damage on one target |
+| **GAU-8 Avenger** | 160 dps, 48 per shot | Pierces 3 aircraft; dead time if you miss |
+| **HEI Firebelt** | 86 dps + 70/s burn | Ignites: worst in a duel, best against a crowd |
+
+| Missile | | |
+| --- | --- | --- |
+| **Hydra 70** | 18 carried, 28 dmg | Unguided, 2 per pull — you do the aiming |
+| **AIM-9 Sidewinder** | 6 carried, 70 dmg | IR-guided all-rounder |
+| **AIM-120 AMRAAM** | 3 carried, 150 dmg | Radar-guided, one-shots anything, needs a solid lock |
+
+| Bomb | | |
+| --- | --- | --- |
+| **Dynamite** | 6 carried, 200 m, 2.0s | Usable while someone is on you |
+| **Mk 82** | 3 carried, 500 m, 5.0s | The middle ground |
+| **B61** | 1 carried, 1000 m, 8.0s | Erases the sky |
+
+Firebelt's burn keeps running after you break off and applies to every target
+you have lit, which is the part a stat table cannot show. Avenger's pierce
+only pays when enemies line up. Hydra needs no lock, which matters in a knife
+fight; AMRAAM refuses to leave the rail without one.
+
+`check-weapons.js` pins the mechanics that are invisible when they break —
+pierce depth, ignition and its damage-over-time, salvo size, and the lock
+requirement. `check-bomb.js` proves each bomb kills friend and foe at its own
+radius on its own fuse, and that each is escapable at cruise speed.
 
 The stat bars in the hangar are normalised from those same numbers rather than
 hand-authored, so the UI cannot drift out of sync with the planes.
@@ -86,9 +120,8 @@ Five seconds buys well over a thousand units of separation if you leave
 immediately, so escaping is easy. Dropping one mid-turn, or to shake something
 already on your tail, is how it takes you with it. That tension is the weapon.
 
-Like the gun and missiles, bombs are the same on every airframe — three each,
-resupplied by ammo crates. `npm test` asserts the fuse length and that the
-blast kills friend and foe alike at the exact radius boundary.
+Which bomb you carry is chosen in the hangar (see **Loadout** above); crates
+resupply whatever you picked.
 
 ## Layout
 
@@ -118,13 +151,14 @@ src/
 │   ├── scene.js        The world pass, and the camera
 │   ├── jet.js          The jet silhouette, drawn as vector paths
 │   └── hud.js          Instruments, radar, warnings
-├── ui/screens.js       Hangar (plane picker) and game-over DOM overlays
+├── ui/screens.js       Hangar (plane + loadout pickers) and game-over overlays
 └── styles.css          Styling for those overlays (the game itself is all canvas)
 scripts/
 ├── serve.js            Dev server
 ├── build.js            Single-file bundler
-├── check-balance.js    Asserts no plane dominates, and only hull/speed differ
-└── check-bomb.js       Asserts the bomb's fuse and its friendly fire
+├── check-balance.js    Asserts nothing dominates in any category
+├── check-weapons.js    Asserts pierce, ignition, salvos and lock behave
+└── check-bomb.js       Asserts each bomb's fuse and its friendly fire
 ```
 
 ## How a frame works

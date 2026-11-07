@@ -14,7 +14,7 @@ import { input, isDown } from "../core/input.js";
 import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
-  PLAYER, PLANES, DEFAULT_PLANE, LOCK, BOMB,
+  PLAYER, PLANES, CANNONS, MISSILES, BOMBS, DEFAULT_LOADOUT, LOCK,
   ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
 import { fireGun, fireMissile, dropBomb } from "./weapons.js";
@@ -23,11 +23,26 @@ import { explode, addShake } from "./effects.js";
 /** Ticks between the jet being hit and the game-over screen appearing. */
 const DEATH_DELAY = 72;
 
-export function createPlayer(planeId = DEFAULT_PLANE) {
-  const stats = PLANES[planeId] ?? PLANES[DEFAULT_PLANE];
+/**
+ * @param {{plane?:string, cannon?:string, missile?:string, bomb?:string}} loadout
+ *   Ids chosen in the hangar. Anything missing or unrecognised — a weapon
+ *   removed since the choice was saved — falls back to the default.
+ */
+export function createPlayer(loadout = {}) {
+  const pick = (table, id, fallback) => table[id] ?? table[fallback];
+
+  const stats = pick(PLANES, loadout.plane, DEFAULT_LOADOUT.plane);
+  const cannon = pick(CANNONS, loadout.cannon, DEFAULT_LOADOUT.cannon);
+  const missile = pick(MISSILES, loadout.missile, DEFAULT_LOADOUT.missile);
+  const bomb = pick(BOMBS, loadout.bomb, DEFAULT_LOADOUT.bomb);
+
   return {
-    /** The chosen airframe's full stat block. */
+    /** The chosen airframe's stat block: hull and top speed. */
     stats,
+    /** The three chosen weapon specs. */
+    cannon,
+    missile,
+    bomb,
     x: 0,
     y: 0,
     angle: -Math.PI / 2, // nose north
@@ -35,10 +50,9 @@ export function createPlayer(planeId = DEFAULT_PLANE) {
     hp: stats.maxHp,
     alive: true,
     gunCooldown: 0,
-    missiles: PLAYER.maxMissiles,
+    missiles: missile.carried,
     missileCooldown: 0,
-    /** Bombs are carried identically by every airframe — see BOMB in config.js. */
-    bombs: BOMB.maxCarried,
+    bombs: bomb.carried,
     bombCooldown: 0,
     invuln: PLAYER.spawnInvuln,
     /** Current lock target, or null. */
@@ -73,7 +87,7 @@ export function updatePlayer(world) {
 
   if ((input.mouse.left || isDown("Space")) && p.gunCooldown <= 0) {
     fireGun(world, p, true);
-    p.gunCooldown = PLAYER.gunCooldown;
+    p.gunCooldown = p.cannon.cooldown;
   }
   if ((input.mouse.right || isDown("KeyF", "KeyX")) && p.missileCooldown <= 0) {
     fireMissile(world);

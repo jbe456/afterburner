@@ -9,8 +9,7 @@
 import { TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import {
-  PLAYER, ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, BOMB,
-  KMH_PER_SPEED_UNIT,
+  ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, KMH_PER_SPEED_UNIT,
 } from "../config.js";
 
 const MONO = "ui-monospace, monospace";
@@ -99,23 +98,55 @@ function drawInstruments(ctx, world) {
 
   ctx.font = `11px ${MONO}`;
 
-  // Missile rack
+  // Cannon — no ammunition to track, just a reminder of what is loaded.
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("MSL", 22, 94);
-  for (let i = 0; i < PLAYER.maxMissiles; i++) {
-    ctx.fillStyle = i < p.missiles ? "#ffd166" : "rgba(255,209,102,.16)";
-    ctx.fillRect(52 + i * 15, 85, 9, 9);
+  ctx.fillText("GUN", 22, 94);
+  ctx.fillStyle = "#dfe9f3";
+  ctx.fillText(p.cannon.short, 52, 94);
+
+  drawRack(ctx, "MSL", 114, p.missiles, p.missile, "#ffd166", "square");
+  drawRack(ctx, "BMB", 134, p.bombs, p.bomb, "#ff6b4a", "round");
+}
+
+/**
+ * One ammunition row. Pips read instantly but stop being legible past about
+ * eight, so a large rack (the Hydra's eighteen rockets) falls back to a count.
+ */
+function drawRack(ctx, label, y, remaining, spec, color, shape) {
+  ctx.font = `11px ${MONO}`;
+  ctx.fillStyle = "#6f8ba6";
+  ctx.fillText(label, 22, y);
+
+  let endX;
+  if (spec.carried <= 8) {
+    for (let i = 0; i < spec.carried; i++) {
+      ctx.fillStyle = i < remaining ? color : dim(color);
+      if (shape === "round") {
+        ctx.beginPath();
+        ctx.arc(56 + i * 15, y - 4, 4.5, 0, TAU);
+        ctx.fill();
+      } else {
+        ctx.fillRect(52 + i * 15, y - 9, 9, 9);
+      }
+    }
+    endX = 52 + spec.carried * 15 + 6;
+  } else {
+    ctx.font = `bold 11px ${MONO}`;
+    ctx.fillStyle = remaining > 0 ? color : dim(color);
+    const text = `${remaining} / ${spec.carried}`;
+    ctx.fillText(text, 52, y);
+    endX = 52 + text.length * 6.7 + 8;
   }
 
-  // Bomb rack
-  ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("BMB", 22, 114);
-  for (let i = 0; i < BOMB.maxCarried; i++) {
-    ctx.fillStyle = i < p.bombs ? "#ff6b4a" : "rgba(255,107,74,.16)";
-    ctx.beginPath();
-    ctx.arc(56 + i * 15, 110, 4.5, 0, TAU);
-    ctx.fill();
-  }
+  ctx.font = `10px ${MONO}`;
+  ctx.fillStyle = "#56708a";
+  ctx.fillText(spec.short, endX, y);
+}
+
+/** The same colour at rack-empty opacity. */
+function dim(color) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+  return `rgba(${r},${g},${b},.16)`;
 }
 
 /** Whites out the screen the instant a bomb goes off. */
@@ -244,7 +275,7 @@ function drawRadar(ctx, world) {
     ctx.strokeStyle = "rgba(255,70,50,.55)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(cx + dx, cy + dy, (BOMB.blastRadius / RADAR_RANGE) * RADAR_RADIUS, 0, TAU);
+    ctx.arc(cx + dx, cy + dy, (bomb.spec.blastRadius / RADAR_RANGE) * RADAR_RADIUS, 0, TAU);
     ctx.stroke();
     if (Math.floor(world.time / 8) % 2 === 0) {
       ctx.fillStyle = "#ff5544";

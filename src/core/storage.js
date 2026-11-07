@@ -25,6 +25,25 @@ function write(key, value) {
 export const loadBest = () => Number(read(BEST_KEY)) || 0;
 export const saveBest = (score) => write(BEST_KEY, String(score));
 
-/** Remembers the last airframe flown, so the hangar opens on your favourite. */
-export const loadPlane = () => read(PLANE_KEY);
-export const savePlane = (id) => write(PLANE_KEY, id);
+/**
+ * Remembers the last loadout flown, so the hangar opens on your favourite.
+ * Stored as four separate keys rather than one blob, so a single unreadable
+ * value cannot take the rest with it.
+ */
+const SLOT_KEYS = {
+  plane: PLANE_KEY,
+  cannon: "afterburner.cannon",
+  missile: "afterburner.missile",
+  bomb: "afterburner.bomb",
+};
+
+export function loadLoadout() {
+  const out = {};
+  for (const [slot, key] of Object.entries(SLOT_KEYS)) {
+    const value = read(key);
+    if (value) out[slot] = value;
+  }
+  return out;
+}
+
+export const saveLoadoutSlot = (slot, id) => write(SLOT_KEYS[slot], id);

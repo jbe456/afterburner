@@ -135,7 +135,7 @@ function drawPickups(ctx, world) {
  */
 function drawBombs(ctx, world) {
   for (const bomb of world.bombs) {
-    const urgency = 1 - bomb.fuse / BOMB.fuse;
+    const urgency = 1 - bomb.fuse / bomb.spec.fuse;
     const seconds = Math.ceil(bomb.fuse / 60);
     // Blink faster as the fuse runs down.
     const blinkRate = Math.max(4, Math.round(26 - urgency * 22));
@@ -146,7 +146,7 @@ function drawBombs(ctx, world) {
     ctx.globalAlpha = 0.1 + urgency * 0.3;
     ctx.fillStyle = "#ff3b2f";
     ctx.beginPath();
-    ctx.arc(bomb.x, bomb.y, BOMB.blastRadius, 0, TAU);
+    ctx.arc(bomb.x, bomb.y, bomb.spec.blastRadius, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 0.35 + urgency * 0.55;
     ctx.strokeStyle = lit ? "#ff6b5c" : "#ff3b2f";
@@ -154,14 +154,16 @@ function drawBombs(ctx, world) {
     ctx.setLineDash([22, 16]);
     ctx.lineDashOffset = -world.time * 0.6;
     ctx.beginPath();
-    ctx.arc(bomb.x, bomb.y, BOMB.blastRadius, 0, TAU);
+    ctx.arc(bomb.x, bomb.y, bomb.spec.blastRadius, 0, TAU);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
 
     // Casing
+    const size = bomb.spec.blastRadius >= 1000 ? 1.5 : bomb.spec.blastRadius <= 200 ? 0.7 : 1;
     ctx.save();
     ctx.translate(bomb.x, bomb.y);
+    ctx.scale(size, size);
     ctx.fillStyle = "#2b3542";
     ctx.beginPath();
     ctx.ellipse(0, 0, 13, 8, 0, 0, TAU);
@@ -212,6 +214,7 @@ function drawAircraft(ctx, world) {
   for (const e of enemies) {
     const type = ENEMY_TYPES[e.type];
     drawJet(ctx, e.x, e.y, e.angle, type.scale, type.color, type.accent, e.flash > 0, 0.4, time);
+    if (e.burn) drawBurning(ctx, e, time);
     if (e.hp < e.maxHp) drawHealthPip(ctx, e);
   }
 
@@ -224,6 +227,19 @@ function drawAircraft(ctx, world) {
         s.color, s.accent, false, 0.35 + player.boost * 0.65, time);
     }
   }
+}
+
+/** A flickering halo on an aircraft that is on fire. */
+function drawBurning(ctx, e, time) {
+  const flicker = 0.55 + Math.sin(time * 0.6 + e.x) * 0.2;
+  ctx.save();
+  ctx.globalAlpha = flicker;
+  ctx.strokeStyle = "#ff8a3a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, e.radius + 6, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawHealthPip(ctx, e) {
@@ -280,7 +296,7 @@ function drawBullets(ctx, world) {
   ctx.lineCap = "round";
   for (const b of world.bullets) {
     ctx.strokeStyle = b.color;
-    ctx.lineWidth = b.friendly ? 3.2 : 2.6;
+    ctx.lineWidth = b.width;
     ctx.globalAlpha = Math.min(1, b.life / 12); // fade as the round expires
     ctx.beginPath();
     ctx.moveTo(b.prevX, b.prevY);

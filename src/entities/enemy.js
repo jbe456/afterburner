@@ -43,6 +43,8 @@ export function spawnEnemy(world, typeName) {
     evadeDir: Math.random() < 0.5 ? 1 : -1,
     trail: [],
     flash: 0,
+    /** Set by incendiary rounds: {ticksLeft, dps}. */
+    burn: null,
   });
 }
 
@@ -135,14 +137,52 @@ function aimPoint(player, range, e) {
 }
 
 /**
+ * Set an enemy alight, or refresh a fire already burning on it.
+ * Burn damage does not stack — a longer burn is the reward for staying on
+ * target, not a multiplying one.
+ */
+export function ignite(world, e, burnSpec) {
+  e.burn = { ticksLeft: burnSpec.duration, dps: burnSpec.dps };
+}
+
+/**
+ * Ticks every fire currently burning. Runs as its own pass because damage
+ * here can kill, and killing mutates the enemy list.
+ */
+export function updateBurning(world) {
+  for (let i = world.enemies.length - 1; i >= 0; i--) {
+    const e = world.enemies[i];
+    if (!e.burn) continue;
+
+    if (--e.burn.ticksLeft <= 0) { e.burn = null; continue; }
+
+    // Quietly, or every frame would be a hit sound and a shower of sparks.
+    damageEnemy(world, e, e.burn.dps / 60, e.x, e.y, { quiet: true });
+
+    if (world.time % 4 === 0) {
+      world.particles.push({
+        x: e.x + rand(-7, 7), y: e.y + rand(-7, 7),
+        vx: rand(-0.3, 0.3), vy: rand(-0.8, -0.3),
+        life: 26, maxLife: 26, color: Math.random() < 0.6 ? "#ff8a3a" : "#ffd166", size: 5,
+      });
+    }
+  }
+}
+
+/**
  * Apply damage. Returns true if this killed the enemy.
  * This is the single place an enemy leaves the world.
+ *
+ * `quiet` suppresses the impact sound and sparks, for damage that arrives
+ * every tick rather than on a discrete hit.
  */
-export function damageEnemy(world, e, amount, hitX, hitY) {
+export function damageEnemy(world, e, amount, hitX, hitY, { quiet = false } = {}) {
   e.hp -= amount;
-  e.flash = 5;
-  burst(world, hitX, hitY, 5, "#ffd9a0", 3, 3, 16);
-  sfx.hit();
+  if (!quiet) {
+    e.flash = 5;
+    burst(world, hitX, hitY, 5, "#ffd9a0", 3, 3, 16);
+    sfx.hit();
+  }
 
   if (e.hp > 0) return false;
 

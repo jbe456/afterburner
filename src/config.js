@@ -81,18 +81,8 @@ export const DEFAULT_PLANE = "viper";
  * and exactly one pair of numbers that distinguishes the planes.
  */
 export const PLAYER = {
-  // Cannon — two barrels firing together.
-  gunCooldown: 5,
-  gunDamage: 9,
-  gunSpread: 0.012,
-  bulletSpeed: 15,
-  bulletLife: 60,
-
-  // Missiles
-  maxMissiles: 6,
-  missileCooldown: 42,
-
-  // Handling, identical on every airframe.
+  // Handling, identical on every airframe. Weapons live in CANNONS /
+  // MISSILES / BOMBS above, because they are chosen separately now.
   minSpeed: 2.2,
   cruiseSpeed: 4.6,
   /** Base turn rate; player.js scales it by how slowly you are flying. */
@@ -116,43 +106,225 @@ export const PLAYER = {
   trailLength: 26,
 };
 
-export const MISSILE = {
-  turnRate: 0.085,
-  accel: 0.26,
-  maxSpeed: 13,
-  life: 230,
-  /** Ticks before the warhead arms, so it can't detonate on the launch rail. */
-  armingDelay: 10,
-  directDamage: 70,
-  splashDamage: 30,
-  splashRadius: 110,
-  hitRadius: 16,
+// --- cannons ----------------------------------------------------------------
+/**
+ * Three guns, each best at something the others are worst at: Vulcan wins a
+ * one-on-one, Avenger wins a lineup, Firebelt wins against a pack.
+ *
+ * `pierce` is how many aircraft one round can pass through. `burn` ignites
+ * what it hits, dealing damage over time that keeps running after you have
+ * broken off — which is why Firebelt's direct damage is so low.
+ */
+export const CANNONS = {
+  vulcan: {
+    id: "vulcan",
+    name: "M61 VULCAN",
+    short: "VULCAN",
+    label: "20 mm rotary",
+    blurb: "Highest sustained damage on a single target.",
+    barrels: 2,
+    damage: 9,
+    cooldown: 5,
+    spread: 0.012,
+    bulletSpeed: 15,
+    bulletLife: 60,
+    pierce: 1,
+    burn: null,
+    tracer: "#aef5ff",
+    tracerWidth: 3.2,
+  },
+
+  avenger: {
+    id: "avenger",
+    name: "GAU-8 AVENGER",
+    short: "AVENGER",
+    label: "30 mm",
+    blurb: "Pierces up to three aircraft. Brutal if you line it up, dead time if you miss.",
+    barrels: 1,
+    damage: 48,
+    cooldown: 18,
+    spread: 0.002,
+    bulletSpeed: 26,
+    bulletLife: 70,
+    pierce: 3,
+    burn: null,
+    tracer: "#ffe08a",
+    tracerWidth: 4.4,
+  },
+
+  firebelt: {
+    id: "firebelt",
+    name: "HEI FIREBELT",
+    short: "FIREBELT",
+    label: "incendiary",
+    blurb: "Sets them alight. Worst in a duel, best against a crowd.",
+    barrels: 2,
+    damage: 5,
+    cooldown: 7,
+    spread: 0.030,
+    bulletSpeed: 13,
+    bulletLife: 55,
+    pierce: 1,
+    /** Damage per second, and how long it burns after the last hit. */
+    burn: { dps: 70, duration: 90 },
+    tracer: "#ff9a4a",
+    tracerWidth: 3.2,
+  },
 };
 
+// --- missiles ---------------------------------------------------------------
 /**
- * The bomb: dropped in place rather than fired, sits still, then levels
- * everything inside its blast radius — enemy jets and your own alike.
- *
- * The fuse is long and the radius is survivable only if you leave: at cruise
- * speed five seconds buys well over 1000 units of separation, so clearing a
- * 500-unit blast is easy *if* you commit to running the moment you drop it.
- * Dropping one mid-turn, or to kill something already on your tail, is how it
- * kills you too. That tension is the whole point of the weapon.
+ * The axis here is guidance against quantity: a pod of unguided rockets you
+ * aim yourself, a dependable IR missile, or three radar shots that delete
+ * whatever they touch but will not leave the rail without a solid lock.
  */
+export const MISSILES = {
+  hydra: {
+    id: "hydra",
+    name: "HYDRA 70",
+    short: "HYDRA",
+    label: "unguided pod",
+    blurb: "Eighteen rockets, two per pull. No guidance — you do the aiming.",
+    carried: 18,
+    resupply: 6,
+    perShot: 2,
+    cooldown: 14,
+    damage: 28,
+    splashDamage: 12,
+    splashRadius: 70,
+    /** 0 means it flies dead straight. */
+    turnRate: 0,
+    requiresLock: false,
+    launchSpeed: 6,
+    accel: 0.4,
+    maxSpeed: 16,
+    life: 150,
+    hitRadius: 12,
+  },
+
+  sidewinder: {
+    id: "sidewinder",
+    name: "AIM-9 SIDEWINDER",
+    short: "AIM-9",
+    label: "IR-guided",
+    blurb: "The all-rounder. Tracks well enough, and you get six.",
+    carried: 6,
+    resupply: 3,
+    perShot: 1,
+    cooldown: 42,
+    damage: 70,
+    splashDamage: 30,
+    splashRadius: 110,
+    turnRate: 0.085,
+    requiresLock: false,
+    launchSpeed: 5,
+    accel: 0.26,
+    maxSpeed: 13,
+    life: 230,
+    hitRadius: 16,
+  },
+
+  amraam: {
+    id: "amraam",
+    name: "AIM-120 AMRAAM",
+    short: "AMRAAM",
+    label: "radar-guided",
+    blurb: "One-shots anything. Three of them, and it needs a solid lock.",
+    carried: 3,
+    resupply: 1,
+    perShot: 1,
+    cooldown: 55,
+    damage: 150,
+    splashDamage: 70,
+    splashRadius: 190,
+    turnRate: 0.13,
+    requiresLock: true,
+    launchSpeed: 5,
+    accel: 0.3,
+    maxSpeed: 15,
+    life: 300,
+    hitRadius: 18,
+  },
+};
+
+/** Shared by every missile regardless of type. */
+export const MISSILE = {
+  /** Ticks before the warhead arms, so it can't detonate on the launch rail. */
+  armingDelay: 10,
+};
+
+// --- bombs ------------------------------------------------------------------
+/**
+ * Dropped in place rather than fired: it sits still, then levels everything
+ * inside its blast radius — enemy jets and your own alike.
+ *
+ * Radius trades against how many you carry. Every one of them stays lethal
+ * inside its radius, so the choice is how much ground you erase and how often,
+ * never whether you survive standing in it. Each fuse is long enough to clear
+ * its own blast if you leave immediately; the B61 is deliberately tight about
+ * it if you dawdle at minimum throttle.
+ */
+export const BOMBS = {
+  dynamite: {
+    id: "dynamite",
+    name: "DYNAMITE",
+    short: "DYNAMITE",
+    label: "satchel charge",
+    blurb: "Small circle, short fuse, six of them. Usable while someone is on you.",
+    carried: 6,
+    resupply: 2,
+    blastRadius: 200,
+    fuse: 120,
+    dropCooldown: 25,
+  },
+
+  mk82: {
+    id: "mk82",
+    name: "MK 82",
+    short: "MK 82",
+    label: "500 lb bomb",
+    blurb: "The middle ground. Clears a useful area, and you get three.",
+    carried: 3,
+    resupply: 1,
+    blastRadius: 500,
+    fuse: 300,
+    dropCooldown: 45,
+  },
+
+  b61: {
+    id: "b61",
+    name: "B61",
+    short: "B61",
+    label: "tactical nuclear",
+    blurb: "Erases the sky. One bomb, eight seconds, and it does not care whose side you are on.",
+    carried: 1,
+    resupply: 1,
+    blastRadius: 1000,
+    fuse: 480,
+    dropCooldown: 90,
+  },
+};
+
+/** Shared by every bomb regardless of type. */
 export const BOMB = {
-  /** Five seconds at 60 Hz. */
-  fuse: 300,
-  blastRadius: 500,
   /** Lethal to any airframe, friend or foe — there is no partial damage. */
   damage: 999,
-  maxCarried: 3,
-  /** Ticks between drops, so the whole rack can't be emptied on one spot. */
-  dropCooldown: 45,
   /** Ticks between fuse beeps early on; it accelerates as detonation nears. */
   slowBeepInterval: 60,
   fastBeepInterval: 10,
-  /** Within this much of the fuse ending, the warning goes solid red. */
-  panicTicks: 90,
+};
+
+// --- loadout ----------------------------------------------------------------
+export const CANNON_IDS = Object.keys(CANNONS);
+export const MISSILE_IDS = Object.keys(MISSILES);
+export const BOMB_IDS = Object.keys(BOMBS);
+
+/** What a pilot flies with before they touch anything in the hangar. */
+export const DEFAULT_LOADOUT = {
+  plane: "viper",
+  cannon: "vulcan",
+  missile: "sidewinder",
+  bomb: "mk82",
 };
 
 /** Missile lock-on, acquired by holding a target inside a forward cone. */
@@ -221,8 +393,7 @@ export const PICKUPS = {
   /** Odds a drop is repair rather than ammo. */
   repairShare: 0.6,
   repairAmount: 30,
-  ammoAmount: 3,
-  bombAmount: 1,
+  /** Crates top up by the amount each weapon type defines as its `resupply`. */
   life: 700,
   pickupRadius: 42,
 };

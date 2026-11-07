@@ -1,13 +1,16 @@
 /**
  * Flight and impact of everything already in the air: cannon rounds and
  * missiles. Firing them is weapons.js's job.
+ *
+ * Each projectile carries the spec it was fired from, so this module never
+ * needs to know which weapon the player chose in the hangar.
  */
 
 import { dist2, angDiff, steer, rand } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { MISSILE, PLAYER } from "../config.js";
+import { PLAYER } from "../config.js";
 import { burst, explode, addShake } from "./effects.js";
-import { damageEnemy } from "./enemy.js";
+import { damageEnemy, ignite } from "./enemy.js";
 import { damagePlayer } from "./player.js";
 
 export function updateBullets(world) {
@@ -23,14 +26,7 @@ export function updateBullets(world) {
     if (--b.life <= 0) { bullets.splice(i, 1); continue; }
 
     if (b.friendly) {
-      let hit = null;
-      for (const e of enemies) {
-        if (dist2(b, e) < (e.radius + 5) ** 2) { hit = e; break; }
-      }
-      if (hit) {
-        damageEnemy(world, hit, b.damage, b.x, b.y);
-        bullets.splice(i, 1);
-      }
+      if (resolveFriendlyHit(world, b, enemies)) bullets.splice(i, 1);
     } else if (player.alive && player.invuln <= 0 && dist2(b, player) < (PLAYER.radius + 5) ** 2) {
       damagePlayer(world, b.damage);
       burst(world, b.x, b.y, 7, "#ff9a6b", 3.5, 3, 18);
@@ -41,27 +37,52 @@ export function updateBullets(world) {
   }
 }
 
+/**
+ * Applies a player round to whatever it touched.
+ * @returns true if the round is spent and should be removed.
+ */
+function resolveFriendlyHit(world, b, enemies) {
+  let target = null;
+  for (const e of enemies) {
+    if (b.struck && b.struck.includes(e)) continue; // already punched through this one
+    if (dist2(b, e) < (e.radius + 5) ** 2) { target = e; break; }
+  }
+  if (!target) return false;
+
+  if (b.burn) ignite(world, target, b.burn);
+  const killed = damageEnemy(world, target, b.damage, b.x, b.y);
+
+  // Piercing rounds carry on through, but never re-hit the same aircraft.
+  if (--b.pierce > 0) {
+    if (!killed) (b.struck ??= []).push(target);
+    return false;
+  }
+  return true;
+}
+
 export function updateMissiles(world) {
   const { missiles, enemies } = world;
 
   for (let i = missiles.length - 1; i >= 0; i--) {
     const m = missiles[i];
+    const spec = m.spec;
+
     if (m.arming > 0) m.arming--;
-    m.speed = Math.min(m.speed + MISSILE.accel, MISSILE.maxSpeed);
+    m.speed = Math.min(m.speed + spec.accel, spec.maxSpeed);
 
-    // Drop a dead target, then look for a new one roughly ahead.
-    if (m.target && !enemies.includes(m.target)) m.target = null;
-    if (!m.target) m.target = reacquire(m, enemies);
-
-    if (m.target) {
-      const bearing = Math.atan2(m.target.y - m.y, m.target.x - m.x);
-      m.angle = steer(m.angle, bearing, MISSILE.turnRate);
+    // Guided types chase; unguided ones simply fly where they were pointed.
+    if (spec.turnRate > 0) {
+      if (m.target && !enemies.includes(m.target)) m.target = null;
+      if (!m.target) m.target = reacquire(m, enemies);
+      if (m.target) {
+        const bearing = Math.atan2(m.target.y - m.y, m.target.x - m.x);
+        m.angle = steer(m.angle, bearing, spec.turnRate);
+      }
     }
 
     m.x += Math.cos(m.angle) * m.speed;
     m.y += Math.sin(m.angle) * m.speed;
 
-    // Exhaust smoke
     world.particles.push({
       x: m.x - Math.cos(m.angle) * 9,
       y: m.y - Math.sin(m.angle) * 9,
@@ -94,22 +115,24 @@ function reacquire(m, enemies) {
 
 /** Returns true if the missile found something and went off. */
 function detonateIfHit(world, m) {
+  const spec = m.spec;
+
   let struck = null;
   for (const e of world.enemies) {
-    if (dist2(m, e) < (e.radius + MISSILE.hitRadius) ** 2) { struck = e; break; }
+    if (dist2(m, e) < (e.radius + spec.hitRadius) ** 2) { struck = e; break; }
   }
   if (!struck) return false;
 
-  explode(world, m.x, m.y, false);
+  explode(world, m.x, m.y, spec.splashRadius > 150);
 
   // Splash: iterate backwards because damageEnemy may remove entries.
   for (let k = world.enemies.length - 1; k >= 0; k--) {
     const other = world.enemies[k];
     const d = Math.hypot(other.x - m.x, other.y - m.y);
-    if (d >= MISSILE.splashRadius) continue;
+    if (d >= spec.splashRadius) continue;
     damageEnemy(
       world, other,
-      other === struck ? MISSILE.directDamage : MISSILE.splashDamage,
+      other === struck ? spec.damage : spec.splashDamage,
       other.x, other.y,
     );
   }
