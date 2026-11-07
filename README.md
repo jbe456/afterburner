@@ -28,30 +28,32 @@ bundler); development does not.
 
 ## Airframes
 
-You pick a jet in the hangar before each run. There are four, and the roster is
-built around two rules:
+You pick a jet in the hangar before each run. There are three, and an
+airframe differs from the others in **exactly two numbers**: hull and top
+speed. Weapons, turn rate, acceleration, hitbox, cruise and stall speed are
+all identical, and live in `PLAYER` in `src/config.js`.
 
-1. **Every airframe carries the same weapons.** Identical cannon, identical
-   missiles, identical bombs. Picking a plane is a choice about handling and
-   survivability — never about damage. The loadout lives in `PLAYER` in
-   `src/config.js`; `PLANES` holds only how each jet flies.
-2. **No airframe is better than another at everything.** Each must lose to
-   each other plane on at least one axis.
-
-| | Role | Strong | Weak |
+| | Role | Hull | Top speed |
 | --- | --- | --- | --- |
-| **Viper** | Interceptor | Nothing to apologise for | Best at nothing |
-| **Wraith** | Knife-fighter | Turn rate, smallest hitbox, acceleration | Hull, top speed |
-| **Bastion** | Heavy | Hull, by a wide margin | Turn rate, speed, acceleration, big target |
-| **Sabre** | Energy fighter | Top speed, acceleration | Turn rate, slow-speed handling |
+| **Viper** | Balanced | 100 | 8.5 |
+| **Bastion** | Armoured | 150 | 7.0 |
+| **Sabre** | Fast | 70 | 10.2 |
 
-`npm test` enforces both rules. It compares every plane against every other
-across six handling axes and fails if any one is never-worse than another,
-then fires each jet's gun and missiles and fails if what comes out differs.
-Run it after touching `PLANES` or `PLAYER` in `src/config.js`.
+So the roster is a straight line through one tradeoff: hull for speed. No
+plane is better than another at both.
+
+`npm test` enforces that. It compares every plane against every other and
+fails if one is never-worse, then fires each jet's gun and missiles and
+samples its turn rate and hitbox, failing if anything other than hull and top
+speed differs.
 
 The stat bars in the hangar are normalised from those same numbers rather than
-hand-authored, so the UI cannot drift out of sync with how the planes fly.
+hand-authored, so the UI cannot drift out of sync with the planes.
+
+Because the turn-rate penalty is measured against a shared reference speed
+rather than each plane's own maximum, two jets at the same airspeed corner
+identically — and going fast costs turn. The Sabre at full throttle is the
+worst-turning thing in the sky.
 
 ## Controls
 
@@ -67,7 +69,7 @@ hand-authored, so the UI cannot drift out of sync with how the planes fly.
 
 Turn rate scales *inversely* with airspeed, so slowing down turns tighter.
 That one rule is what makes throttle management, rather than reflexes, decide
-a turning fight.
+a turning fight — and it is identical on every airframe.
 
 ### The bomb
 
@@ -117,7 +119,7 @@ src/
 scripts/
 ├── serve.js            Dev server
 ├── build.js            Single-file bundler
-├── check-balance.js    Asserts no plane dominates, and all share one loadout
+├── check-balance.js    Asserts no plane dominates, and only hull/speed differ
 └── check-bomb.js       Asserts the bomb's fuse and its friendly fire
 ```
 

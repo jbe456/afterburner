@@ -17,23 +17,19 @@
  * No test framework, no dependencies: it exits non-zero on failure.
  */
 
-import { PLANES, PLANE_IDS } from "../src/config.js";
+import { PLANES, PLANE_IDS, PLAYER } from "../src/config.js";
 import { createWorld } from "../src/world.js";
+import { agility } from "../src/entities/player.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
 
 /**
- * Every axis is phrased so that higher is better.
- *
- * Weapons are shared across all airframes, so there are no firepower axes
- * here — the whole comparison is about handling and survivability.
+ * The two axes an airframe is allowed to differ on, both phrased so that
+ * higher is better. Everything else is shared, and the loadout check below
+ * is what keeps it that way.
  */
 const AXES = {
   hull: (p) => p.maxHp,
   topSpeed: (p) => p.maxSpeed,
-  agility: (p) => p.turnRate,
-  accel: (p) => p.accel,
-  smallness: (p) => -p.radius, // a smaller hitbox is harder to hit
-  slowFlight: (p) => -p.minSpeed, // flying slower means turning tighter
 };
 
 const axisNames = Object.keys(AXES);
@@ -94,6 +90,13 @@ function observeLoadout(planeId) {
     bulletDamage: round.damage,
     bulletSpeed: Number(Math.hypot(round.vx, round.vy).toFixed(3)),
     bulletLife: round.life,
+    // Handling is shared too: only hull and top speed may vary.
+    startSpeed: p.speed,
+    // Sampled at a real airspeed: scaling by each plane's own top speed used
+    // to make the fast jet quietly the most agile one here.
+    turnRateAt5: Number(agility({ ...p, speed: 5 }).toFixed(5)),
+    turnRateAt7: Number(agility({ ...p, speed: 7 }).toFixed(5)),
+    hitboxRadius: PLAYER.radius,
   };
 }
 

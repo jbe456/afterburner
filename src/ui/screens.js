@@ -7,7 +7,7 @@
  * hand-authored, so they cannot drift out of sync with how the planes fly.
  */
 
-import { PLANES, PLANE_IDS, DEFAULT_PLANE } from "../config.js";
+import { PLANES, PLANE_IDS, DEFAULT_PLANE, PLAYER } from "../config.js";
 import { loadBest, saveBest, loadPlane, savePlane } from "../core/storage.js";
 
 const overlay = () => document.getElementById("overlay");
@@ -24,18 +24,13 @@ const CONTROLS = [
 ];
 
 /**
- * Axes shown on each card. Higher is better on all of them, including
- * PROFILE, where a fuller bar means a smaller target.
- *
- * Weapons are identical on every airframe, so there is nothing to show for
- * them — these are all handling stats.
+ * The only two numbers that differ between airframes. Everything else —
+ * weapons, turn rate, acceleration, hitbox — is shared, so there is nothing
+ * else to show.
  */
 const AXES = [
   ["HULL", (p) => p.maxHp],
   ["SPEED", (p) => p.maxSpeed],
-  ["AGILITY", (p) => p.turnRate],
-  ["ACCEL", (p) => p.accel],
-  ["PROFILE", (p) => -p.radius],
 ];
 
 /** Min/max of each axis across the roster, for normalising the bars. */
@@ -63,7 +58,7 @@ export function showMenu(onStart) {
       ${CONTROLS.map(([k, d]) => `<b>${k}</b><span>${d}</span>`).join("")}
     </div>
     <button class="btn" id="start">Launch</button>
-    <div class="hint">Same guns, missiles and bombs on every airframe — they differ only in how they fly<br>Longer bar is better · no airframe wins everywhere</div>`;
+    <div class="hint">Identical weapons and handling on every airframe — they differ only in hull and top speed</div>`;
 
   for (const card of panel().querySelectorAll(".plane")) {
     card.addEventListener("click", () => selectPlane(card.dataset.id));
@@ -98,6 +93,7 @@ function planeCard(id, index) {
       <div class="plane-role">${plane.role}</div>
       ${silhouette(plane)}
       <div class="stats-grid">${bars}</div>
+      <div class="plane-figures">${plane.maxHp} hull · ${plane.maxSpeed} top speed</div>
       <div class="plane-blurb">${plane.blurb}</div>
     </div>`;
 }
@@ -118,7 +114,7 @@ function silhouette(plane) {
   const tail = (s) => `<polygon points="-13,${2.5 * s} -20,${10 * s} -23,${10 * s} -19,${2.5 * s}"/>`;
   return `
     <svg class="plane-art" viewBox="-32 -32 64 64" aria-hidden="true">
-      <g transform="rotate(-90) scale(${plane.scale})">
+      <g transform="rotate(-90) scale(${PLAYER.scale})">
         <g fill="${plane.accent}">${wing(-1)}${wing(1)}${tail(-1)}${tail(1)}</g>
         <polygon fill="${plane.color}"
           points="23,0 9,-4.5 -14,-5 -18,-3.8 -18,3.8 -14,5 9,4.5"/>

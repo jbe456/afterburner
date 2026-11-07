@@ -17,65 +17,46 @@ export const EDGE_DAMAGE_PER_TICK = 0.16; // ~9.6 hp/sec
 
 // --- playable airframes -----------------------------------------------------
 /**
- * The four jets the player can choose from.
+ * The three jets the player can choose from.
  *
- * An airframe defines only how it *flies* and how hard it is to hit. Weapons
- * are identical on every one of them (see PLAYER below), so picking a plane is
- * a choice about handling, never about damage.
+ * An airframe differs from the others in exactly two numbers: how much damage
+ * it absorbs and how fast it can go. Everything else — weapons, turn rate,
+ * acceleration, hitbox, cruise and stall speed — is shared, and lives in
+ * PLAYER below.
  *
- * They are deliberately balanced so that no airframe beats another on every
- * axis — each wins some comparisons and loses others. The axes are hull, top
- * speed, agility (turn rate), acceleration, hitbox size and how slowly it can
- * fly. Before changing a number, check the plane still *loses* to each of the
- * others at something; `npm test` enforces exactly that.
- *
- * Note that agility interacts with speed: see player.js, where turn rate is
- * scaled by how slowly you are flying. A low `minSpeed` is therefore an
- * agility stat in disguise.
+ * The roster is a straight line through that pair: one plane sits in the
+ * middle, one trades speed for hull, one trades hull for speed. No plane is
+ * better than another at both, which `npm test` enforces.
  */
 export const PLANES = {
   viper: {
     id: "viper",
     name: "VIPER",
-    role: "Interceptor",
-    blurb: "No weaknesses, no records. Forgiving to fly.",
-    color: "#3f7fd4", accent: "#8fd3ff", scale: 1.05,
-    maxHp: 100, radius: 16,
-    minSpeed: 2.2, cruiseSpeed: 4.6, maxSpeed: 8.5,
-    turnRate: 0.052, accel: 0.085, brake: 0.14,
-  },
-
-  wraith: {
-    id: "wraith",
-    name: "WRAITH",
-    role: "Knife-fighter",
-    blurb: "Turns inside anything, and a small target. Folds if they catch you.",
-    color: "#35c99a", accent: "#9ff0d0", scale: 0.85,
-    maxHp: 70, radius: 13,
-    minSpeed: 1.8, cruiseSpeed: 4.3, maxSpeed: 7.6,
-    turnRate: 0.068, accel: 0.10, brake: 0.17,
+    role: "Balanced",
+    blurb: "Middle of the road on both counts.",
+    color: "#3f7fd4", accent: "#8fd3ff",
+    maxHp: 100,
+    maxSpeed: 8.5,
   },
 
   bastion: {
     id: "bastion",
     name: "BASTION",
-    role: "Heavy",
-    blurb: "Soaks punishment nothing else can. A big, slow target.",
-    color: "#6b7f9e", accent: "#b9cce4", scale: 1.31,
-    maxHp: 150, radius: 20,
-    minSpeed: 2.4, cruiseSpeed: 4.0, maxSpeed: 7.0,
-    turnRate: 0.036, accel: 0.06, brake: 0.11,
+    role: "Armoured",
+    blurb: "Half again the hull. Slowest thing in the air.",
+    color: "#6b7f9e", accent: "#b9cce4",
+    maxHp: 150,
+    maxSpeed: 7.0,
   },
 
   sabre: {
     id: "sabre",
     name: "SABRE",
-    role: "Energy fighter",
-    blurb: "Fastest airframe flying. Bleeds energy in a turn fight.",
-    color: "#2fb0d4", accent: "#9fe4ff", scale: 0.98,
-    maxHp: 85, radius: 15,
-    minSpeed: 2.8, cruiseSpeed: 5.4, maxSpeed: 10.2,
-    turnRate: 0.046, accel: 0.11, brake: 0.12,
+    role: "Fast",
+    blurb: "Fastest thing in the air. Thinnest skin.",
+    color: "#2fb0d4", accent: "#9fe4ff",
+    maxHp: 70,
+    maxSpeed: 10.2,
   },
 };
 
@@ -85,8 +66,9 @@ export const DEFAULT_PLANE = "viper";
 /**
  * Everything that is the same whichever jet you chose.
  *
- * The loadout lives here rather than on the airframes so the hangar is a pure
- * handling choice: no plane out-shoots another, they only out-fly each other.
+ * Only hull and top speed live on the airframes themselves; every other
+ * number is here, so there is one place to tune how the player's jet feels
+ * and exactly one pair of numbers that distinguishes the planes.
  */
 export const PLAYER = {
   // Cannon — two barrels firing together.
@@ -99,6 +81,25 @@ export const PLAYER = {
   // Missiles
   maxMissiles: 6,
   missileCooldown: 42,
+
+  // Handling, identical on every airframe.
+  minSpeed: 2.2,
+  cruiseSpeed: 4.6,
+  /** Base turn rate; player.js scales it by how slowly you are flying. */
+  turnRate: 0.052,
+  /**
+   * Airspeed at which the turn-rate penalty is measured. Shared rather than
+   * each plane's own top speed, so two jets at the same airspeed corner
+   * identically — otherwise the faster airframe would quietly also be the
+   * more agile one at any given speed.
+   */
+  agilityReferenceSpeed: 8.5,
+  accel: 0.085,
+  brake: 0.14,
+
+  // Hitbox and the drawn size that matches it.
+  radius: 16,
+  scale: 1.05,
 
   /** Ticks of spawn protection, during which the jet blinks. */
   spawnInvuln: 90,

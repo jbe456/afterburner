@@ -9,7 +9,7 @@
 import { rand, TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import { input } from "../core/input.js";
-import { ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK, BOMB } from "../config.js";
+import { ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK, BOMB, PLAYER } from "../config.js";
 import { drawJet, drawJetShadow } from "./jet.js";
 
 const GRID = 320;
@@ -207,7 +207,7 @@ function drawAircraft(ctx, world) {
   const { player, enemies, time } = world;
 
   for (const e of enemies) drawJetShadow(ctx, e.x, e.y, e.angle, ENEMY_TYPES[e.type].scale);
-  if (player.alive) drawJetShadow(ctx, player.x, player.y, player.angle, player.stats.scale);
+  if (player.alive) drawJetShadow(ctx, player.x, player.y, player.angle, PLAYER.scale);
 
   for (const e of enemies) {
     const type = ENEMY_TYPES[e.type];
@@ -220,7 +220,7 @@ function drawAircraft(ctx, world) {
     const blink = player.invuln > 0 && Math.floor(time / 4) % 2 === 0;
     if (!blink) {
       const s = player.stats;
-      drawJet(ctx, player.x, player.y, player.angle, s.scale,
+      drawJet(ctx, player.x, player.y, player.angle, PLAYER.scale,
         s.color, s.accent, false, 0.35 + player.boost * 0.65, time);
     }
   }

@@ -31,7 +31,7 @@ export function createPlayer(planeId = DEFAULT_PLANE) {
     x: 0,
     y: 0,
     angle: -Math.PI / 2, // nose north
-    speed: stats.cruiseSpeed,
+    speed: PLAYER.cruiseSpeed,
     hp: stats.maxHp,
     alive: true,
     gunCooldown: 0,
@@ -97,7 +97,7 @@ function applySteering(p) {
       input.mouse.y - viewport.h / 2,
       input.mouse.x - viewport.w / 2,
     );
-    turn = clamp(angDiff(desired, p.angle) / p.stats.turnRate, -1, 1);
+    turn = clamp(angDiff(desired, p.angle) / PLAYER.turnRate, -1, 1);
   }
 
   p.angle += turn * agility(p);
@@ -105,20 +105,27 @@ function applySteering(p) {
 
 /**
  * Effective turn rate. Flying slower turns tighter, which is why throttle
- * management decides a turning fight — and why a low minSpeed is an agility
- * stat in disguise.
+ * management decides a turning fight.
+ *
+ * The penalty is measured against a shared reference speed, not the jet's own
+ * maximum, so any two planes at the same airspeed corner identically. The
+ * consequence is that going fast costs turn: the Sabre at full throttle is
+ * the worst-turning thing in the sky, and the Bastion flat out is still
+ * cornering well. Speed is paid for, rather than being free agility.
  */
 export function agility(p) {
-  return p.stats.turnRate * (1.35 - 0.5 * (p.speed / p.stats.maxSpeed));
+  return PLAYER.turnRate * (1.35 - 0.5 * (p.speed / PLAYER.agilityReferenceSpeed));
 }
 
 function applyThrottle(p) {
-  const s = p.stats;
   const burning = isDown("KeyW", "ArrowUp", "ShiftLeft", "ShiftRight");
   const braking = isDown("KeyS", "ArrowDown");
 
-  const target = burning ? s.maxSpeed : braking ? s.minSpeed : s.cruiseSpeed;
-  p.speed += clamp(target - p.speed, -s.brake, s.accel);
+  // Top speed is the airframe's; everything else about the throttle is shared.
+  const target = burning ? p.stats.maxSpeed
+    : braking ? PLAYER.minSpeed
+    : PLAYER.cruiseSpeed;
+  p.speed += clamp(target - p.speed, -PLAYER.brake, PLAYER.accel);
   p.boost = burning ? Math.min(p.boost + 0.12, 1) : Math.max(p.boost - 0.08, 0);
 }
 
