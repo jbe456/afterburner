@@ -9,7 +9,7 @@
 import { TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import {
-  ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, BOMB,
+  PLAYER, ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, BOMB,
 } from "../config.js";
 
 const MONO = "ui-monospace, monospace";
@@ -88,7 +88,7 @@ function drawInstruments(ctx, world) {
   // Missile rack
   ctx.fillStyle = "#6f8ba6";
   ctx.fillText("MSL", 22, 100);
-  for (let i = 0; i < s.maxMissiles; i++) {
+  for (let i = 0; i < PLAYER.maxMissiles; i++) {
     ctx.fillStyle = i < p.missiles ? "#ffd166" : "rgba(255,209,102,.16)";
     ctx.fillRect(52 + i * 15, 91, 9, 9);
   }

@@ -16,11 +16,11 @@ import { muzzleFlash, addShake } from "./effects.js";
  * shots further forward rather than firing from a standing start.
  */
 export function fireGun(world, shooter, isPlayer) {
-  // The player's numbers come from the chosen airframe; enemies' from their type.
-  const profile = isPlayer ? shooter.stats : ENEMY_TYPES[shooter.type];
-  const spread = isPlayer ? profile.gunSpread : profile.spread;
-  const damage = isPlayer ? profile.gunDamage : profile.damage;
-  const speed = isPlayer ? profile.bulletSpeed : ENEMY.bulletSpeed;
+  // The player's gun is the same on every airframe; enemies vary by type.
+  const type = isPlayer ? null : ENEMY_TYPES[shooter.type];
+  const spread = isPlayer ? PLAYER.gunSpread : type.spread;
+  const damage = isPlayer ? PLAYER.gunDamage : type.damage;
+  const speed = isPlayer ? PLAYER.bulletSpeed : ENEMY.bulletSpeed;
   const life = isPlayer ? PLAYER.bulletLife : ENEMY.bulletLife;
   const barrels = isPlayer ? [-11, 11] : [0];
 
@@ -58,7 +58,7 @@ export function fireMissile(world) {
   if (player.missiles <= 0 || player.missileCooldown > 0) return;
 
   player.missiles--;
-  player.missileCooldown = player.stats.missileCooldown;
+  player.missileCooldown = PLAYER.missileCooldown;
 
   // Alternate rails so consecutive launches visibly come from each wing.
   const side = player.missiles % 2 === 0 ? 1 : -1;

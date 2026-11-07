@@ -19,7 +19,7 @@ because ES modules can't be loaded over `file://`. It runs on Node and Bun alike
 
 ```bash
 bun run build    # bundles everything into dist/index.html
-npm test         # balance invariant + bomb behaviour
+npm test         # roster invariants + bomb behaviour
 ```
 
 The build inlines the JS and CSS into a single self-contained HTML file you can
@@ -29,19 +29,26 @@ bundler); development does not.
 ## Airframes
 
 You pick a jet in the hangar before each run. There are four, and the roster is
-built around one rule: **no airframe is better than another at everything.**
+built around two rules:
+
+1. **Every airframe carries the same weapons.** Identical cannon, identical
+   missiles, identical bombs. Picking a plane is a choice about handling and
+   survivability — never about damage. The loadout lives in `PLAYER` in
+   `src/config.js`; `PLANES` holds only how each jet flies.
+2. **No airframe is better than another at everything.** Each must lose to
+   each other plane on at least one axis.
 
 | | Role | Strong | Weak |
 | --- | --- | --- | --- |
 | **Viper** | Interceptor | Nothing to apologise for | Best at nothing |
-| **Wraith** | Knife-fighter | Turn rate, tiny hitbox, acceleration | Hull, guns, missiles |
-| **Bastion** | Gunship | Hull, damage, missile load | Turn rate, speed, big target |
-| **Sabre** | Energy fighter | Top speed, rate of fire, range | Turn rate, hull |
+| **Wraith** | Knife-fighter | Turn rate, smallest hitbox, acceleration | Hull, top speed |
+| **Bastion** | Heavy | Hull, by a wide margin | Turn rate, speed, acceleration, big target |
+| **Sabre** | Energy fighter | Top speed, acceleration | Turn rate, slow-speed handling |
 
-`npm test` enforces that rule. It compares every plane against every other
-across nine axes and fails if any one is never-worse than another, which would
-collapse the choice into a single correct answer. Run it after touching
-`PLANES` in `src/config.js`.
+`npm test` enforces both rules. It compares every plane against every other
+across six handling axes and fails if any one is never-worse than another,
+then fires each jet's gun and missiles and fails if what comes out differs.
+Run it after touching `PLANES` or `PLAYER` in `src/config.js`.
 
 The stat bars in the hangar are normalised from those same numbers rather than
 hand-authored, so the UI cannot drift out of sync with how the planes fly.
@@ -73,10 +80,9 @@ Five seconds buys well over a thousand units of separation if you leave
 immediately, so escaping is easy. Dropping one mid-turn, or to shake something
 already on your tail, is how it takes you with it. That tension is the weapon.
 
-Every airframe carries the same three bombs, so the choice of plane stays the
-tradeoff the hangar advertises; ammo crates resupply them. `npm test` asserts
-the fuse length and that the blast kills friend and foe alike at the exact
-radius boundary.
+Like the gun and missiles, bombs are the same on every airframe — three each,
+resupplied by ammo crates. `npm test` asserts the fuse length and that the
+blast kills friend and foe alike at the exact radius boundary.
 
 ## Layout
 
@@ -111,7 +117,7 @@ src/
 scripts/
 ├── serve.js            Dev server
 ├── build.js            Single-file bundler
-├── check-balance.js    Asserts no airframe dominates another
+├── check-balance.js    Asserts no plane dominates, and all share one loadout
 └── check-bomb.js       Asserts the bomb's fuse and its friendly fire
 ```
 

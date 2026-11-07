@@ -2,7 +2,7 @@
 
 import { dist2 } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { PICKUPS, BOMB } from "../config.js";
+import { PICKUPS, BOMB, PLAYER } from "../config.js";
 import { burst } from "./effects.js";
 import { showBanner } from "../world.js";
 
@@ -32,7 +32,7 @@ export function updatePickups(world) {
       player.hp = Math.min(player.stats.maxHp, player.hp + PICKUPS.repairAmount);
       showBanner(world, `+${PICKUPS.repairAmount} HULL`, 60);
     } else {
-      player.missiles = Math.min(player.stats.maxMissiles, player.missiles + PICKUPS.ammoAmount);
+      player.missiles = Math.min(PLAYER.maxMissiles, player.missiles + PICKUPS.ammoAmount);
       // Bombs resupply here too, or a long run would exhaust them by wave three.
       const hadBombs = player.bombs;
       player.bombs = Math.min(BOMB.maxCarried, player.bombs + PICKUPS.bombAmount);

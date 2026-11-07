@@ -35,7 +35,7 @@ export function createPlayer(planeId = DEFAULT_PLANE) {
     hp: stats.maxHp,
     alive: true,
     gunCooldown: 0,
-    missiles: stats.maxMissiles,
+    missiles: PLAYER.maxMissiles,
     missileCooldown: 0,
     /** Bombs are carried identically by every airframe — see BOMB in config.js. */
     bombs: BOMB.maxCarried,
@@ -73,7 +73,7 @@ export function updatePlayer(world) {
 
   if ((input.mouse.left || isDown("Space")) && p.gunCooldown <= 0) {
     fireGun(world, p, true);
-    p.gunCooldown = p.stats.gunCooldown;
+    p.gunCooldown = PLAYER.gunCooldown;
   }
   if ((input.mouse.right || isDown("KeyF", "KeyX")) && p.missileCooldown <= 0) {
     fireMissile(world);

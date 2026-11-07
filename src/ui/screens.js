@@ -7,7 +7,7 @@
  * hand-authored, so they cannot drift out of sync with how the planes fly.
  */
 
-import { PLANES, PLANE_IDS, DEFAULT_PLANE, planeDps } from "../config.js";
+import { PLANES, PLANE_IDS, DEFAULT_PLANE } from "../config.js";
 import { loadBest, saveBest, loadPlane, savePlane } from "../core/storage.js";
 
 const overlay = () => document.getElementById("overlay");
@@ -23,13 +23,19 @@ const CONTROLS = [
   ["P", "Pause"],
 ];
 
-/** Axes shown on each card. Higher is better on all of them. */
+/**
+ * Axes shown on each card. Higher is better on all of them, including
+ * PROFILE, where a fuller bar means a smaller target.
+ *
+ * Weapons are identical on every airframe, so there is nothing to show for
+ * them — these are all handling stats.
+ */
 const AXES = [
   ["HULL", (p) => p.maxHp],
   ["SPEED", (p) => p.maxSpeed],
   ["AGILITY", (p) => p.turnRate],
-  ["GUNS", (p) => planeDps(p)],
-  ["MISSILES", (p) => p.maxMissiles],
+  ["ACCEL", (p) => p.accel],
+  ["PROFILE", (p) => -p.radius],
 ];
 
 /** Min/max of each axis across the roster, for normalising the bars. */
@@ -57,7 +63,7 @@ export function showMenu(onStart) {
       ${CONTROLS.map(([k, d]) => `<b>${k}</b><span>${d}</span>`).join("")}
     </div>
     <button class="btn" id="start">Launch</button>
-    <div class="hint">No airframe wins everywhere — pick the tradeoff you like</div>`;
+    <div class="hint">Same guns, missiles and bombs on every airframe — they differ only in how they fly<br>Longer bar is better · no airframe wins everywhere</div>`;
 
   for (const card of panel().querySelectorAll(".plane")) {
     card.addEventListener("click", () => selectPlane(card.dataset.id));
