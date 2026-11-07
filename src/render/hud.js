@@ -75,31 +75,25 @@ function drawInstruments(ctx, world) {
   ctx.font = `bold 10px ${MONO}`;
   ctx.fillText(`${Math.max(0, Math.ceil(p.hp))}%`, 22 + barW + 10, 51);
 
-  // Throttle
+  // Ammunition is the only other thing worth a readout: throttle has no
+  // reserve to deplete, so a bar for it told you nothing you couldn't feel.
   ctx.font = `11px ${MONO}`;
-  ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("THR", 22, 76);
-  const thrFrac = (p.speed - s.minSpeed) / (s.maxSpeed - s.minSpeed);
-  ctx.fillStyle = "rgba(0,0,0,.45)";
-  ctx.fillRect(52, 67, 160, 8);
-  ctx.fillStyle = p.boost > 0.4 ? "#8fd3ff" : "#4a89c0";
-  ctx.fillRect(52, 67, 160 * Math.max(0, Math.min(1, thrFrac)), 8);
 
   // Missile rack
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("MSL", 22, 100);
+  ctx.fillText("MSL", 22, 76);
   for (let i = 0; i < PLAYER.maxMissiles; i++) {
     ctx.fillStyle = i < p.missiles ? "#ffd166" : "rgba(255,209,102,.16)";
-    ctx.fillRect(52 + i * 15, 91, 9, 9);
+    ctx.fillRect(52 + i * 15, 67, 9, 9);
   }
 
   // Bomb rack
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("BMB", 22, 120);
+  ctx.fillText("BMB", 22, 96);
   for (let i = 0; i < BOMB.maxCarried; i++) {
     ctx.fillStyle = i < p.bombs ? "#ff6b4a" : "rgba(255,107,74,.16)";
     ctx.beginPath();
-    ctx.arc(56 + i * 15, 116, 4.5, 0, TAU);
+    ctx.arc(56 + i * 15, 92, 4.5, 0, TAU);
     ctx.fill();
   }
 }
