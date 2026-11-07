@@ -10,6 +10,7 @@ import { TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import {
   PLAYER, ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, BOMB,
+  KMH_PER_SPEED_UNIT,
 } from "../config.js";
 
 const MONO = "ui-monospace, monospace";
@@ -71,29 +72,48 @@ function drawInstruments(ctx, world) {
   ctx.strokeStyle = "rgba(190,215,235,.45)";
   ctx.lineWidth = 1;
   ctx.strokeRect(22.5, 40.5, barW, barH);
+  // Hull as an absolute figure against this airframe's maximum. A percentage
+  // hid the fact that 50% of a Bastion is more metal than a whole Sabre.
+  // Right-aligned so "/ max" stays put as the figure loses digits.
   ctx.fillStyle = "#dfe9f3";
-  ctx.font = `bold 10px ${MONO}`;
-  ctx.fillText(`${Math.max(0, Math.ceil(p.hp))}%`, 22 + barW + 10, 51);
+  ctx.font = `bold 11px ${MONO}`;
+  ctx.textAlign = "right";
+  ctx.fillText(String(Math.max(0, Math.ceil(p.hp))), 22 + barW + 32, 51);
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#6f8ba6";
+  ctx.font = `10px ${MONO}`;
+  ctx.fillText(`/ ${s.maxHp}`, 22 + barW + 37, 51);
 
-  // Ammunition is the only other thing worth a readout: throttle has no
-  // reserve to deplete, so a bar for it told you nothing you couldn't feel.
+  // Airspeed
+  ctx.font = `11px ${MONO}`;
+  ctx.fillStyle = "#6f8ba6";
+  ctx.fillText("SPD", 22, 72);
+  ctx.font = `bold 13px ${MONO}`;
+  ctx.fillStyle = "#dfe9f3";
+  ctx.textAlign = "right";
+  ctx.fillText(String(Math.round(p.speed * KMH_PER_SPEED_UNIT)), 96, 72);
+  ctx.textAlign = "left";
+  ctx.font = `10px ${MONO}`;
+  ctx.fillStyle = "#6f8ba6";
+  ctx.fillText("km/h", 102, 72);
+
   ctx.font = `11px ${MONO}`;
 
   // Missile rack
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("MSL", 22, 76);
+  ctx.fillText("MSL", 22, 94);
   for (let i = 0; i < PLAYER.maxMissiles; i++) {
     ctx.fillStyle = i < p.missiles ? "#ffd166" : "rgba(255,209,102,.16)";
-    ctx.fillRect(52 + i * 15, 67, 9, 9);
+    ctx.fillRect(52 + i * 15, 85, 9, 9);
   }
 
   // Bomb rack
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("BMB", 22, 96);
+  ctx.fillText("BMB", 22, 114);
   for (let i = 0; i < BOMB.maxCarried; i++) {
     ctx.fillStyle = i < p.bombs ? "#ff6b4a" : "rgba(255,107,74,.16)";
     ctx.beginPath();
-    ctx.arc(56 + i * 15, 92, 4.5, 0, TAU);
+    ctx.arc(56 + i * 15, 110, 4.5, 0, TAU);
     ctx.fill();
   }
 }

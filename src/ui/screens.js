@@ -7,7 +7,7 @@
  * hand-authored, so they cannot drift out of sync with how the planes fly.
  */
 
-import { PLANES, PLANE_IDS, DEFAULT_PLANE, PLAYER } from "../config.js";
+import { PLANES, PLANE_IDS, DEFAULT_PLANE, PLAYER, KMH_PER_SPEED_UNIT } from "../config.js";
 import { loadBest, saveBest, loadPlane, savePlane } from "../core/storage.js";
 
 const overlay = () => document.getElementById("overlay");
@@ -93,7 +93,7 @@ function planeCard(id, index) {
       <div class="plane-role">${plane.role}</div>
       ${silhouette(plane)}
       <div class="stats-grid">${bars}</div>
-      <div class="plane-figures">${plane.maxHp} hull · ${plane.maxSpeed} top speed</div>
+      <div class="plane-figures">${plane.maxHp} hull · ${Math.round(plane.maxSpeed * KMH_PER_SPEED_UNIT)} km/h</div>
       <div class="plane-blurb">${plane.blurb}</div>
     </div>`;
 }

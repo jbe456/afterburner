@@ -6,6 +6,16 @@
 /** The simulation runs on a fixed step, independent of display refresh rate. */
 export const TICK_MS = 1000 / 60;
 
+/**
+ * Converts the simulation's speed unit into km/h for the HUD.
+ *
+ * Speeds are stored as world units per tick. Treating one world unit as one
+ * metre: units/tick x 60 ticks/s = m/s, x 3.6 = km/h. That puts the jets
+ * between roughly 475 km/h at a crawl and 2200 km/h flat out, which is about
+ * right for the aircraft they are pretending to be.
+ */
+export const KMH_PER_SPEED_UNIT = (1000 / TICK_MS) * 3.6;
+
 // --- arena ------------------------------------------------------------------
 export const ARENA_SIZE = 7000; // square, centred on (0, 0)
 export const ARENA_HALF = ARENA_SIZE / 2;

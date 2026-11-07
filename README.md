@@ -35,9 +35,13 @@ all identical, and live in `PLAYER` in `src/config.js`.
 
 | | Role | Hull | Top speed |
 | --- | --- | --- | --- |
-| **Viper** | Balanced | 100 | 8.5 |
-| **Bastion** | Armoured | 150 | 7.0 |
-| **Sabre** | Fast | 70 | 10.2 |
+| **Viper** | Balanced | 100 | 1836 km/h |
+| **Bastion** | Armoured | 150 | 1512 km/h |
+| **Sabre** | Fast | 70 | 2203 km/h |
+
+Speeds are stored as world units per tick (8.5, 7.0, 10.2) and shown in km/h,
+treating one world unit as one metre — see `KMH_PER_SPEED_UNIT` in
+`src/config.js`.
 
 So the roster is a straight line through one tradeoff: hull for speed. No
 plane is better than another at both.
