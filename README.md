@@ -34,14 +34,19 @@ four alternatives. The hangar shows the aircraft above the rows with the
 figures your current fit adds up to, so the consequence of a change is visible
 as you make it.
 
-| Hull | | | Engine | |
-| --- | --- | --- | --- | --- |
-| **Light** | 70 | | **Turbofan** | 1512 km/h |
-| **Standard** | 100 | | **Turbojet** | 1836 km/h |
-| **Armoured** | 150 | | **Ramjet** | 2203 km/h |
+Both are ladders defined in `ARMOUR` and `ENGINES` in `src/config.js`, in
+order from weakest to strongest. Add or remove a rung and the hangar follows:
+the tier gauge, the card artwork and the upgrade button are all derived from
+a rung's position rather than written per rung.
 
 The engine sets top speed and nothing else — cruise, stall, turn rate and
 acceleration are shared — so it is purely how fast you can run.
+
+Turn rate falls as speed rises, which means a powerful enough engine would
+drive it to zero and then through it, reversing the controls. `PLAYER.minAgilityFactor`
+floors it, and `npm test` fails any engine that cannot turn 180 degrees in
+six seconds at full throttle — so a new top-end rung cannot quietly make the
+aircraft unflyable.
 
 **These two rows are ladders, not choices**, and the hangar presents them that
 way: one card showing what is fitted, a tier gauge, and a button that steps it

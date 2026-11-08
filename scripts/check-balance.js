@@ -136,6 +136,44 @@ assertNoDominance("BOMBS", BOMB_IDS, BOMBS, {
   contact: (b) => (b.trigger === "contact" ? 1 : 0),
 });
 
+// --- every engine must still be flyable -----------------------------------
+/**
+ * Turn rate falls as you go faster. That is the design, but the scaling is
+ * linear and an engine fast enough drives it to zero and then through it,
+ * at which point the stick works backwards. The floor in PLAYER prevents
+ * that; this proves the floor is doing its job for every engine on the
+ * ladder, including ones added later.
+ */
+console.log("\nTURN RATE AT FULL THROTTLE");
+const MAX_SECONDS_PER_180 = 6;
+console.table(ENGINE_IDS.map((id) => {
+  const engine = ENGINES[id];
+  const rate = agility({ speed: engine.maxSpeed });
+  return {
+    engine: engine.name,
+    kmh: Math.round(engine.maxSpeed * KMH_PER_SPEED_UNIT),
+    "rad/tick": Number(rate.toFixed(5)),
+    "s per 180": Number((Math.PI / rate / 60).toFixed(1)),
+  };
+}));
+
+for (const id of ENGINE_IDS) {
+  const engine = ENGINES[id];
+  const rate = agility({ speed: engine.maxSpeed });
+  const seconds = Math.PI / rate / 60;
+
+  if (rate <= 0) {
+    console.error(`  FAIL  ${engine.name} inverts the controls at full throttle`);
+    failures++;
+  } else if (seconds > MAX_SECONDS_PER_180) {
+    console.error(`  FAIL  ${engine.name} needs ${seconds.toFixed(1)}s to turn 180`
+      + ` (limit ${MAX_SECONDS_PER_180}s)`);
+    failures++;
+  } else {
+    console.log(`  pass  ${engine.name} turns 180 in ${seconds.toFixed(1)}s`);
+  }
+}
+
 // --- hull and engine must not touch the guns ------------------------------
 /** Fires one of everything and reports what actually came out. */
 function observeLoadout(armourId, engineId) {

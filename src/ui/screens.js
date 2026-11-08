@@ -185,7 +185,12 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
   }
 
   // Delegated, because an upgrade re-renders the very button that was clicked.
-  panel().addEventListener("click", (e) => {
+  //
+  // It hangs off .loadout rather than the panel: the panel outlives every
+  // render, so listeners added to it accumulate, and one click would fire the
+  // upgrade once per visit to the hangar — stepping several tiers at a time.
+  // This element is rebuilt with the markup, so its listener dies with it.
+  panel().querySelector(".loadout").addEventListener("click", (e) => {
     const button = e.target.closest("[data-upgrade]");
     if (button) upgrade(button.dataset.upgrade);
   });
@@ -330,6 +335,40 @@ function upgradeRow(slot, label, ids, table) {
     </div>`;
 }
 
+/**
+ * Art for a rung of a ladder, built from where it sits rather than from its
+ * id — a shield gaining plates, a nozzle gaining thrust. Generated so that
+ * adding tiers never leaves one without a picture.
+ */
+function ladderArt(slot, tier, total) {
+  const t = total > 1 ? tier / (total - 1) : 1;
+
+  if (slot === "armour") {
+    const shield = (k) =>
+      `M0,${-13 * k} L${13 * k},${-7 * k} L${13 * k},${4 * k} L0,${14 * k}` +
+      ` L${-13 * k},${4 * k} L${-13 * k},${-7 * k} Z`;
+    const plates = [1, 0.72, 0.46, 0.22].slice(0, 1 + Math.round(t * 3));
+    return `
+      <svg class="weapon-art" viewBox="-22 -15 44 30" aria-hidden="true">
+        ${plates.map((k, i) =>
+          `<path class="${i % 2 ? "dim" : "main"}" d="${shield(k)}"/>`).join("")}
+      </svg>`;
+  }
+
+  const arcs = Array.from({ length: 1 + Math.round(t * 4) }, (_, i) => {
+    const x = -6 - i * 5.2;
+    const r = 5 + i * 2;
+    return `<path class="arc" d="M${x},${-r} Q${x - 5},0 ${x},${r}"/>`;
+  }).join("");
+
+  return `
+    <svg class="weapon-art" viewBox="-34 -15 58 30" aria-hidden="true">
+      <path class="main" d="M4,-8 L12,-10 L12,10 L4,8 Z"/>
+      <rect class="dim" x="-2" y="-5" width="7" height="10" rx="2"/>
+      ${arcs}
+    </svg>`;
+}
+
 function upgradeCard(slot, ids, table) {
   const tier = ids.indexOf(chosen[slot]);
   const spec = table[ids[tier]];
@@ -352,7 +391,7 @@ function upgradeCard(slot, ids, table) {
     <div class="opt selected" data-slot="${slot}" data-id="${spec.id}">
       <b>${spec.name}</b>
       <div class="tier">${pips}</div>
-      ${weaponArt(spec.id)}
+      ${ladderArt(slot, tier, ids.length)}
       <div class="stats-grid">${BARS[slot](spec)}</div>
       ${button}
     </div>`;
@@ -407,33 +446,6 @@ function weaponRow(slot, label, ids, table) {
  * `main` is the body, `dim` the secondary detail.
  */
 const WEAPON_ART = {
-  // --- hull: a shield gaining plates ---
-  light: `<path class="main" d="M0,-13 L13,-7 L13,4 L0,14 L-13,4 L-13,-7 Z"/>`,
-  standard: `
-    <path class="main" d="M0,-13 L13,-7 L13,4 L0,14 L-13,4 L-13,-7 Z"/>
-    <path class="dim" d="M0,-9 L9,-4.5 L9,2 L0,9 L-9,2 L-9,-4.5 Z"/>`,
-  heavy: `
-    <path class="main" d="M0,-13 L13,-7 L13,4 L0,14 L-13,4 L-13,-7 Z"/>
-    <path class="dim" d="M0,-9 L9,-4.5 L9,2 L0,9 L-9,2 L-9,-4.5 Z"/>
-    <path class="main" d="M0,-5 L5,-2.5 L5,1 L0,5 L-5,1 L-5,-2.5 Z"/>`,
-
-  // --- engine: a nozzle with more thrust behind it ---
-  turbofan: `
-    <path class="main" d="M4,-8 L12,-10 L12,10 L4,8 Z"/>
-    <rect class="dim" x="-2" y="-5" width="7" height="10" rx="2"/>
-    <path class="arc" d="M-6,-5 Q-11,0 -6,5"/>`,
-  turbojet: `
-    <path class="main" d="M4,-8 L12,-10 L12,10 L4,8 Z"/>
-    <rect class="dim" x="-2" y="-5" width="7" height="10" rx="2"/>
-    <path class="arc" d="M-6,-5 Q-11,0 -6,5"/>
-    <path class="arc" d="M-12,-7 Q-18,0 -12,7"/>`,
-  ramjet: `
-    <path class="main" d="M4,-8 L12,-10 L12,10 L4,8 Z"/>
-    <rect class="dim" x="-2" y="-5" width="7" height="10" rx="2"/>
-    <path class="arc" d="M-6,-5 Q-11,0 -6,5"/>
-    <path class="arc" d="M-12,-7 Q-18,0 -12,7"/>
-    <path class="arc" d="M-18,-9 Q-25,0 -18,9"/>`,
-
   // --- cannons: breech on the left, business end on the right ---
   vulcan: `
     <rect class="dim" x="-18" y="-7" width="10" height="14" rx="2"/>

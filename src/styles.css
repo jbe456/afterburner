@@ -290,10 +290,13 @@ h1 {
 .options.single { grid-template-columns: minmax(0, 300px); }
 
 /* How far up the ladder this fitting is. */
-.tier { display: flex; gap: 4px; margin-bottom: 6px; }
+/* One segment per tier, sharing the card's width — so ten rungs fit as
+   readily as three. */
+.tier { display: flex; gap: 3px; margin-bottom: 6px; }
 
 .tier span {
-  width: 14px;
+  flex: 1 1 0;
+  min-width: 3px;
   height: 3px;
   background: rgba(255, 209, 102, .18);
 }

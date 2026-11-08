@@ -46,44 +46,128 @@ export const EDGE_DAMAGE_PER_TICK = 0.16; // ~9.6 hp/sec
  * They are a ladder, not a choice, until something is traded against them.
  */
 export const ARMOUR = {
-  light: {
-    id: "light",
-    name: "LIGHT HULL",
-    short: "LIGHT",
-    maxHp: 70,
+  scout: {
+    id: "scout",
+    name: "SCOUT HULL",
+    short: "SCOUT",
+    maxHp: 50,
   },
-  standard: {
-    id: "standard",
-    name: "STANDARD HULL",
-    short: "STANDARD",
+  vanguard: {
+    id: "vanguard",
+    name: "VANGUARD HULL",
+    short: "VANGUARD",
+    maxHp: 75,
+  },
+  sentinel: {
+    id: "sentinel",
+    name: "SENTINEL HULL",
+    short: "SENTINEL",
     maxHp: 100,
   },
-  heavy: {
-    id: "heavy",
-    name: "ARMOURED HULL",
-    short: "ARMOURED",
+  ironclad: {
+    id: "ironclad",
+    name: "IRONCLAD HULL",
+    short: "IRONCLAD",
     maxHp: 150,
+  },
+  bastion: {
+    id: "bastion",
+    name: "BASTION HULL",
+    short: "BASTION",
+    maxHp: 225,
+  },
+  juggernaut: {
+    id: "juggernaut",
+    name: "JUGGERNAUT HULL",
+    short: "JUGGERNAUT",
+    maxHp: 325,
+  },
+  dreadnought: {
+    id: "dreadnought",
+    name: "DREADNOUGHT HULL",
+    short: "DREADNOUGHT",
+    maxHp: 450,
+  },
+  titan: {
+    id: "titan",
+    name: "TITAN HULL",
+    short: "TITAN",
+    maxHp: 600,
+  },
+  leviathan: {
+    id: "leviathan",
+    name: "LEVIATHAN HULL",
+    short: "LEVIATHAN",
+    maxHp: 800,
+  },
+  aegis: {
+    id: "aegis",
+    name: "AEGIS PRIME HULL",
+    short: "AEGIS",
+    maxHp: 1000,
   },
 };
 
 export const ENGINES = {
-  turbofan: {
-    id: "turbofan",
-    name: "TURBOFAN",
-    short: "TURBOFAN",
-    maxSpeed: 7.0,
+  spark: {
+    id: "spark",
+    name: "SPARK DRIVE",
+    short: "SPARK",
+    maxSpeed: 5.0,
   },
-  turbojet: {
-    id: "turbojet",
-    name: "TURBOJET",
-    short: "TURBOJET",
-    maxSpeed: 8.5,
+  kestrel: {
+    id: "kestrel",
+    name: "KESTREL TURBOFAN",
+    short: "KESTREL",
+    maxSpeed: 6.5,
   },
-  ramjet: {
-    id: "ramjet",
-    name: "RAMJET",
-    short: "RAMJET",
-    maxSpeed: 10.2,
+  falcon: {
+    id: "falcon",
+    name: "FALCON TURBOJET",
+    short: "FALCON",
+    maxSpeed: 8.0,
+  },
+  viper: {
+    id: "viper",
+    name: "VIPER RAMJET",
+    short: "VIPER",
+    maxSpeed: 9.5,
+  },
+  tempest: {
+    id: "tempest",
+    name: "TEMPEST SCRAMJET",
+    short: "TEMPEST",
+    maxSpeed: 11.0,
+  },
+  inferno: {
+    id: "inferno",
+    name: "INFERNO PLASMA DRIVE",
+    short: "INFERNO",
+    maxSpeed: 12.5,
+  },
+  nova: {
+    id: "nova",
+    name: "NOVA FUSION DRIVE",
+    short: "NOVA",
+    maxSpeed: 14.0,
+  },
+  phantom: {
+    id: "phantom",
+    name: "PHANTOM ION DRIVE",
+    short: "PHANTOM",
+    maxSpeed: 16.0,
+  },
+  pulsar: {
+    id: "pulsar",
+    name: "PULSAR ANTIMATTER DRIVE",
+    short: "PULSAR",
+    maxSpeed: 18.0,
+  },
+  singularity: {
+    id: "singularity",
+    name: "SINGULARITY DRIVE",
+    short: "SINGULARITY",
+    maxSpeed: 20.0,
   },
 };
 
@@ -111,6 +195,13 @@ export const PLAYER = {
    * more agile one at any given speed.
    */
   agilityReferenceSpeed: 8.5,
+  /**
+   * Floor under that scaling. Without it a fast enough engine drives the
+   * factor to zero and then negative, which does not merely stop the turn —
+   * it reverses it, so the stick works backwards. The formula crosses zero at
+   * 2.7x the reference speed, which the engine ladder can now reach.
+   */
+  minAgilityFactor: 0.3,
   accel: 0.085,
   brake: 0.14,
 
@@ -388,8 +479,8 @@ export const BOMB_IDS = Object.keys(BOMBS);
 export const DEFAULT_LOADOUT = {
   // Both ladders start at the bottom rung: you fly the base aircraft until
   // you choose to build it up.
-  armour: "light",
-  engine: "turbofan",
+  armour: "scout",
+  engine: "spark",
   cannon: "vulcan",
   missile: "sidewinder",
   bomb: "mk82",

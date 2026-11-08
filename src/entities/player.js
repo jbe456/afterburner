@@ -126,14 +126,17 @@ function applySteering(p) {
  * Effective turn rate. Flying slower turns tighter, which is why throttle
  * management decides a turning fight.
  *
- * The penalty is measured against a shared reference speed, not the jet's own
- * maximum, so any two planes at the same airspeed corner identically. The
- * consequence is that going fast costs turn: the Sabre at full throttle is
- * the worst-turning thing in the sky, and the Bastion flat out is still
- * cornering well. Speed is paid for, rather than being free agility.
+ * The penalty is measured against a shared reference speed rather than the
+ * engine's own maximum, so going fast costs turn however fast your engine
+ * happens to go: flat out on the best engine is the worst-turning you will
+ * ever be, and throttling back is how you get it back.
+ *
+ * The factor is floored so a powerful enough engine cannot drive it to zero
+ * or past it — below zero the jet would turn the wrong way.
  */
 export function agility(p) {
-  return PLAYER.turnRate * (1.35 - 0.5 * (p.speed / PLAYER.agilityReferenceSpeed));
+  const factor = 1.35 - 0.5 * (p.speed / PLAYER.agilityReferenceSpeed);
+  return PLAYER.turnRate * Math.max(PLAYER.minAgilityFactor, factor);
 }
 
 function applyThrottle(p) {
