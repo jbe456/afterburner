@@ -10,7 +10,7 @@
 import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
-  cannonDps, cannonReach,
+  cannonDps, cannonReach, cannonRate,
 } from "../config.js";
 import { loadBest, saveBest, loadLoadout, saveLoadoutSlot } from "../core/storage.js";
 
@@ -34,6 +34,13 @@ const count = (v) => String(Math.round(v));
 const metres = (v) => `${Math.round(v)} m`;
 const perSecond = (v) => `${Math.round(v)} dps`;
 const seconds = (v) => `${(v / TPS).toFixed(1)} s`;
+/** Shots per second, or the infinity sign for a weapon that simply stays on. */
+const perSecondShots = (v) => {
+  if (!Number.isFinite(v)) return "\u221e";
+  // Round before testing for a whole number: 60 / (1000/60) lands a hair off 12.
+  const rounded = Math.round(v * 10) / 10;
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}/s`;
+};
 const kmh = (v) => `${Math.round(v * KMH_PER_SPEED_UNIT)} km/h`;
 
 /**
@@ -52,7 +59,7 @@ const AXES = {
     // Fire damage is folded into DAMAGE rather than shown apart from it.
     ["DAMAGE", cannonDps, perSecond],
     ["REACH", cannonReach, metres],
-    ["PIERCE", (c) => c.pierce, (v) => `x${v}`],
+    ["RATE", cannonRate, perSecondShots],
   ],
   missile: [
     ["AMMO", (m) => m.carried, count],
@@ -74,19 +81,37 @@ const AXES = {
  */
 function barsFor(slot, ids, table) {
   const axes = AXES[slot];
-  const ranges = axes.map(([, read]) => {
+
+  // An axis may hold a value that is off any scale — the flamethrower has no
+  // shot rate at all. Those are measured separately: the finite values are
+  // normalised among themselves with headroom left above them, so one
+  // unbounded option cannot flatten the rest into identical slivers.
+  const scales = axes.map(([, read]) => {
     const values = ids.map((id) => read(table[id]));
-    return [Math.min(...values), Math.max(...values)];
+    const finite = values.filter(Number.isFinite);
+    return {
+      lo: Math.min(...finite),
+      hi: Math.max(...finite),
+      unbounded: finite.length < values.length,
+    };
   });
 
   return (spec) => axes.map(([label, read, format], i) => {
-    const [lo, hi] = ranges[i];
+    const { lo, hi, unbounded } = scales[i];
     const value = read(spec);
-    const t = hi === lo ? 1 : (value - lo) / (hi - lo);
+
+    let width;
+    if (!Number.isFinite(value)) {
+      width = 100;
+    } else {
+      const t = hi === lo ? 1 : (value - lo) / (hi - lo);
+      width = 18 + t * (unbounded ? 64 : 82);
+    }
+
     return `
       <div class="stat">
         <i>${label}</i>
-        <div class="track"><div class="fill" style="width:${(18 + t * 82).toFixed(1)}%"></div></div>
+        <div class="track"><div class="fill" style="width:${width.toFixed(1)}%"></div></div>
         <u>${format(value)}</u>
       </div>`;
   }).join("");

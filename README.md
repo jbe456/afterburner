@@ -59,8 +59,8 @@ each category.
 
 | Cannon | | |
 | --- | --- | --- |
-| **Vulcan rapid-fire** | 216 dps, 2 barrels | Highest sustained damage on one target |
-| **Avenger piercing** | 160 dps, 48 per shot | Pierces 3 aircraft; dead time if you miss |
+| **Vulcan rapid-fire** | 216 dps, 12 shots/s | Highest sustained damage on one target |
+| **Avenger piercing** | 160 dps, 3.3 shots/s | Pierces 3 aircraft; dead time if you miss |
 | **Firebelt flamethrower** | 100 dps, 260 m cone | No rounds to miss with, but very short reach. The flame does no damage itself — it only ignites, and the fire does all the killing |
 
 | Missile | | |
@@ -84,7 +84,9 @@ outright, not quite enough for a heavy, which needs a second pass. Avenger's
 pierce only pays when enemies line up.
 
 The cards fold that fire into the one DAMAGE figure rather than splitting it
-out, because for the Firebelt it *is* the damage.
+out, because for the Firebelt it *is* the damage. Its RATE reads as infinite,
+since a flamethrower has no discrete shots — it is simply on or off. Pierce
+is not a bar; the Avenger's name carries it.
 
 The missiles differ in how far and how wide their seekers look. Hydra has no
 seeker at all. The Sidewinder searches a forward arc out to 900 m. The AMRAAM

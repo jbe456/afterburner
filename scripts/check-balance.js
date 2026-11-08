@@ -21,7 +21,7 @@
 
 import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
-  BOMBS, BOMB_IDS, PLAYER, cannonDps, cannonReach, cannonLingering,
+  BOMBS, BOMB_IDS, PLAYER, cannonDps, cannonReach, cannonLingering, cannonRate,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
@@ -77,6 +77,8 @@ assertNoDominance("CANNONS", CANNON_IDS, CANNONS, {
   burst: (c) => (c.kind === "flame" ? c.damage : c.barrels * c.damage),
   /** How far it can actually hurt something, in world units. */
   reach: cannonReach,
+  /** Shots per second; unbounded for a weapon with no discrete shots. */
+  rate: cannonRate,
   /**
    * Damage that keeps landing after the weapon stops touching the target.
    * This is the Firebelt's only win, and the reason it is not dominated now

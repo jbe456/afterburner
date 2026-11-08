@@ -188,6 +188,13 @@ export const cannonDps = (c) => {
 /** Ticks of damage that keep landing after the weapon stops touching a target. */
 export const cannonLingering = (c) => (c.burn ? c.burn.duration : 0);
 
+/**
+ * Shots per second. A flamethrower has no discrete shots — it is simply on or
+ * off — so its rate is unbounded rather than merely large.
+ */
+export const cannonRate = (c) =>
+  c.kind === "flame" ? Infinity : (1000 / TICK_MS) / c.cooldown;
+
 /** How far the weapon can actually hurt something, in world units. */
 export const cannonReach = (c) =>
   c.kind === "flame" ? c.range : c.bulletSpeed * c.bulletLife;
