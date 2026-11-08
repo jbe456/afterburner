@@ -64,7 +64,6 @@ const AXES = {
   missile: [
     ["AMMO", (m) => m.carried, count],
     ["DAMAGE", (m) => m.damage, count],
-    ["BLAST", (m) => m.splashRadius, metres],
     ["SEEKER", (m) => m.acquireRange, (v) => (v ? metres(v) : "none")],
   ],
   bomb: [
