@@ -398,6 +398,21 @@ export const ENEMY_TYPES = {
     fromWave: 1, weight: 5,
   },
 
+  midge: {
+    name: "Midge", shape: "midge",
+    hp: 8, speed: 7.4, turn: 0.075, radius: 8,
+    color: "#b5c94a", accent: "#e9ff9e",
+    range: 420, fireCd: 55, spread: 0.20, damage: 3, score: 30, scale: 0.9,
+    /**
+     * Released in clouds rather than ones and twos: a single draw puts this
+     * many in the air at once, arriving together and from the same bearing.
+     * Individually trivial — one burst kills one — but seven of them circling
+     * is a real problem, because nothing this small can be led easily.
+     */
+    swarm: 7,
+    fromWave: 2, weight: 2, maxPerWave: 2,
+  },
+
   raider: {
     name: "Raider", shape: "jet",
     hp: 24, speed: 5.4, turn: 0.048, radius: 14,
@@ -548,6 +563,8 @@ export const WAVES = {
   interval: 150,
   /** Ticks between individual spawns inside a wave. */
   spawnStagger: 16,
+  /** Much tighter, so a swarm arrives as one cloud rather than a queue. */
+  swarmStagger: 3,
 };
 
 // --- pickups ----------------------------------------------------------------

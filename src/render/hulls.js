@@ -85,6 +85,15 @@ const HULLS = {
     canopy(ctx, ink, 7, 5.5, 3.2);
   },
 
+  /** Barely an aircraft: a needle with two slivers for wings. */
+  midge(ctx, ink) {
+    exhaust(ctx, ink, -11, 0, 2.5);
+    ctx.fillStyle = ink.accent;
+    pair(ctx, [2, 2, -9, 14, -13, 14, -6, 2]);
+    ctx.fillStyle = ink.main;
+    poly(ctx, [15, 0, 5, -2.6, -10, -2.4, -11.5, 0, -10, 2.4, 5, 2.6]);
+  },
+
   /** A needle: long, thin, canards at the nose. Built to close distance. */
   dart(ctx, ink) {
     exhaust(ctx, ink, -20, 0, 4);

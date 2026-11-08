@@ -118,7 +118,7 @@ worst-turning thing in the sky.
 
 ## Enemies
 
-Fourteen types, escalating on their own rather than on a schedule. Each
+Fifteen types, escalating on their own rather than on a schedule. Each
 declares the earliest wave it can appear in and how often it is drawn once
 unlocked; the heaviest also cap how many can show up at once.
 
@@ -126,6 +126,7 @@ unlocked; the heaviest also cap how many can show up at once.
 | --- | --- | --- | --- | --- |
 | **Scout** | 16 | 7 | gun | 1 |
 | **Fighter** | 30 | 12 | gun | 1 |
+| **Midge** | 8 | 3 | gun · **swarms of 7** | 2 |
 | **Raider** | 24 | 12 | gun | 2 |
 | **Ace** | 45 | 18 | gun | 3 |
 | **Interceptor** | 55 | 20 | gun | 4 |
@@ -142,6 +143,12 @@ unlocked; the heaviest also cap how many can show up at once.
 Gun dps assumes every round connects, which against a moving target it does
 not — but the bottom of that table will still erase you if you fly straight at
 it.
+
+The Midge is the odd one out: individually trivial — one burst kills one — but
+a single slot in the wave puts seven of them in the air at once, arriving
+together from one bearing as a cloud rather than filtering in one at a time.
+They are the fastest and most agile things in the game, and nothing that small
+is easy to lead. Two swarms can be drawn in a wave, so fourteen is possible.
 
 Enemy missiles home on you and will not stop on their own side. Enemy mines
 are the same indiscriminate weapon you carry: they do not check sides, so a

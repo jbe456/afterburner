@@ -20,9 +20,17 @@ import { sfx } from "../core/audio.js";
 /** Enemies turn back once they get this close to the arena wall. */
 const WALL_MARGIN = 500;
 
-export function spawnEnemy(world, typeName) {
+/**
+ * @param {number|null} [groupBearing]
+ *   Shared approach bearing for a swarm, so its members enter together from
+ *   one quarter of the sky instead of surrounding you on arrival. Each still
+ *   gets a little scatter, or they would fly in as a line.
+ */
+export function spawnEnemy(world, typeName, groupBearing = null) {
   const type = ENEMY_TYPES[typeName];
-  const bearing = Math.random() * TAU;
+  const bearing = groupBearing === null
+    ? Math.random() * TAU
+    : groupBearing + rand(-0.3, 0.3);
   const range = rand(ENEMY.spawnDistance[0], ENEMY.spawnDistance[1]);
   const limit = ARENA_HALF - 300;
 

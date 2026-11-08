@@ -107,6 +107,18 @@ h1 {
   margin-bottom: 5px;
 }
 
+/* The one stat that matters more than the hull: how many turn up at once. */
+.foe-swarm {
+  display: inline-block;
+  font-size: 8.5px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #0d141c;
+  background: var(--livery);
+  padding: 1px 5px;
+  margin-bottom: 5px;
+}
+
 .foe-stats { font-size: 9.5px; line-height: 1.65; color: #76899c; }
 .foe-stats span { color: #cfdcea; font-weight: 700; }
 

@@ -4,6 +4,7 @@
  */
 
 import { WAVES, ENEMY_TYPES, ENEMY_TYPE_IDS } from "./config.js";
+import { TAU } from "./core/math.js";
 import { spawnEnemy } from "./entities/enemy.js";
 import { showBanner } from "./world.js";
 import { sfx } from "./core/audio.js";
@@ -11,9 +12,25 @@ import { sfx } from "./core/audio.js";
 export function startWave(world) {
   world.wave++;
 
-  composeWave(world.wave).forEach((type, i) => {
-    world.spawnQueue.push({ type, delay: i * WAVES.spawnStagger });
-  });
+  // Swarm members arrive almost together and from one bearing, so they read as
+  // a cloud rather than a queue of individual contacts. composeWave emits them
+  // contiguously, so a run of the same swarm type is one group.
+  let delay = 0;
+  let bearing = null;
+  let previous = null;
+
+  for (const type of composeWave(world.wave)) {
+    const spec = ENEMY_TYPES[type];
+    if (spec.swarm) {
+      if (type !== previous) bearing = Math.random() * TAU;
+    } else {
+      bearing = null;
+    }
+
+    world.spawnQueue.push({ type, delay, bearing });
+    delay += spec.swarm ? WAVES.swarmStagger : WAVES.spawnStagger;
+    previous = type;
+  }
 
   sfx.wave();
   showBanner(world, `WAVE ${world.wave}`, 150);
@@ -48,7 +65,10 @@ export function composeWave(wave) {
 
     const id = weightedPick(pool);
     taken[id] = (taken[id] ?? 0) + 1;
-    picks.push(id);
+
+    // One slot can put a whole swarm in the air. The cap counts draws, not
+    // aircraft, so `maxPerWave: 2` on a swarm of seven means fourteen at most.
+    for (let n = ENEMY_TYPES[id].swarm ?? 1; n > 0; n--) picks.push(id);
   }
 
   return picks;
@@ -68,7 +88,7 @@ export function updateWaves(world) {
   // Release anything whose countdown has elapsed.
   for (let i = world.spawnQueue.length - 1; i >= 0; i--) {
     if (--world.spawnQueue[i].delay > 0) continue;
-    spawnEnemy(world, world.spawnQueue[i].type);
+    spawnEnemy(world, world.spawnQueue[i].type, world.spawnQueue[i].bearing);
     world.spawnQueue.splice(i, 1);
   }
 

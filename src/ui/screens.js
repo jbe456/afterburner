@@ -242,6 +242,7 @@ function foeCard(id) {
       <canvas class="foe-art" data-id="${id}"></canvas>
       <div class="foe-name">${type.name}</div>
       <div class="foe-wave">wave ${type.fromWave}+${type.maxPerWave ? ` · max ${type.maxPerWave}` : ""}</div>
+      ${type.swarm ? `<div class="foe-swarm">swarms of ${type.swarm}</div>` : ""}
       <div class="foe-stats">
         <span>${type.hp}</span> hull<br>
         <span>${Math.round(enemyDps(type))}</span> dps · <span>${type.range}</span> m<br>
