@@ -262,7 +262,8 @@ function drawRadar(ctx, world) {
     }
     ctx.fillStyle = offScope ? "rgba(255,110,110,.5)" : ENEMY_TYPES[e.type].color;
     ctx.beginPath();
-    ctx.arc(cx + dx, cy + dy, e.type === "heavy" ? 4 : 3, 0, TAU);
+    // Bigger aircraft read as bigger contacts.
+    ctx.arc(cx + dx, cy + dy, e.radius >= 28 ? 5 : e.radius >= 20 ? 4 : 3, 0, TAU);
     ctx.fill();
   }
 

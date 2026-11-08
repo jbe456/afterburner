@@ -284,7 +284,7 @@ function drawBurning(ctx, e, time) {
 }
 
 function drawHealthPip(ctx, e) {
-  const w = 34, h = 3.5, y = e.y - e.radius - 16;
+  const w = Math.max(34, e.radius * 1.9), h = 3.5, y = e.y - e.radius - 16;
   ctx.fillStyle = "rgba(0,0,0,.55)";
   ctx.fillRect(e.x - w / 2, y, w, h);
   ctx.fillStyle = "#ff6b6b";

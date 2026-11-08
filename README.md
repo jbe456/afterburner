@@ -65,13 +65,13 @@ each category.
 
 | Missile | | |
 | --- | --- | --- |
-| **Hydra rocket pod** | 18 carried, 28 dmg | Unguided, 2 per pull — you do the aiming |
+| **Hydra rocket pod** | 30 carried, 28 dmg | Unguided, 2 per pull — you do the aiming |
 | **Sidewinder heat-seeker** | 6 carried, 70 dmg | Seeks a forward arc to 900 m |
 | **AMRAAM all-aspect** | 3 carried, 150 dmg | Fire in any direction; finds anything on the radar |
 
 | Bomb | | |
 | --- | --- | --- |
-| **Dynamite** | 6 carried, 200 m, 2.0s | Usable while someone is on you |
+| **Dynamite** | 10 carried, 200 m, 1.0s | Usable while someone is on you |
 | **Mk 82 heavy bomb** | 3 carried, 500 m, 5.0s | The middle ground |
 | **B61 nuclear** | 1 carried, 1000 m, 8.0s | Erases the sky |
 
@@ -110,6 +110,36 @@ Because the turn-rate penalty is measured against a shared reference speed
 rather than each plane's own maximum, two jets at the same airspeed corner
 identically — and going fast costs turn. The Sabre at full throttle is the
 worst-turning thing in the sky.
+
+## Enemies
+
+Eight types, escalating on their own rather than on a schedule. Each declares
+the earliest wave it can appear in and how often it is drawn once unlocked;
+the heaviest also cap how many can show up at once.
+
+| | Hull | Peak dps | From wave | Notes |
+| --- | --- | --- | --- | --- |
+| **Scout** | 16 | 7 | 1 | Fast and flimsy |
+| **Fighter** | 30 | 12 | 1 | The baseline |
+| **Ace** | 45 | 18 | 3 | Quick and accurate |
+| **Interceptor** | 55 | 20 | 4 | Long reach, fast rounds |
+| **Heavy** | 90 | 25 | 4 | Slow, hard to shift |
+| **Gunship** | 140 | 69 | 6 | Twin guns, wide spray |
+| **Marauder** | 260 | 87 | 8 | Twin heavy guns; max 2 per wave |
+| **Dreadnought** | 420 | 112 | 11 | Three barrels, 1200 m reach; max 1 per wave |
+
+Peak dps assumes every round connects, which against a moving target it does
+not — but the top of that table will still erase you if you fly straight at it.
+
+Bombs are lethal regardless of hull, so even a Dreadnought dies to one Mk 82.
+That is what keeps the late waves from becoming a damage race the guns cannot
+win.
+
+`check-waves.js` samples the composer across forty waves and fails if any wave
+comes out empty — which would be invisible in code but soft-lock the game,
+since waves advance when the sky is cleared — as well as if anything appears
+before its time, a cap is exceeded, a type is unreachable, or the waves stop
+escalating.
 
 ## Controls
 

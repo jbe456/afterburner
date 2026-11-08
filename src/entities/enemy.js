@@ -187,7 +187,7 @@ export function damageEnemy(world, e, amount, hitX, hitY, { quiet = false } = {}
   if (e.hp > 0) return false;
 
   const type = ENEMY_TYPES[e.type];
-  explode(world, e.x, e.y, e.type === "heavy");
+  explode(world, e.x, e.y, type.radius >= 20);
   world.score += type.score;
   world.kills++;
 

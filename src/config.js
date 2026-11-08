@@ -361,26 +361,93 @@ export const LOCK = {
 
 // --- enemies ----------------------------------------------------------------
 /**
- * Each type is a complete behavioural profile. `range`/`fireCd`/`spread`
- * govern how dangerous it is; `turn`/`speed` govern how hard it is to shake.
+ * Each type is a complete behavioural profile. `range`/`fireCd`/`spread`/
+ * `barrels` govern how dangerous it is; `turn`/`speed` govern how hard it is
+ * to shake; `hp`/`radius` govern how long it takes to put down.
+ *
+ * `fromWave` is the earliest wave a type can appear in and `weight` how often
+ * it is drawn once unlocked, so the roster escalates on its own rather than
+ * needing a hand-written schedule. `maxPerWave` caps the ones that would
+ * otherwise arrive in packs.
+ *
+ * Note that bombs are lethal regardless of hull, so even the heaviest thing
+ * here dies to one Mk 82 — which is what stops the late waves becoming a
+ * damage race the guns cannot win.
  */
 export const ENEMY_TYPES = {
+  scout: {
+    name: "Scout",
+    hp: 16, speed: 6.2, turn: 0.058, radius: 12,
+    color: "#cf9a7a", accent: "#f0d3bd",
+    range: 600, fireCd: 44, spread: 0.13, damage: 5, score: 60, scale: 0.8,
+    fromWave: 1, weight: 3,
+  },
+
   fighter: {
+    name: "Fighter",
     hp: 30, speed: 4.0, turn: 0.034, radius: 15,
     color: "#d9534f", accent: "#ff9a8b",
     range: 720, fireCd: 34, spread: 0.10, damage: 7, score: 100, scale: 1,
+    fromWave: 1, weight: 5,
   },
-  heavy: {
-    hp: 90, speed: 2.9, turn: 0.019, radius: 22,
-    color: "#8b6ad6", accent: "#c0a9ff",
-    range: 860, fireCd: 22, spread: 0.14, damage: 9, score: 250, scale: 1.35,
-  },
+
   ace: {
+    name: "Ace",
     hp: 45, speed: 5.6, turn: 0.050, radius: 15,
     color: "#e8a33d", accent: "#ffe08a",
     range: 780, fireCd: 26, spread: 0.055, damage: 8, score: 300, scale: 1,
+    fromWave: 3, weight: 3,
+  },
+
+  interceptor: {
+    name: "Interceptor",
+    hp: 55, speed: 5.0, turn: 0.040, radius: 16,
+    color: "#e0609a", accent: "#ffb3d4",
+    range: 1050, fireCd: 30, spread: 0.045, damage: 10, bulletSpeed: 15,
+    score: 350, scale: 1.05,
+    fromWave: 4, weight: 3,
+  },
+
+  heavy: {
+    name: "Heavy",
+    hp: 90, speed: 2.9, turn: 0.019, radius: 22,
+    color: "#8b6ad6", accent: "#c0a9ff",
+    range: 860, fireCd: 22, spread: 0.14, damage: 9, score: 250, scale: 1.35,
+    fromWave: 4, weight: 2,
+  },
+
+  gunship: {
+    name: "Gunship",
+    hp: 140, speed: 2.6, turn: 0.017, radius: 25,
+    color: "#6f4fd6", accent: "#b9a6ff",
+    range: 900, fireCd: 14, spread: 0.17, damage: 8, barrels: 2,
+    score: 500, scale: 1.55,
+    fromWave: 6, weight: 2,
+  },
+
+  marauder: {
+    name: "Marauder",
+    hp: 260, speed: 3.4, turn: 0.024, radius: 30,
+    color: "#9b2c2c", accent: "#ff7a6b",
+    range: 1000, fireCd: 18, spread: 0.08, damage: 13, barrels: 2, bulletSpeed: 13,
+    score: 900, scale: 1.9,
+    fromWave: 8, weight: 1, maxPerWave: 2,
+  },
+
+  dreadnought: {
+    name: "Dreadnought",
+    hp: 420, speed: 2.4, turn: 0.014, radius: 38,
+    color: "#5a1f6e", accent: "#e39bff",
+    range: 1200, fireCd: 16, spread: 0.11, damage: 10, barrels: 3, bulletSpeed: 14,
+    score: 1800, scale: 2.4,
+    fromWave: 11, weight: 1, maxPerWave: 1,
   },
 };
+
+export const ENEMY_TYPE_IDS = Object.keys(ENEMY_TYPES);
+
+/** Peak damage per second a type can put out, if every round connects. */
+export const enemyDps = (t) => ((t.barrels ?? 1) * t.damage * (1000 / TICK_MS)) / t.fireCd;
 
 export const ENEMY = {
   bulletSpeed: 11,
@@ -402,13 +469,11 @@ export const WAVES = {
   /** Enemies in wave n = min(base + n * growth, max). */
   baseCount: 3,
   growth: 0.9,
-  maxCount: 11,
+  maxCount: 13,
   /** Ticks between one wave clearing and the next spawning. */
   interval: 150,
   /** Ticks between individual spawns inside a wave. */
   spawnStagger: 16,
-  heavyFromWave: 3,
-  aceFromWave: 5,
 };
 
 // --- pickups ----------------------------------------------------------------

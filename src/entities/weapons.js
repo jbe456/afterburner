@@ -27,9 +27,10 @@ export function fireGun(world, shooter, isPlayer) {
   // Enemy profiles happen to use the same field names for these two.
   const spread = spec.spread;
   const damage = spec.damage;
-  const speed = isPlayer ? spec.bulletSpeed : ENEMY.bulletSpeed;
+  // Enemy types may override the shared round speed; most do not.
+  const speed = isPlayer ? spec.bulletSpeed : (spec.bulletSpeed ?? ENEMY.bulletSpeed);
   const life = isPlayer ? spec.bulletLife : ENEMY.bulletLife;
-  const offsets = isPlayer ? (BARREL_OFFSETS[spec.barrels] ?? [0]) : [0];
+  const offsets = BARREL_OFFSETS[spec.barrels] ?? [0];
 
   for (const offset of offsets) {
     const angle = shooter.angle + rand(-spread, spread);

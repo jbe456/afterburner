@@ -15,7 +15,7 @@ import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
 import { updateBullets, updateFlames } from "../src/entities/projectiles.js";
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
-import { CANNONS, MISSILES, RADAR_RANGE } from "../src/config.js";
+import { CANNONS, MISSILES, RADAR_RANGE, ENEMY_TYPES, ENEMY_TYPE_IDS } from "../src/config.js";
 
 let failures = 0;
 
@@ -250,6 +250,25 @@ for (const id of Object.keys(MISSILES)) {
   }
   check("HYDRA flies straight past a target it could have chased",
     world.missiles.every((m, i) => m.angle === headings[i]));
+}
+
+// --- enemy guns ------------------------------------------------------------
+console.log("\nENEMY GUNS");
+
+for (const id of ENEMY_TYPE_IDS) {
+  const type = ENEMY_TYPES[id];
+  const barrels = type.barrels ?? 1;
+
+  const world = createWorld({ plane: "viper" });
+  spawnEnemy(world, id);
+  const enemy = world.enemies[0];
+  enemy.x = 0; enemy.y = 0; enemy.angle = 0;
+
+  fireGun(world, enemy, false);
+  check(`${type.name} fires ${barrels} round(s) per burst`,
+    world.bullets.length === barrels, `got ${world.bullets.length}`);
+  check(`${type.name}'s rounds are hostile`,
+    world.bullets.every((b) => !b.friendly));
 }
 
 if (failures) {
