@@ -146,12 +146,19 @@ export const getLoadout = () => ({ ...chosen });
 
 // --- hangar -----------------------------------------------------------------
 
-export function showMenu(onStart, onShowIntel) {
+export function showMenu(onStart, onShowIntel, onShowHelp) {
   panel().className = "panel wide";
   panel().innerHTML = `
     <h1>AFTERBURNER</h1>
     <div class="sub">Fit out your aircraft</div>
-    <div class="airframe" id="airframe">${airframeSummary()}</div>
+    <button class="linkish" id="help">How to fly &rsaquo;</button>
+
+    <div class="airframe">
+      <!-- Only the summary is re-rendered on a pick. The Launch button is a
+           sibling rather than inside it, so it keeps its click handler. -->
+      <div class="airframe-summary" id="airframe">${airframeSummary()}</div>
+      <button class="btn" id="start">Launch</button>
+    </div>
 
     <div class="loadout">
       ${weaponRow("armour", "HULL", ARMOUR_IDS, ARMOUR)}
@@ -161,11 +168,7 @@ export function showMenu(onStart, onShowIntel) {
       ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
     </div>
 
-    <div class="keys">
-      ${CONTROLS.map(([k, d]) => `<b>${k}</b><span>${d}</span>`).join("")}
-    </div>
-    <button class="btn" id="start">Launch</button>
-    <div class="hint">Any airframe can carry any loadout · a longer bar is more of that thing</div>
+    <div class="hint">A longer bar is more of that thing</div>
     <button class="linkish" id="intel">Know your enemy &rsaquo;</button>`;
 
   for (const opt of panel().querySelectorAll(".opt")) {
@@ -173,8 +176,31 @@ export function showMenu(onStart, onShowIntel) {
   }
 
   document.getElementById("intel").onclick = onShowIntel;
+  document.getElementById("help").onclick = onShowHelp;
 
   show(onStart);
+}
+
+/** The controls, and the three rules that are not obvious from them. */
+export function showHelp(onBack) {
+  panel().className = "panel";
+  panel().innerHTML = `
+    <h1>HOW TO FLY</h1>
+    <div class="sub">Keys, and what they do not tell you</div>
+    <div class="keys">
+      ${CONTROLS.map(([k, d]) => `<b>${k}</b><span>${d}</span>`).join("")}
+    </div>
+    <div class="notes">
+      <p><b>Throttle back to turn tighter.</b> Speed costs turn rate, so the
+      quickest way through a turning fight is usually the slow one.</p>
+      <p><b>Bombs and mines do not take sides.</b> Yours will kill you as
+      readily as them — drop one and commit to being somewhere else.</p>
+      <p><b>The combat zone has edges.</b> Fly past them and the hull bleeds.
+      The HUD warns you well before it starts.</p>
+    </div>
+    <button class="btn" id="start">Back to the hangar</button>`;
+
+  show(onBack);
 }
 
 /**

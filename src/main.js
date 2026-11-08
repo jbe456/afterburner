@@ -17,9 +17,11 @@ import { simulate } from "./simulate.js";
 import { startWave } from "./waves.js";
 import { drawScene } from "./render/scene.js";
 import { drawHud, drawPauseOverlay } from "./render/hud.js";
-import { showMenu, showIntel, showGameOver, hideOverlay, getLoadout } from "./ui/screens.js";
+import {
+  showMenu, showIntel, showHelp, showGameOver, hideOverlay, getLoadout,
+} from "./ui/screens.js";
 
-/** @type {"menu"|"intel"|"playing"|"dead"} */
+/** @type {"menu"|"intel"|"help"|"playing"|"dead"} */
 let screen = "menu";
 let paused = false;
 let world = createWorld();
@@ -29,7 +31,8 @@ initViewport(canvas);
 initInput(canvas, {
   onPause: () => { if (screen === "playing") paused = !paused; },
   onConfirm: () => {
-    if (screen === "intel") returnToHangar();
+    // Enter backs out of the reading screens rather than launching from them.
+    if (screen === "intel" || screen === "help") returnToHangar();
     else if (screen !== "playing") startRun();
   },
   onGesture: initAudio,
@@ -48,13 +51,19 @@ function startRun() {
 
 function returnToHangar() {
   screen = "menu";
-  showMenu(startRun, showEnemyRoster);
+  showMenu(startRun, showEnemyRoster, showHowToFly);
 }
 
 /** The threat library, reachable from the hangar and backing out to it. */
 function showEnemyRoster() {
   screen = "intel";
   showIntel(returnToHangar);
+}
+
+/** The controls, same deal. */
+function showHowToFly() {
+  screen = "help";
+  showHelp(returnToHangar);
 }
 
 function endRun() {
@@ -84,7 +93,7 @@ function frame(now) {
     accumulator = 0;
   }
 
-  if (screen === "menu" || screen === "intel") {
+  if (screen !== "playing" && screen !== "dead") {
     const { ctx, w, h } = viewport;
     ctx.fillStyle = "#0b1016";
     ctx.fillRect(0, 0, w, h);
@@ -95,5 +104,5 @@ function frame(now) {
   }
 }
 
-showMenu(startRun, showEnemyRoster);
+showMenu(startRun, showEnemyRoster, showHowToFly);
 requestAnimationFrame(frame);
