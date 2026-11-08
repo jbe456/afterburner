@@ -171,7 +171,7 @@ export const CANNONS = {
     coneHalfAngle: 0.30,
     pierce: 1,
     /** Damage per second while alight, and how long it burns after leaving the flame. */
-    burn: { dps: 100, duration: 90 },
+    burn: { dps: 100, duration: 48 },
   },
 };
 

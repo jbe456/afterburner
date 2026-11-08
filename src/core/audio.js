@@ -71,63 +71,104 @@ function noise(duration, volume, cutoff, slideCutoff) {
 }
 
 /**
- * The flamethrower is the one sound that has to be continuous rather than a
- * series of hits. Repeating short bursts sixty times a second both sounds
- * like a stutter and churns through audio nodes, so it gets a single looping
- * noise source that stays alive and is simply opened and closed.
+ * The flamethrower has to be one continuous sound, not a series of events.
  *
- * Signal chain: looping white noise -> highpass (drop the mud) -> lowpass
- * (shape the roar) -> gain. The lowpass is jittered on every call, which is
- * what makes it breathe like real fire rather than hiss like steam.
+ * The obvious implementation — retrigger a short burst every few ticks —
+ * is wrong twice over: it churns audio nodes, and re-running an attack/decay
+ * envelope fifteen times a second produces a 15 Hz amplitude pulse, which the
+ * ear reads as gunfire rather than fire. What follows instead is a pair of
+ * permanently running noise loops behind one gain, held *steady* while the
+ * trigger is down.
+ *
+ *   body: noise -> lowpass 260 Hz          the low roar of burning fuel
+ *   jet:  noise -> highpass -> lowpass     the hiss of fuel leaving the nozzle
+ *
+ * The two loops run at different playback rates so they never line up, which
+ * keeps the texture from sounding periodic.
  */
 let flameChain = null;
+
+/** Level the roar holds at while the trigger is down. */
+const FLAME_LEVEL = 0.17;
+/** Silence this long after the last call means the trigger was released. */
+const FLAME_RELEASE_DELAY = 0.2;
 
 function ensureFlameChain() {
   if (flameChain || !ctx || !noiseBuffer) return;
 
-  const source = ctx.createBufferSource();
-  source.buffer = noiseBuffer;
-  source.loop = true;
+  const gate = ctx.createGain();
+  gate.gain.value = 0;
+  gate.connect(master);
 
-  const highpass = ctx.createBiquadFilter();
-  highpass.type = "highpass";
-  highpass.frequency.value = 160;
+  const layer = (playbackRate, level, build) => {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    src.loop = true;
+    src.playbackRate.value = playbackRate;
+    const gain = ctx.createGain();
+    gain.gain.value = level;
+    const tail = build(src);
+    tail.connect(gain);
+    gain.connect(gate);
+    src.start();
+    return tail;
+  };
 
-  const lowpass = ctx.createBiquadFilter();
-  lowpass.type = "lowpass";
-  lowpass.frequency.value = 1100;
-  lowpass.Q.value = 0.8;
+  layer(1, 1.5, (src) => {
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 260;
+    src.connect(lowpass);
+    return lowpass;
+  });
 
-  const gain = ctx.createGain();
-  gain.gain.value = 0;
+  const jetLowpass = layer(0.77, 0.55, (src) => {
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 340;
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = "lowpass";
+    lowpass.frequency.value = 1100;
+    src.connect(highpass);
+    highpass.connect(lowpass);
+    return lowpass;
+  });
 
-  source.connect(highpass);
-  highpass.connect(lowpass);
-  lowpass.connect(gain);
-  gain.connect(master);
-  source.start();
-
-  flameChain = { gain, lowpass };
+  flameChain = { gate, jetLowpass, nextWander: 0 };
 }
 
 /**
- * Hold the flame open. Each call re-opens the gate and schedules it to fall
- * closed shortly after, so calling it repeatedly sustains the roar and simply
- * stopping lets it die away on its own — no "flame off" bookkeeping needed.
+ * Hold the flame open. Each call parks the gain at a constant level and
+ * queues a release just far enough ahead that the next call wipes it — so
+ * holding the trigger is silence-free and letting go fades out on its own,
+ * with no "flame off" call needed anywhere.
  */
 function roar() {
   ensureFlameChain();
   if (!flameChain) return;
 
   const now = ctx.currentTime;
-  const g = flameChain.gain.gain;
-  g.cancelScheduledValues(now);
-  g.setValueAtTime(Math.max(g.value, 0.0001), now);
-  g.linearRampToValueAtTime(0.19, now + 0.02);
-  g.exponentialRampToValueAtTime(0.0005, now + 0.26);
+  const gain = flameChain.gate.gain;
 
-  // Guttering: the body of the roar wanders, the way a real flame does.
-  flameChain.lowpass.frequency.setTargetAtTime(rand(620, 1500), now, 0.04);
+  // Hold at the current value before re-scheduling, so cancelling mid-ramp
+  // cannot snap the level and click.
+  if (gain.cancelAndHoldAtTime) {
+    gain.cancelAndHoldAtTime(now);
+  } else {
+    const current = gain.value;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(current, now);
+  }
+
+  // Approach a constant rather than running an envelope: no pulse.
+  gain.setTargetAtTime(FLAME_LEVEL, now, 0.05);
+  gain.setTargetAtTime(0, now + FLAME_RELEASE_DELAY, 0.09);
+
+  // Let the jet's timbre wander slowly, so it breathes rather than crackles.
+  if (now >= flameChain.nextWander) {
+    flameChain.jetLowpass.frequency.setTargetAtTime(rand(820, 1450), now, 0.3);
+    flameChain.nextWander = now + rand(0.3, 0.6);
+  }
 }
 
 export const sfx = {

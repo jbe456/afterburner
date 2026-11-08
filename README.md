@@ -78,10 +78,10 @@ each category.
 Firebelt sprays a cone rather than firing rounds: nothing to miss with and it
 catches everything inside it, but you have to be almost on top of the target.
 The flame deals no damage of its own — it sets light to what it touches, and
-the fire does all the killing, burning for 1.5 s after you break off. At 100
-dps that is 150 damage from a single touch, more than any enemy's hull, so
-anything you brush dies whether you stay with it or not. Avenger's pierce
-only pays when enemies line up.
+the fire does all the killing, burning for 0.8 s after you break off. At 100
+dps that is 80 damage from a single touch: enough to kill a fighter or an ace
+outright, not quite enough for a heavy, which needs a second pass. Avenger's
+pierce only pays when enemies line up.
 
 The cards fold that fire into the one DAMAGE figure rather than splitting it
 out, because for the Firebelt it *is* the damage.
