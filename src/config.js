@@ -386,8 +386,10 @@ export const BOMB_IDS = Object.keys(BOMBS);
 
 /** What a pilot flies with before they touch anything in the hangar. */
 export const DEFAULT_LOADOUT = {
-  armour: "standard",
-  engine: "turbojet",
+  // Both ladders start at the bottom rung: you fly the base aircraft until
+  // you choose to build it up.
+  armour: "light",
+  engine: "turbofan",
   cannon: "vulcan",
   missile: "sidewinder",
   bomb: "mk82",

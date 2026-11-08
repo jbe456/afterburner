@@ -45,7 +45,9 @@ acceleration are shared — so it is purely how fast you can run.
 
 **These two rows are ladders, not choices**, and the hangar presents them that
 way: one card showing what is fitted, a tier gauge, and a button that steps it
-up. Heavier armour is strictly better than light and a stronger engine
+up. Both start on their bottom rung, and **Reset fittings** at the foot of the
+hangar puts the whole loadout — ladders and weapons alike — back to stock,
+since upgrading only goes one way. Heavier armour is strictly better than light and a stronger engine
 strictly better than a weak one, because nothing is traded against them yet.
 
 `npm test` checks that the order holds rather than pretending there is a

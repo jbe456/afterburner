@@ -411,6 +411,20 @@ h1 {
 
 .hint { margin-top: 20px; font-size: 11px; color: #50657a; letter-spacing: .12em; }
 
+/* The bar legend and the way back to a stock aircraft, on one line. */
+.footnote {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 18px;
+  font-size: 11px;
+  letter-spacing: .12em;
+  color: #50657a;
+}
+
+.footnote .linkish { margin-top: 0; }
+
 .btn.ghost {
   border-color: rgba(120, 160, 200, .35);
   color: #9db4c9;

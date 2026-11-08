@@ -127,6 +127,9 @@ const BARS = {
 
 /** The current selection, seeded from storage and repaired against config. */
 const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout()) };
+
+/** Kept so a reset can redraw the hangar without main.js handing them over again. */
+let menuHandlers = null;
 let menuKeyHandler = null;
 
 /** Drops any saved id that no longer names a real plane or weapon. */
@@ -147,6 +150,7 @@ export const getLoadout = () => ({ ...chosen });
 // --- hangar -----------------------------------------------------------------
 
 export function showMenu(onStart, onShowIntel, onShowHelp) {
+  menuHandlers = { onStart, onShowIntel, onShowHelp };
   panel().className = "panel wide";
   panel().innerHTML = `
     <h1>AFTERBURNER</h1>
@@ -171,7 +175,10 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
       ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
     </div>
 
-    <div class="hint">A longer bar is more of that thing</div>`;
+    <div class="footnote">
+      <span>A longer bar is more of that thing</span>
+      <button class="linkish" id="reset">Reset fittings</button>
+    </div>`;
 
   for (const opt of panel().querySelectorAll(".opt")) {
     opt.addEventListener("click", () => select(opt.dataset.slot, opt.dataset.id));
@@ -185,6 +192,7 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
 
   document.getElementById("intel").onclick = onShowIntel;
   document.getElementById("help").onclick = onShowHelp;
+  document.getElementById("reset").onclick = resetLoadout;
 
   show(onStart);
 }
@@ -348,6 +356,20 @@ function upgradeCard(slot, ids, table) {
       <div class="stats-grid">${BARS[slot](spec)}</div>
       ${button}
     </div>`;
+}
+
+/**
+ * Put everything back to the aircraft you started with: both ladders to their
+ * bottom rung and the weapons to their defaults. Upgrading only goes one way,
+ * so without this the only way down would be clearing the browser's storage.
+ */
+function resetLoadout() {
+  for (const [slot, id] of Object.entries(DEFAULT_LOADOUT)) {
+    chosen[slot] = id;
+    saveLoadoutSlot(slot, id);
+  }
+  const { onStart, onShowIntel, onShowHelp } = menuHandlers;
+  showMenu(onStart, onShowIntel, onShowHelp);
 }
 
 /** Step a fitting up one tier. The top rung simply has nothing to step to. */
