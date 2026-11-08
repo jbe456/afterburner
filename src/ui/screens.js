@@ -164,8 +164,8 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
     </div>
 
     <div class="loadout">
-      ${weaponRow("armour", "HULL", ARMOUR_IDS, ARMOUR)}
-      ${weaponRow("engine", "ENGINE", ENGINE_IDS, ENGINES)}
+      ${upgradeRow("armour", "HULL", ARMOUR_IDS, ARMOUR)}
+      ${upgradeRow("engine", "ENGINE", ENGINE_IDS, ENGINES)}
       ${weaponRow("cannon", "CANNON", CANNON_IDS, CANNONS)}
       ${weaponRow("missile", "MISSILE", MISSILE_IDS, MISSILES)}
       ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
@@ -176,6 +176,12 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
   for (const opt of panel().querySelectorAll(".opt")) {
     opt.addEventListener("click", () => select(opt.dataset.slot, opt.dataset.id));
   }
+
+  // Delegated, because an upgrade re-renders the very button that was clicked.
+  panel().addEventListener("click", (e) => {
+    const button = e.target.closest("[data-upgrade]");
+    if (button) upgrade(button.dataset.upgrade);
+  });
 
   document.getElementById("intel").onclick = onShowIntel;
   document.getElementById("help").onclick = onShowHelp;
@@ -299,6 +305,56 @@ function foeCard(id) {
         <span>${type.score}</span> pts
       </div>
     </div>`;
+}
+
+// --- upgrade rows -----------------------------------------------------------
+
+/**
+ * Hull and engine are one fitting apiece, not a choice between three. The row
+ * shows what is currently bolted on and a button that steps it up a tier, so
+ * the ladder reads as a ladder rather than as three alternatives.
+ */
+function upgradeRow(slot, label, ids, table) {
+  return `
+    <div class="loadout-row">
+      <div class="loadout-label">${label}</div>
+      <div class="options single" id="row-${slot}">${upgradeCard(slot, ids, table)}</div>
+    </div>`;
+}
+
+function upgradeCard(slot, ids, table) {
+  const tier = ids.indexOf(chosen[slot]);
+  const spec = table[ids[tier]];
+  const next = ids[tier + 1] ? table[ids[tier + 1]] : null;
+  const [, read, format] = AXES[slot][0];
+
+  const pips = ids
+    .map((_, i) => `<span class="${i <= tier ? "on" : ""}"></span>`)
+    .join("");
+
+  // The current figure is already on the bar above, so the button only needs
+  // to say what it buys.
+  const button = next
+    ? `<button class="upgrade" data-upgrade="${slot}">
+         Upgrade to <i>${format(read(next))}</i>
+       </button>`
+    : `<button class="upgrade" disabled>Fully upgraded</button>`;
+
+  return `
+    <div class="opt selected" data-slot="${slot}" data-id="${spec.id}">
+      <b>${spec.name}</b>
+      <div class="tier">${pips}</div>
+      ${weaponArt(spec.id)}
+      <div class="stats-grid">${BARS[slot](spec)}</div>
+      ${button}
+    </div>`;
+}
+
+/** Step a fitting up one tier. The top rung simply has nothing to step to. */
+function upgrade(slot) {
+  const ids = slot === "armour" ? ARMOUR_IDS : ENGINE_IDS;
+  const next = ids[ids.indexOf(chosen[slot]) + 1];
+  if (next) select(slot, next);
 }
 
 // --- weapon rows ------------------------------------------------------------
@@ -456,14 +512,20 @@ function select(slot, id) {
   chosen[slot] = id;
   saveLoadoutSlot(slot, id);
 
-  for (const el of panel().querySelectorAll(`.opt[data-slot="${slot}"]`)) {
-    el.classList.toggle("selected", el.dataset.id === id);
+  // Hull and engine own their whole row, and also feed the summary above.
+  if (slot === "armour" || slot === "engine") {
+    const ids = slot === "armour" ? ARMOUR_IDS : ENGINE_IDS;
+    const table = slot === "armour" ? ARMOUR : ENGINES;
+    const row = document.getElementById(`row-${slot}`);
+    if (row) row.innerHTML = upgradeCard(slot, ids, table);
+
+    const summary = document.getElementById("airframe");
+    if (summary) summary.innerHTML = airframeSummary();
+    return;
   }
 
-  // Hull and engine are the two the summary above reports on.
-  const summary = document.getElementById("airframe");
-  if (summary && (slot === "armour" || slot === "engine")) {
-    summary.innerHTML = airframeSummary();
+  for (const el of panel().querySelectorAll(`.opt[data-slot="${slot}"]`)) {
+    el.classList.toggle("selected", el.dataset.id === id);
   }
 }
 

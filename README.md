@@ -28,10 +28,11 @@ bundler); development does not.
 
 ## Your aircraft
 
-There is one airframe. What you choose is what to bolt onto it, in five rows:
-hull, engine, cannon, missile and bomb. The hangar shows the aircraft above
-the rows with the figures your current picks add up to, so the consequence of
-a choice is visible as you make it.
+There is one airframe. Hull and engine are single fittings you **upgrade**
+through three tiers; cannon, missile and bomb are **choices** between three or
+four alternatives. The hangar shows the aircraft above the rows with the
+figures your current fit adds up to, so the consequence of a change is visible
+as you make it.
 
 | Hull | | | Engine | |
 | --- | --- | --- | --- | --- |
@@ -42,12 +43,15 @@ a choice is visible as you make it.
 The engine sets top speed and nothing else — cruise, stall, turn rate and
 acceleration are shared — so it is purely how fast you can run.
 
-**These two rows are ladders, not choices.** Heavier armour is strictly better
-than light, and a stronger engine strictly better than a weak one, because
-nothing is traded against them yet. `npm test` checks that the order holds
-rather than pretending there is a tradeoff to protect; give them a cost — mass
-against turn rate, or a budget shared across the rows — and the no-dominance
-check that guards the weapons applies to them too.
+**These two rows are ladders, not choices**, and the hangar presents them that
+way: one card showing what is fitted, a tier gauge, and a button that steps it
+up. Heavier armour is strictly better than light and a stronger engine
+strictly better than a weak one, because nothing is traded against them yet.
+
+`npm test` checks that the order holds rather than pretending there is a
+tradeoff to protect. Give them a cost — mass against turn rate, or a budget
+shared across the rows — and the no-dominance check that guards the weapons
+applies to them too.
 
 ## Loadout
 

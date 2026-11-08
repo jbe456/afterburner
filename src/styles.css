@@ -284,6 +284,58 @@ h1 {
 .airframe-figures span { color: #f4f8fc; font-weight: 700; font-size: 17px; }
 .airframe-figures i { font-style: normal; color: #44596e; margin: 0 8px; }
 
+/* --- the two upgradeable fittings --- */
+
+/* One card, not a row of alternatives, so it does not stretch to fill. */
+.options.single { grid-template-columns: minmax(0, 300px); }
+
+/* How far up the ladder this fitting is. */
+.tier { display: flex; gap: 4px; margin-bottom: 6px; }
+
+.tier span {
+  width: 14px;
+  height: 3px;
+  background: rgba(255, 209, 102, .18);
+}
+
+.tier span.on { background: #ffd166; }
+
+.upgrade {
+  display: block;
+  width: 100%;
+  margin-top: 9px;
+  padding: 7px 8px;
+  border: 1px solid rgba(255, 209, 102, .45);
+  background: rgba(255, 209, 102, .09);
+  color: #ffd166;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+
+/* Units keep their own case: "km/h", not "KM/H". */
+.upgrade i {
+  font-style: normal;
+  color: #f4f8fc;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+
+.upgrade:hover:not(:disabled) {
+  background: rgba(255, 209, 102, .2);
+  border-color: #ffd166;
+}
+
+.upgrade:disabled {
+  border-color: rgba(120, 160, 200, .22);
+  background: none;
+  color: #56708a;
+  cursor: default;
+}
+
 /* --- option cards: shared by every loadout row --- */
 
 .stats-grid { display: grid; gap: 4px; margin-bottom: 9px; }
