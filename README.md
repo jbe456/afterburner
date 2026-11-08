@@ -127,7 +127,7 @@ worst-turning thing in the sky.
 
 ## Enemies
 
-Fifteen types, escalating on their own rather than on a schedule. Each
+Sixteen types, escalating on their own rather than on a schedule. Each
 declares the earliest wave it can appear in and how often it is drawn once
 unlocked; the heaviest also cap how many can show up at once.
 
@@ -136,13 +136,14 @@ unlocked; the heaviest also cap how many can show up at once.
 | **Scout** | 16 | 7 | gun | 1 |
 | **Fighter** | 30 | 12 | gun | 1 |
 | **Midge** | 8 | 3 | gun · **swarms of 7** | 2 |
+| **Moucheron** | 2 | 1 | gun · **swarms of 30** | 6 |
 | **Raider** | 24 | 12 | gun | 2 |
 | **Ace** | 45 | 18 | gun | 3 |
 | **Interceptor** | 55 | 20 | gun | 4 |
 | **Heavy** | 90 | 25 | gun | 4 |
 | **Lancer** | 70 | 7 | gun + **missiles** | 5 |
 | **Gunship** | 140 | 69 | twin guns | 6 |
-| **Sower** | 110 | 9 | gun + **mines** | 7 |
+| **Sower** | 110 | 9 | gun + **proximity mines** | 7 |
 | **Marauder** | 260 | 87 | twin heavy guns · max 2 | 8 |
 | **Reaper** | 150 | 22 | gun + **missiles** | 9 |
 | **Dreadnought** | 420 | 112 | three barrels, 1200 m · max 1 | 11 |
@@ -153,16 +154,24 @@ Gun dps assumes every round connects, which against a moving target it does
 not — but the bottom of that table will still erase you if you fly straight at
 it.
 
-The Midge is the odd one out: individually trivial — one burst kills one — but
-a single slot in the wave puts seven of them in the air at once, arriving
-together from one bearing as a cloud rather than filtering in one at a time.
-They are the fastest and most agile things in the game, and nothing that small
-is easy to lead. Two swarms can be drawn in a wave, so fourteen is possible.
+Two types swarm. The **Midge** is individually trivial — one burst kills one —
+but a single slot in the wave puts seven in the air at once, arriving together
+from one bearing as a cloud rather than filtering in one at a time. The
+**Moucheron** takes that further: 2 hull, 1 damage, thirty of them, and the
+fastest and tightest-turning thing flying. Nothing that small is easy to lead.
+The Midge is capped at two draws and the Moucheron at one, so fourteen and
+thirty are the ceilings.
 
-Enemy missiles home on you and will not stop on their own side. Enemy mines
-are the same indiscriminate weapon you carry: they do not check sides, so a
-Sower will gut its own escort, and luring a wave across a minefield is a real
-tactic.
+A worst case of 43 aircraft on screen measured 1 ms a frame against a 16.7 ms
+budget, so the swarms cost far less than they look like they should.
+
+Enemy missiles home on you and will not stop on their own side.
+
+The **Sower** lays proximity mines — the same weapon you can carry, waiting to
+be touched by whatever reaches them first. The **Leviathan** drops timed bombs
+instead, carpeting ground it is about to leave. Both are indiscriminate, so a
+Sower will gut its own escort, and leading a wave across its own minefield is
+a real tactic.
 
 Bombs hit hard enough to clear a late wave in one drop — a B61 kills every
 type in the game outright except the Leviathan, which staggers out of it with

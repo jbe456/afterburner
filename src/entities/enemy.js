@@ -92,7 +92,7 @@ export function updateEnemy(world, e) {
   e.y += Math.sin(e.angle) * e.speed;
 
   e.trail.push({ x: e.x - Math.cos(e.angle) * 16, y: e.y - Math.sin(e.angle) * 16 });
-  if (e.trail.length > 16) e.trail.shift();
+  if (e.trail.length > (type.trail ?? 16)) e.trail.shift();
   if (e.flash > 0) e.flash--;
 
   if (e.fireCooldown > 0) e.fireCooldown--;

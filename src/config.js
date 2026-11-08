@@ -433,7 +433,26 @@ export const ENEMY_TYPES = {
      * is a real problem, because nothing this small can be led easily.
      */
     swarm: 7,
+    trail: 9,
     fromWave: 2, weight: 2, maxPerWave: 2,
+  },
+
+  moucheron: {
+    name: "Moucheron", shape: "midge",
+    hp: 2, speed: 8.0, turn: 0.088, radius: 6,
+    color: "#9fb84a", accent: "#dcf59a",
+    range: 300, fireCd: 70, spread: 0.26, damage: 1, score: 10, scale: 0.6,
+    /**
+     * Thirty at once. Nothing in the game is individually less dangerous — a
+     * single round kills one and one of theirs barely scratches you — but
+     * thirty of them fill the sky, and they are the fastest and tightest
+     * turning things flying. Capped at one draw: sixty would be a slideshow,
+     * not a fight.
+     */
+    swarm: 30,
+    /** Short contrails: thirty full-length ones is a lot of line for nothing. */
+    trail: 5,
+    fromWave: 6, weight: 1, maxPerWave: 1,
   },
 
   raider: {
@@ -496,8 +515,17 @@ export const ENEMY_TYPES = {
     color: "#5f8f4f", accent: "#bfe8a8",
     range: 700, fireCd: 40, spread: 0.15, damage: 6,
     score: 420, scale: 1.15,
-    // Seeds mines along its track. They do not care whose side you are on.
-    bomb: { cooldown: 150, blastRadius: 300, damage: 130, fuse: 260 },
+    /**
+     * Seeds proximity mines along its track — the same weapon the player can
+     * carry, and just as indifferent to whose side you are on. The long fuse
+     * is a self-clearing timeout, not a countdown: they go off on contact
+     * long before it expires, or quietly clear themselves if nothing finds
+     * them.
+     */
+    bomb: {
+      cooldown: 150, blastRadius: 300, damage: 130,
+      fuse: 1800, trigger: "contact", triggerRadius: 44, armTime: 40,
+    },
     fromWave: 7, weight: 2,
   },
 
@@ -551,6 +579,7 @@ export const ENEMY_TYPES = {
     // Everything at once: guns, missiles, and mines in its wake.
     missile: { cooldown: 150, range: 1800, cone: 0.6, damage: 38, turnRate: 0.08,
                speed: 5, accel: 0.26, maxSpeed: 13, life: 300, hitRadius: 20, salvo: 2 },
+    /** Timed bombs rather than mines: it carpets ground it is about to leave. */
     bomb: { cooldown: 220, blastRadius: 420, damage: 180, fuse: 300 },
     fromWave: 15, weight: 1, maxPerWave: 1,
   },

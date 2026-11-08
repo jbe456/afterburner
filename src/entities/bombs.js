@@ -26,9 +26,12 @@ export function updateBombs(world) {
 
     if (bomb.arming > 0) bomb.arming--;
 
+    const contact = bomb.spec.trigger === "contact";
+
     if (timed) {
       bomb.fuse--;
-      playFuseBeep(bomb);
+      // Mines do not tick audibly; several of them would be a racket.
+      if (!contact) playFuseBeep(bomb);
     }
 
     // A lazy plume so a live bomb is findable against a busy background.
@@ -40,9 +43,10 @@ export function updateBombs(world) {
       });
     }
 
-    const triggered = timed
-      ? bomb.fuse <= 0
-      : bomb.arming <= 0 && touchedBy(world, bomb) !== null;
+    // Either condition sets it off, so a mine can also carry a long fuse as a
+    // self-clearing timeout rather than littering the sky forever.
+    const triggered = (timed && bomb.fuse <= 0)
+      || (contact && bomb.arming <= 0 && touchedBy(world, bomb) !== null);
 
     if (triggered) {
       detonate(world, bomb);

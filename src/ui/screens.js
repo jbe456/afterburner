@@ -193,7 +193,8 @@ function armament(type) {
   if (type.missile) {
     parts.push(type.missile.salvo > 1 ? `${type.missile.salvo} missiles` : "missiles");
   }
-  if (type.bomb) parts.push("mines");
+  // A timed charge is a bomb; something that waits to be touched is a mine.
+  if (type.bomb) parts.push(type.bomb.trigger === "contact" ? "mines" : "bombs");
   return parts.join(" · ");
 }
 
