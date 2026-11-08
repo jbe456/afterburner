@@ -70,17 +70,74 @@ function noise(duration, volume, cutoff, slideCutoff) {
   src.stop(ctx.currentTime + duration);
 }
 
+/**
+ * The flamethrower is the one sound that has to be continuous rather than a
+ * series of hits. Repeating short bursts sixty times a second both sounds
+ * like a stutter and churns through audio nodes, so it gets a single looping
+ * noise source that stays alive and is simply opened and closed.
+ *
+ * Signal chain: looping white noise -> highpass (drop the mud) -> lowpass
+ * (shape the roar) -> gain. The lowpass is jittered on every call, which is
+ * what makes it breathe like real fire rather than hiss like steam.
+ */
+let flameChain = null;
+
+function ensureFlameChain() {
+  if (flameChain || !ctx || !noiseBuffer) return;
+
+  const source = ctx.createBufferSource();
+  source.buffer = noiseBuffer;
+  source.loop = true;
+
+  const highpass = ctx.createBiquadFilter();
+  highpass.type = "highpass";
+  highpass.frequency.value = 160;
+
+  const lowpass = ctx.createBiquadFilter();
+  lowpass.type = "lowpass";
+  lowpass.frequency.value = 1100;
+  lowpass.Q.value = 0.8;
+
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+
+  source.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(gain);
+  gain.connect(master);
+  source.start();
+
+  flameChain = { gain, lowpass };
+}
+
+/**
+ * Hold the flame open. Each call re-opens the gate and schedules it to fall
+ * closed shortly after, so calling it repeatedly sustains the roar and simply
+ * stopping lets it die away on its own — no "flame off" bookkeeping needed.
+ */
+function roar() {
+  ensureFlameChain();
+  if (!flameChain) return;
+
+  const now = ctx.currentTime;
+  const g = flameChain.gain.gain;
+  g.cancelScheduledValues(now);
+  g.setValueAtTime(Math.max(g.value, 0.0001), now);
+  g.linearRampToValueAtTime(0.19, now + 0.02);
+  g.exponentialRampToValueAtTime(0.0005, now + 0.26);
+
+  // Guttering: the body of the roar wanders, the way a real flame does.
+  flameChain.lowpass.frequency.setTargetAtTime(rand(620, 1500), now, 0.04);
+}
+
 export const sfx = {
   gun: () => {
     tone(rand(620, 760), 0.06, "square", 0.08, 180);
     noise(0.05, 0.1, 3000);
   },
   enemyGun: () => tone(rand(300, 360), 0.05, "square", 0.03, 120),
-  /** Flamethrower: breathy, low, and overlapping into a continuous roar. */
-  flame: () => {
-    noise(0.22, 0.09, rand(500, 900), 240);
-    tone(rand(80, 110), 0.18, "sawtooth", 0.025, 55);
-  },
+  /** Flamethrower: a sustained roar, held open for as long as it is called. */
+  flame: roar,
   boom: (big) => {
     noise(big ? 0.75 : 0.4, big ? 0.6 : 0.3, big ? 1400 : 900, 60);
     tone(big ? 70 : 110, big ? 0.6 : 0.3, "sine", big ? 0.4 : 0.2, 30);

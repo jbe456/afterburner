@@ -158,23 +158,35 @@ export const CANNONS = {
     id: "firebelt",
     name: "FIREBELT FLAMETHROWER",
     short: "FIREBELT",
-    /** Not a gun: it sprays a cone that damages everything inside it. */
+    /** Not a gun: it sprays a cone that sets light to everything inside it. */
     kind: "flame",
-    /** Applied every tick the trigger is held, to every aircraft in the cone. */
-    damage: 1.3,
+    /**
+     * The flame does no damage of its own — it only ignites. Everything this
+     * weapon kills, the fire kills.
+     */
+    damage: 0,
     cooldown: 1,
     /** How far the cone reaches, and its half-angle in radians. */
     range: 260,
     coneHalfAngle: 0.30,
     pierce: 1,
-    /** Damage per second, and how long it burns after leaving the flame. */
-    burn: { dps: 70, duration: 90 },
+    /** Damage per second while alight, and how long it burns after leaving the flame. */
+    burn: { dps: 100, duration: 90 },
   },
 };
 
-/** Sustained damage per second on one target. */
-export const cannonDps = (c) =>
-  ((c.kind === "flame" ? c.damage : c.barrels * c.damage) * (1000 / TICK_MS)) / c.cooldown;
+/**
+ * Sustained damage per second on one target, counting any fire the weapon
+ * leaves behind. The Firebelt's whole output is that fire, so splitting the
+ * two apart would only make it look weaker than it is.
+ */
+export const cannonDps = (c) => {
+  const direct = ((c.kind === "flame" ? c.damage : c.barrels * c.damage) * (1000 / TICK_MS)) / c.cooldown;
+  return direct + (c.burn ? c.burn.dps : 0);
+};
+
+/** Ticks of damage that keep landing after the weapon stops touching a target. */
+export const cannonLingering = (c) => (c.burn ? c.burn.duration : 0);
 
 /** How far the weapon can actually hurt something, in world units. */
 export const cannonReach = (c) =>

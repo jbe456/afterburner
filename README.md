@@ -61,7 +61,7 @@ each category.
 | --- | --- | --- |
 | **Vulcan rapid-fire** | 216 dps, 2 barrels | Highest sustained damage on one target |
 | **Avenger piercing** | 160 dps, 48 per shot | Pierces 3 aircraft; dead time if you miss |
-| **Firebelt flamethrower** | 78 dps + 70/s burn, 260 m cone | No rounds to miss with, but very short reach. Everything in the cone burns |
+| **Firebelt flamethrower** | 100 dps, 260 m cone | No rounds to miss with, but very short reach. The flame does no damage itself — it only ignites, and the fire does all the killing |
 
 | Missile | | |
 | --- | --- | --- |
@@ -76,9 +76,15 @@ each category.
 | **B61 nuclear** | 1 carried, 1000 m, 8.0s | Erases the sky |
 
 Firebelt sprays a cone rather than firing rounds: nothing to miss with and it
-catches everything inside it, but you have to be almost on top of the target,
-and its burn keeps running after you break off. Avenger's pierce only pays
-when enemies line up.
+catches everything inside it, but you have to be almost on top of the target.
+The flame deals no damage of its own — it sets light to what it touches, and
+the fire does all the killing, burning for 1.5 s after you break off. At 100
+dps that is 150 damage from a single touch, more than any enemy's hull, so
+anything you brush dies whether you stay with it or not. Avenger's pierce
+only pays when enemies line up.
+
+The cards fold that fire into the one DAMAGE figure rather than splitting it
+out, because for the Firebelt it *is* the damage.
 
 The missiles differ in how far and how wide their seekers look. Hydra has no
 seeker at all. The Sidewinder searches a forward arc out to 900 m. The AMRAAM

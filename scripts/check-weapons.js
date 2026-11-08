@@ -82,7 +82,7 @@ for (const id of Object.keys(CANNONS)) {
 }
 
 {
-  // Everything inside the cone burns; nothing outside it is touched.
+  // Everything inside the cone catches fire; nothing outside it is touched.
   const spec = CANNONS.firebelt;
   const inCone = 150;              // within range, dead ahead
   const behind = -150;             // within range, but behind the nose
@@ -95,32 +95,57 @@ for (const id of Object.keys(CANNONS)) {
   fireGun(world, player, true);
   updateFlames(world);
 
-  check("flame damages an aircraft inside the cone", front.hp < before[0]);
   check("flame ignites an aircraft inside the cone", Boolean(front.burn));
+  // The Firebelt's damage is all fire: the cone itself must do none.
+  check("the flame itself deals no direct damage", front.hp === before[0],
+    `hp ${before[0]} -> ${front.hp}`);
   check("flame does not reach behind the jet", back.hp === before[1] && !back.burn);
   check("flame does not reach past its range", distant.hp === before[2] && !distant.burn);
+
+  // The fire is what actually hurts.
+  updateBurning(world);
+  check("the fire it starts does the damage", front.hp < before[0],
+    `hp still ${front.hp}`);
 }
 
 {
-  // The cone outlives its damage by one tick so the renderer can draw it.
-  // That must not turn into damage landing twice.
+  // The cone outlives its effect by one tick so the renderer can draw it.
   const { world, player, enemies } = setup({ cannon: "firebelt" }, [150]);
   const target = enemies[0];
-  const before = target.hp;
 
   fireGun(world, player, true);
   updateFlames(world);
-  const afterOne = target.hp;
-  const dealt = before - afterOne;
-
-  check("one spray deals its damage once", Math.abs(dealt - CANNONS.firebelt.damage) < 1e-9,
-    `dealt ${dealt}`);
   check("the cone survives a tick so it can be drawn", world.flames.length === 1);
 
-  updateFlames(world); // the lingering cone must not hurt anything again
-  check("the lingering cone deals no further damage", target.hp === afterOne,
-    `hp ${afterOne} -> ${target.hp}`);
+  updateFlames(world);
   check("the cone is cleaned up next tick", world.flames.length === 0);
+}
+
+{
+  // Burning does not stack: re-lighting an already-burning target refreshes
+  // the fire rather than doubling its rate.
+  const { world, player, enemies } = setup({ cannon: "firebelt" }, [150]);
+  const target = enemies[0];
+
+  fireGun(world, player, true);
+  updateFlames(world);
+  const singleRate = (() => {
+    const before = target.hp;
+    updateBurning(world);
+    return before - target.hp;
+  })();
+
+  for (let i = 0; i < 5; i++) { fireGun(world, player, true); updateFlames(world); }
+  const before = target.hp;
+  updateBurning(world);
+  const afterRelights = before - target.hp;
+
+  check("re-lighting refreshes the fire rather than stacking it",
+    Math.abs(afterRelights - singleRate) < 1e-9,
+    `${singleRate} -> ${afterRelights} per tick`);
+  check("the fire burns at the configured rate",
+    Math.abs(singleRate - CANNONS.firebelt.burn.dps / 60) < 1e-9,
+    `${singleRate} per tick`);
 }
 
 {

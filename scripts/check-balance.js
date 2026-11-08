@@ -21,7 +21,7 @@
 
 import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
-  BOMBS, BOMB_IDS, PLAYER, cannonDps, cannonReach,
+  BOMBS, BOMB_IDS, PLAYER, cannonDps, cannonReach, cannonLingering,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
@@ -71,14 +71,18 @@ assertNoDominance("AIRFRAMES", PLANE_IDS, PLANES, {
 
 // --- cannons ---------------------------------------------------------------
 assertNoDominance("CANNONS", CANNON_IDS, CANNONS, {
-  /** Sustained damage on one target, which is what rate of fire really buys. */
+  /** Sustained damage on one target, fire included. */
   dps: cannonDps,
   /** Damage landed by a single trigger event. */
   burst: (c) => (c.kind === "flame" ? c.damage : c.barrels * c.damage),
-  rateOfFire: (c) => 1 / c.cooldown,
   /** How far it can actually hurt something, in world units. */
   reach: cannonReach,
-  burnDps: (c) => (c.burn ? c.burn.dps : 0),
+  /**
+   * Damage that keeps landing after the weapon stops touching the target.
+   * This is the Firebelt's only win, and the reason it is not dominated now
+   * that its fire is folded into the damage figure.
+   */
+  lingering: cannonLingering,
 });
 
 // --- missiles --------------------------------------------------------------

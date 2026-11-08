@@ -49,10 +49,10 @@ const AXES = {
     ["SPEED", (p) => p.maxSpeed, kmh],
   ],
   cannon: [
+    // Fire damage is folded into DAMAGE rather than shown apart from it.
     ["DAMAGE", cannonDps, perSecond],
     ["REACH", cannonReach, metres],
     ["PIERCE", (c) => c.pierce, (v) => `x${v}`],
-    ["BURN", (c) => (c.burn ? c.burn.dps : 0), (v) => (v ? perSecond(v) : "none")],
   ],
   missile: [
     ["AMMO", (m) => m.carried, count],

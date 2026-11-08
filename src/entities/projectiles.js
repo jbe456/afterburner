@@ -60,8 +60,11 @@ export function updateFlames(world) {
       if (Math.abs(angDiff(Math.atan2(dy, dx), flame.angle)) > spec.coneHalfAngle) continue;
 
       ignite(world, e, spec.burn);
-      // Quiet: this lands every tick, so it must not sound like a hit each time.
-      damageEnemy(world, e, spec.damage, e.x, e.y, { quiet: true });
+      // The flame itself may do nothing — the Firebelt's damage is all fire.
+      if (spec.damage > 0) {
+        // Quiet: this lands every tick, so it must not sound like a hit each time.
+        damageEnemy(world, e, spec.damage, e.x, e.y, { quiet: true });
+      }
     }
 
     flame.spent = true;

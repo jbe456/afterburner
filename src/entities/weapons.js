@@ -95,8 +95,8 @@ function sprayFlame(world, player, spec) {
     });
   }
 
-  // A continuous roar rather than one bark per tick.
-  if (world.time % 6 === 0) sfx.flame();
+  // Re-open the roar often enough that it never audibly gutters out.
+  if (world.time % 4 === 0) sfx.flame();
 }
 
 /** True if the chosen missile is willing to leave the rail right now. */
