@@ -35,7 +35,7 @@ function check(name, condition, detail = "") {
  */
 function runScenario(bombId, { enemyDistance, playerDistance, enemyType = DUMMY }) {
   const spec = BOMBS[bombId];
-  const world = createWorld({ plane: "bastion", bomb: bombId });
+  const world = createWorld({ armour: "heavy", bomb: bombId });
   world.player.x = 0;
   world.player.y = 0;
   world.player.hp = 100000; // measure the hit rather than dying to it
@@ -112,7 +112,7 @@ for (const bombId of TIMED) {
  */
 function runMineScenario(bombId, { passDistance, mover = "player", waitTicks = 400 }) {
   const spec = BOMBS[bombId];
-  const world = createWorld({ plane: "bastion", bomb: bombId });
+  const world = createWorld({ armour: "heavy", bomb: bombId });
   world.player.x = 0;
   world.player.y = 0;
   world.player.hp = 100000;

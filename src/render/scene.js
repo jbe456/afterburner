@@ -244,9 +244,8 @@ function drawAircraft(ctx, world) {
     // Blink while the spawn invulnerability lasts.
     const blink = player.invuln > 0 && Math.floor(time / 4) % 2 === 0;
     if (!blink) {
-      const s = player.stats;
       drawHull(ctx, "jet", player.x, player.y, player.angle, PLAYER.scale,
-        s.color, s.accent, false, 0.35 + player.boost * 0.65, time);
+        PLAYER.color, PLAYER.accent, false, 0.35 + player.boost * 0.65, time);
     }
   }
 }

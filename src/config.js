@@ -32,59 +32,72 @@ export const ARENA_DAMAGE_EDGE = ARENA_HALF - 120;
 export const ARENA_WARN_EDGE = ARENA_HALF - 1000;
 export const EDGE_DAMAGE_PER_TICK = 0.16; // ~9.6 hp/sec
 
-// --- playable airframes -----------------------------------------------------
+// --- the aircraft ------------------------------------------------------------
 /**
- * The three jets the player can choose from.
+ * There is one airframe. What differs is what you bolt to it, and two of those
+ * fittings decide how it flies rather than how it shoots.
  *
- * An airframe differs from the others in exactly two numbers: how much damage
- * it absorbs and how fast it can go. Everything else — weapons, turn rate,
- * acceleration, hitbox, cruise and stall speed — is shared, and lives in
- * PLAYER below.
+ * Armour sets how much damage the hull absorbs. Engine sets top speed, and
+ * nothing else for now — cruise, stall, turn rate and acceleration are shared,
+ * so the engine is purely how fast you can run.
  *
- * The roster is a straight line through that pair: one plane sits in the
- * middle, one trades speed for hull, one trades hull for speed. No plane is
- * better than another at both, which `npm test` enforces.
+ * Note that neither ladder has a cost attached yet: heavier armour is strictly
+ * better than light, and a stronger engine strictly better than a weak one.
+ * They are a ladder, not a choice, until something is traded against them.
  */
-export const PLANES = {
-  viper: {
-    id: "viper",
-    name: "VIPER",
-    role: "Balanced",
-    color: "#3f7fd4", accent: "#8fd3ff",
-    maxHp: 100,
-    maxSpeed: 8.5,
+export const ARMOUR = {
+  light: {
+    id: "light",
+    name: "LIGHT HULL",
+    short: "LIGHT",
+    maxHp: 70,
   },
-
-  bastion: {
-    id: "bastion",
-    name: "BASTION",
-    role: "Armoured",
-    color: "#6b7f9e", accent: "#b9cce4",
+  standard: {
+    id: "standard",
+    name: "STANDARD HULL",
+    short: "STANDARD",
+    maxHp: 100,
+  },
+  heavy: {
+    id: "heavy",
+    name: "ARMOURED HULL",
+    short: "ARMOURED",
     maxHp: 150,
+  },
+};
+
+export const ENGINES = {
+  turbofan: {
+    id: "turbofan",
+    name: "TURBOFAN",
+    short: "TURBOFAN",
     maxSpeed: 7.0,
   },
-
-  sabre: {
-    id: "sabre",
-    name: "SABRE",
-    role: "Fast",
-    color: "#2fb0d4", accent: "#9fe4ff",
-    maxHp: 70,
+  turbojet: {
+    id: "turbojet",
+    name: "TURBOJET",
+    short: "TURBOJET",
+    maxSpeed: 8.5,
+  },
+  ramjet: {
+    id: "ramjet",
+    name: "RAMJET",
+    short: "RAMJET",
     maxSpeed: 10.2,
   },
 };
 
-export const PLANE_IDS = Object.keys(PLANES);
-export const DEFAULT_PLANE = "viper";
+export const ARMOUR_IDS = Object.keys(ARMOUR);
+export const ENGINE_IDS = Object.keys(ENGINES);
 
 /**
- * Everything that is the same whichever jet you chose.
- *
- * Only hull and top speed live on the airframes themselves; every other
- * number is here, so there is one place to tune how the player's jet feels
- * and exactly one pair of numbers that distinguishes the planes.
+ * The airframe itself: everything the fittings do not decide.
  */
 export const PLAYER = {
+  // Livery. There is only one aircraft, so it only needs one.
+  color: "#3f7fd4",
+  accent: "#8fd3ff",
+
   // Handling, identical on every airframe. Weapons live in CANNONS /
   // MISSILES / BOMBS above, because they are chosen separately now.
   minSpeed: 2.2,
@@ -373,7 +386,8 @@ export const BOMB_IDS = Object.keys(BOMBS);
 
 /** What a pilot flies with before they touch anything in the hangar. */
 export const DEFAULT_LOADOUT = {
-  plane: "viper",
+  armour: "standard",
+  engine: "turbojet",
   cannon: "vulcan",
   missile: "sidewinder",
   bomb: "mk82",

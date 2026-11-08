@@ -8,7 +8,7 @@
  */
 
 import {
-  PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
+  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
   cannonDps, cannonReach, cannonRate,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps,
@@ -53,10 +53,8 @@ const kmh = (v) => `${Math.round(v * KMH_PER_SPEED_UNIT)} km/h`;
  * them — though on FUSE "more" is a longer wait, not a better bomb.
  */
 const AXES = {
-  plane: [
-    ["HULL", (p) => p.maxHp, count],
-    ["SPEED", (p) => p.maxSpeed, kmh],
-  ],
+  armour: [["HULL", (a) => a.maxHp, count]],
+  engine: [["SPEED", (e) => e.maxSpeed, kmh]],
   cannon: [
     // Fire damage is folded into DAMAGE rather than shown apart from it.
     ["DAMAGE", cannonDps, perSecond],
@@ -120,13 +118,12 @@ function barsFor(slot, ids, table) {
 }
 
 const BARS = {
-  plane: barsFor("plane", PLANE_IDS, PLANES),
+  armour: barsFor("armour", ARMOUR_IDS, ARMOUR),
+  engine: barsFor("engine", ENGINE_IDS, ENGINES),
   cannon: barsFor("cannon", CANNON_IDS, CANNONS),
   missile: barsFor("missile", MISSILE_IDS, MISSILES),
   bomb: barsFor("bomb", BOMB_IDS, BOMBS),
 };
-
-const SELECT_KEYS = ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5"];
 
 /** The current selection, seeded from storage and repaired against config. */
 const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout()) };
@@ -134,7 +131,10 @@ let menuKeyHandler = null;
 
 /** Drops any saved id that no longer names a real plane or weapon. */
 function validated(saved) {
-  const tables = { plane: PLANES, cannon: CANNONS, missile: MISSILES, bomb: BOMBS };
+  const tables = {
+    armour: ARMOUR, engine: ENGINES,
+    cannon: CANNONS, missile: MISSILES, bomb: BOMBS,
+  };
   const out = {};
   for (const [slot, table] of Object.entries(tables)) {
     if (saved[slot] && table[saved[slot]]) out[slot] = saved[slot];
@@ -150,10 +150,12 @@ export function showMenu(onStart, onShowIntel) {
   panel().className = "panel wide";
   panel().innerHTML = `
     <h1>AFTERBURNER</h1>
-    <div class="sub">Select your airframe</div>
-    <div class="hangar">${PLANE_IDS.map(planeCard).join("")}</div>
+    <div class="sub">Fit out your aircraft</div>
+    <div class="airframe" id="airframe">${airframeSummary()}</div>
 
     <div class="loadout">
+      ${weaponRow("armour", "HULL", ARMOUR_IDS, ARMOUR)}
+      ${weaponRow("engine", "ENGINE", ENGINE_IDS, ENGINES)}
       ${weaponRow("cannon", "CANNON", CANNON_IDS, CANNONS)}
       ${weaponRow("missile", "MISSILE", MISSILE_IDS, MISSILES)}
       ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
@@ -166,23 +168,28 @@ export function showMenu(onStart, onShowIntel) {
     <div class="hint">Any airframe can carry any loadout · a longer bar is more of that thing</div>
     <button class="linkish" id="intel">Know your enemy &rsaquo;</button>`;
 
-  for (const card of panel().querySelectorAll(".plane")) {
-    card.addEventListener("click", () => select("plane", card.dataset.id));
-    card.addEventListener("dblclick", onStart);
-  }
   for (const opt of panel().querySelectorAll(".opt")) {
     opt.addEventListener("click", () => select(opt.dataset.slot, opt.dataset.id));
   }
 
   document.getElementById("intel").onclick = onShowIntel;
 
-  menuKeyHandler = (e) => {
-    const i = SELECT_KEYS.indexOf(e.code);
-    if (i >= 0 && i < PLANE_IDS.length) select("plane", PLANE_IDS[i]);
-  };
-  addEventListener("keydown", menuKeyHandler);
-
   show(onStart);
+}
+
+/**
+ * What the current fittings add up to, shown above the rows so the
+ * consequence of a choice is visible at the moment it is made — pick a bigger
+ * engine and the speed here changes.
+ */
+function airframeSummary() {
+  return `
+    ${silhouette()}
+    <div class="airframe-figures">
+      <span>${ARMOUR[chosen.armour].maxHp}</span> hull
+      <i>·</i>
+      <span>${kmh(ENGINES[chosen.engine].maxSpeed)}</span> top speed
+    </div>`;
 }
 
 // --- enemy roster -----------------------------------------------------------
@@ -254,21 +261,6 @@ function foeCard(id) {
     </div>`;
 }
 
-function planeCard(id, index) {
-  const plane = PLANES[id];
-  return `
-    <div class="plane${id === chosen.plane ? " selected" : ""}" data-id="${id}"
-         style="--livery:${plane.color}">
-      <div class="plane-top">
-        <span class="plane-name">${plane.name}</span>
-        <span class="plane-key">${index + 1}</span>
-      </div>
-      <div class="plane-role">${plane.role}</div>
-      ${silhouette(plane)}
-      <div class="stats-grid">${BARS.plane(plane)}</div>
-    </div>`;
-}
-
 // --- weapon rows ------------------------------------------------------------
 
 function weaponRow(slot, label, ids, table) {
@@ -297,6 +289,33 @@ function weaponRow(slot, label, ids, table) {
  * `main` is the body, `dim` the secondary detail.
  */
 const WEAPON_ART = {
+  // --- hull: a shield gaining plates ---
+  light: `<path class="main" d="M0,-13 L13,-7 L13,4 L0,14 L-13,4 L-13,-7 Z"/>`,
+  standard: `
+    <path class="main" d="M0,-13 L13,-7 L13,4 L0,14 L-13,4 L-13,-7 Z"/>
+    <path class="dim" d="M0,-9 L9,-4.5 L9,2 L0,9 L-9,2 L-9,-4.5 Z"/>`,
+  heavy: `
+    <path class="main" d="M0,-13 L13,-7 L13,4 L0,14 L-13,4 L-13,-7 Z"/>
+    <path class="dim" d="M0,-9 L9,-4.5 L9,2 L0,9 L-9,2 L-9,-4.5 Z"/>
+    <path class="main" d="M0,-5 L5,-2.5 L5,1 L0,5 L-5,1 L-5,-2.5 Z"/>`,
+
+  // --- engine: a nozzle with more thrust behind it ---
+  turbofan: `
+    <path class="main" d="M4,-8 L12,-10 L12,10 L4,8 Z"/>
+    <rect class="dim" x="-2" y="-5" width="7" height="10" rx="2"/>
+    <path class="arc" d="M-6,-5 Q-11,0 -6,5"/>`,
+  turbojet: `
+    <path class="main" d="M4,-8 L12,-10 L12,10 L4,8 Z"/>
+    <rect class="dim" x="-2" y="-5" width="7" height="10" rx="2"/>
+    <path class="arc" d="M-6,-5 Q-11,0 -6,5"/>
+    <path class="arc" d="M-12,-7 Q-18,0 -12,7"/>`,
+  ramjet: `
+    <path class="main" d="M4,-8 L12,-10 L12,10 L4,8 Z"/>
+    <rect class="dim" x="-2" y="-5" width="7" height="10" rx="2"/>
+    <path class="arc" d="M-6,-5 Q-11,0 -6,5"/>
+    <path class="arc" d="M-12,-7 Q-18,0 -12,7"/>
+    <path class="arc" d="M-18,-9 Q-25,0 -18,9"/>`,
+
   // --- cannons: breech on the left, business end on the right ---
   vulcan: `
     <rect class="dim" x="-18" y="-7" width="10" height="14" rx="2"/>
@@ -377,17 +396,17 @@ function weaponArt(id) {
 }
 
 /**
- * The same polygons the canvas renderer uses, so the card art is the actual
- * airframe — nose up. Every plane shares one hitbox, so one scale.
+ * The same polygons the canvas renderer uses, so the hangar shows the actual
+ * aircraft — nose up.
  */
-function silhouette(plane) {
+function silhouette() {
   const wing = (s) => `<polygon points="4,${3 * s} -9,${21 * s} -15,${21 * s} -9,${3 * s}"/>`;
   const tail = (s) => `<polygon points="-13,${2.5 * s} -20,${10 * s} -23,${10 * s} -19,${2.5 * s}"/>`;
   return `
-    <svg class="plane-art" viewBox="-32 -32 64 64" aria-hidden="true">
+    <svg class="airframe-art" viewBox="-32 -32 64 64" aria-hidden="true">
       <g transform="rotate(-90) scale(${PLAYER.scale})">
-        <g fill="${plane.accent}">${wing(-1)}${wing(1)}${tail(-1)}${tail(1)}</g>
-        <polygon fill="${plane.color}"
+        <g fill="${PLAYER.accent}">${wing(-1)}${wing(1)}${tail(-1)}${tail(1)}</g>
+        <polygon fill="${PLAYER.color}"
           points="23,0 9,-4.5 -14,-5 -18,-3.8 -18,3.8 -14,5 9,4.5"/>
       </g>
     </svg>`;
@@ -396,9 +415,15 @@ function silhouette(plane) {
 function select(slot, id) {
   chosen[slot] = id;
   saveLoadoutSlot(slot, id);
-  const selector = slot === "plane" ? ".plane" : `.opt[data-slot="${slot}"]`;
-  for (const el of panel().querySelectorAll(selector)) {
+
+  for (const el of panel().querySelectorAll(`.opt[data-slot="${slot}"]`)) {
     el.classList.toggle("selected", el.dataset.id === id);
+  }
+
+  // Hull and engine are the two the summary above reports on.
+  const summary = document.getElementById("airframe");
+  if (summary && (slot === "armour" || slot === "engine")) {
+    summary.innerHTML = airframeSummary();
   }
 }
 
@@ -412,7 +437,7 @@ export function showGameOver(world, onFlyAgain, onChangePlane) {
   panel().className = "panel dead";
   panel().innerHTML = `
     <h1>SHOT DOWN</h1>
-    <div class="sub">${p.stats.name} · ejection successful</div>
+    <div class="sub">ejection successful</div>
     <div class="stats">
       SCORE <span>${world.score}</span><br>
       KILLS <span>${world.kills}</span> &nbsp;·&nbsp; WAVE <span>${world.wave}</span><br>

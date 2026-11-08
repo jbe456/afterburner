@@ -218,61 +218,28 @@ h1 {
   margin-bottom: 18px;
 }
 
-/* --- hangar: the airframe picker --- */
+/* --- the one airframe, and what the fittings make of it --- */
 
-.hangar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 10px;
-  margin-bottom: 26px;
+.airframe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 10px 0 20px;
 }
 
-.plane {
-  --livery: #3f7fd4;
-  text-align: left;
-  padding: 12px 12px 14px;
-  border: 1px solid rgba(120, 160, 200, .22);
-  background: rgba(14, 24, 36, .55);
-  cursor: pointer;
-  transition: border-color .15s, background .15s, transform .15s;
-  user-select: none;
+.airframe-art { display: block; width: 76px; height: 76px; }
+
+.airframe-figures {
+  font-size: 13px;
+  letter-spacing: .05em;
+  color: #76899c;
 }
 
-.plane:hover { border-color: rgba(150, 200, 245, .5); background: rgba(22, 38, 56, .7); }
+.airframe-figures span { color: #f4f8fc; font-weight: 700; font-size: 17px; }
+.airframe-figures i { font-style: normal; color: #44596e; margin: 0 8px; }
 
-.plane.selected {
-  border-color: var(--livery);
-  background: color-mix(in srgb, var(--livery) 16%, rgba(14, 24, 36, .7));
-  box-shadow: 0 0 20px -4px var(--livery);
-  transform: translateY(-2px);
-}
-
-.plane-top { display: flex; align-items: baseline; justify-content: space-between; }
-
-.plane-name {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: .1em;
-  color: #f4f8fc;
-}
-
-.plane-key {
-  font-size: 10px;
-  color: #5f7790;
-  border: 1px solid rgba(120, 160, 200, .3);
-  padding: 1px 5px;
-}
-
-.plane-role {
-  font-size: 10px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--livery);
-  filter: brightness(1.45);
-  margin-top: 2px;
-}
-
-.plane-art { display: block; width: 58px; height: 58px; margin: 6px auto 8px; }
+/* --- option cards: shared by every loadout row --- */
 
 .stats-grid { display: grid; gap: 4px; margin-bottom: 9px; }
 
@@ -301,7 +268,7 @@ h1 {
   text-align: right;
 }
 
-.plane.selected .stat u, .opt.selected .stat u { color: #e6eff8; }
+.opt.selected .stat u { color: #e6eff8; }
 
 .track { height: 4px; background: rgba(255, 255, 255, .08); }
 

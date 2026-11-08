@@ -4,7 +4,6 @@
  */
 
 const BEST_KEY = "afterburner.best";
-const PLANE_KEY = "afterburner.plane";
 
 function read(key) {
   try {
@@ -31,7 +30,8 @@ export const saveBest = (score) => write(BEST_KEY, String(score));
  * value cannot take the rest with it.
  */
 const SLOT_KEYS = {
-  plane: PLANE_KEY,
+  armour: "afterburner.armour",
+  engine: "afterburner.engine",
   cannon: "afterburner.cannon",
   missile: "afterburner.missile",
   bomb: "afterburner.bomb",

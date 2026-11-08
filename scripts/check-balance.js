@@ -1,18 +1,22 @@
 /**
- * Guards the promises the hangar makes about everything you can choose.
+ * Guards what the hangar promises about each row of fittings.
  *
- *   1. Within each category — airframe, cannon, missile, bomb — no option is
- *      better than another at everything. Each must lose to each sibling on
+ *   1. Weapons are choices. Within cannon, missile and bomb, no option is
+ *      better than another at everything — each must lose to each sibling on
  *      at least one axis. Easy to break while tuning: bump one number and an
  *      option quietly becomes strictly better, collapsing a real choice into
  *      a single correct answer.
  *
- *   2. Every airframe carries an identical loadout. Planes differ in how they
- *      fly, never in what they shoot, so a weapon stat drifting back onto
- *      PLANES would reintroduce a damage difference with nothing on screen to
- *      show it.
+ *   2. Hull and engine are ladders. They are deliberately ordered weakest to
+ *      strongest with nothing traded against them, so the check here is the
+ *      opposite one — that the order actually holds. Until a cost is attached
+ *      (weight against agility, or a budget across the rows) these are not
+ *      choices and should not be tested as though they were.
  *
- * Run after touching PLANES, CANNONS, MISSILES, BOMBS or PLAYER in config.js.
+ *   3. The fittings that decide how the aircraft flies must not touch what it
+ *      shoots. Armour and engine change hull and speed, nothing else.
+ *
+ * Run after touching ARMOUR, ENGINES, CANNONS, MISSILES, BOMBS or PLAYER.
  *
  *   npm test
  *
@@ -20,8 +24,9 @@
  */
 
 import {
-  PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
-  BOMBS, BOMB_IDS, PLAYER, cannonDps, cannonReach, cannonLingering, cannonRate,
+  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, CANNONS, CANNON_IDS,
+  MISSILES, MISSILE_IDS, BOMBS, BOMB_IDS, PLAYER,
+  cannonDps, cannonReach, cannonLingering, cannonRate, KMH_PER_SPEED_UNIT,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
@@ -63,11 +68,29 @@ function assertNoDominance(category, ids, table, axes) {
   }
 }
 
-// --- airframes: hull against top speed, and nothing else ------------------
-assertNoDominance("AIRFRAMES", PLANE_IDS, PLANES, {
-  hull: (p) => p.maxHp,
-  topSpeed: (p) => p.maxSpeed,
-});
+/**
+ * Asserts a row is ordered weakest to strongest as declared. A ladder has no
+ * tradeoff by design, so the only thing worth checking is that its order is
+ * real — a typo that made the middle rung the best would otherwise be silent.
+ */
+function assertLadder(category, ids, table, label, read) {
+  console.log(`\n${category} (a ladder, not a choice)`);
+  console.table(ids.map((id) => ({ option: table[id].name, [label]: read(table[id]) })));
+
+  for (let i = 1; i < ids.length; i++) {
+    const below = table[ids[i - 1]];
+    const rung = table[ids[i]];
+    const ok = read(rung) > read(below);
+    if (!ok) failures++;
+    console.log(`  ${ok ? "pass" : "FAIL"}  ${rung.name} beats ${below.name}`
+      + (ok ? "" : `  ${read(below)} -> ${read(rung)}`));
+  }
+}
+
+// --- the two fittings that decide how it flies ----------------------------
+assertLadder("HULL", ARMOUR_IDS, ARMOUR, "hull", (a) => a.maxHp);
+assertLadder("ENGINE", ENGINE_IDS, ENGINES, "km/h",
+  (e) => Math.round(e.maxSpeed * KMH_PER_SPEED_UNIT));
 
 // --- cannons ---------------------------------------------------------------
 assertNoDominance("CANNONS", CANNON_IDS, CANNONS, {
@@ -113,10 +136,10 @@ assertNoDominance("BOMBS", BOMB_IDS, BOMBS, {
   contact: (b) => (b.trigger === "contact" ? 1 : 0),
 });
 
-// --- every airframe shoots the same ---------------------------------------
+// --- hull and engine must not touch the guns ------------------------------
 /** Fires one of everything and reports what actually came out. */
-function observeLoadout(planeId) {
-  const world = createWorld({ plane: planeId });
+function observeLoadout(armourId, engineId) {
+  const world = createWorld({ armour: armourId, engine: engineId });
   const p = world.player;
   p.x = 0; p.y = 0; p.angle = 0; p.speed = 0;
 
@@ -127,7 +150,7 @@ function observeLoadout(planeId) {
   fireMissile(world);
 
   return {
-    plane: PLANES[planeId].name,
+    fitted: `${ARMOUR[armourId].short} + ${ENGINES[engineId].short}`,
     missileLoad: p.missiles + p.missile.perShot, // a salvo was just fired
     missileCooldown: p.missileCooldown,
     bombs: p.bombs,
@@ -142,14 +165,14 @@ function observeLoadout(planeId) {
   };
 }
 
-console.log("\nSHARED LOADOUT (same weapons on every airframe)");
-const loadouts = PLANE_IDS.map(observeLoadout);
+console.log("\nSHARED LOADOUT (hull and engine must not change the guns)");
+const loadouts = ARMOUR_IDS.flatMap((a) => ENGINE_IDS.map((e) => observeLoadout(a, e)));
 console.table(loadouts);
 
-const keys = Object.keys(loadouts[0]).filter((k) => k !== "plane");
+const keys = Object.keys(loadouts[0]).filter((k) => k !== "fitted");
 const varying = keys.filter((k) => new Set(loadouts.map((l) => l[k])).size > 1);
 if (varying.length) {
-  console.error(`  FAIL  loadout varies by airframe: ${varying.join(", ")}`);
+  console.error(`  FAIL  loadout varies with hull or engine: ${varying.join(", ")}`);
   failures++;
 }
 
@@ -157,4 +180,4 @@ if (failures) {
   console.error(`\nFAIL — ${failures} problem(s)`);
   process.exit(1);
 }
-console.log("\nPASS — every category is a real choice, and all airframes shoot the same");
+console.log("\nPASS — weapons are real choices, the ladders hold, and fittings do not touch the guns");

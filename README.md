@@ -26,36 +26,34 @@ The build inlines the JS and CSS into a single self-contained HTML file you can
 open straight from disk or drop on any static host. It needs Bun (for its
 bundler); development does not.
 
-## Airframes
+## Your aircraft
 
-You pick a jet in the hangar before each run. There are three, and an
-airframe differs from the others in **exactly two numbers**: hull and top
-speed. Weapons, turn rate, acceleration, hitbox, cruise and stall speed are
-all identical, and live in `PLAYER` in `src/config.js`.
+There is one airframe. What you choose is what to bolt onto it, in five rows:
+hull, engine, cannon, missile and bomb. The hangar shows the aircraft above
+the rows with the figures your current picks add up to, so the consequence of
+a choice is visible as you make it.
 
-| | Role | Hull | Top speed |
-| --- | --- | --- | --- |
-| **Viper** | Balanced | 100 | 1836 km/h |
-| **Bastion** | Armoured | 150 | 1512 km/h |
-| **Sabre** | Fast | 70 | 2203 km/h |
+| Hull | | | Engine | |
+| --- | --- | --- | --- | --- |
+| **Light** | 70 | | **Turbofan** | 1512 km/h |
+| **Standard** | 100 | | **Turbojet** | 1836 km/h |
+| **Armoured** | 150 | | **Ramjet** | 2203 km/h |
 
-Speeds are stored as world units per tick (8.5, 7.0, 10.2) and shown in km/h,
-treating one world unit as one metre — see `KMH_PER_SPEED_UNIT` in
-`src/config.js`.
+The engine sets top speed and nothing else — cruise, stall, turn rate and
+acceleration are shared — so it is purely how fast you can run.
 
-So the roster is a straight line through one tradeoff: hull for speed. No
-plane is better than another at both.
-
-`npm test` enforces that. It compares every plane against every other and
-fails if one is never-worse, then fires each jet's gun and missiles and
-samples its turn rate and hitbox, failing if anything other than hull and top
-speed differs.
+**These two rows are ladders, not choices.** Heavier armour is strictly better
+than light, and a stronger engine strictly better than a weak one, because
+nothing is traded against them yet. `npm test` checks that the order holds
+rather than pretending there is a tradeoff to protect; give them a cost — mass
+against turn rate, or a budget shared across the rows — and the no-dominance
+check that guards the weapons applies to them too.
 
 ## Loadout
 
-Separately from the airframe you pick a cannon, a missile and a bomb. Every
-plane can carry any combination, and the same no-dominance rule applies inside
-each category.
+The three weapon rows are real choices: the same no-dominance rule applies
+inside each category, so no cannon, missile or bomb is better than its
+siblings at everything.
 
 | Cannon | | |
 | --- | --- | --- |
@@ -78,8 +76,8 @@ each category.
 
 Damage scales with the size of the blast and is flat inside the radius, so the
 circle drawn on the ground means exactly what it looks like. Nothing is immune,
-including you — but nothing is guaranteed dead either. A Bastion can walk away
-from its own dynamite; a Sabre cannot.
+including you — but nothing is guaranteed dead either. An armoured hull walks
+away from its own dynamite; a light one does not.
 
 The **proximity mine** is the odd one. It has no fuse at all: it sits where you
 dropped it indefinitely, and goes off when any aircraft comes within 46 m of
@@ -113,7 +111,7 @@ pierce depth, ignition and its damage-over-time, salvo size, and the lock
 requirement. `check-bomb.js` proves each bomb kills friend and foe at its own
 radius on its own fuse, and that each is escapable at cruise speed.
 
-Every card in the hangar — airframe and weapon alike — is a name, a drawing
+Every card in the hangar is a name, a drawing
 and a set of bars. Each bar states its own value and unit inline, and is
 normalised against the other options in its own category. Nothing is
 hand-authored, so a card cannot advertise something the simulation does not
@@ -121,9 +119,9 @@ do. The prose descriptions that used to sit on each card live here in the
 README instead.
 
 Because the turn-rate penalty is measured against a shared reference speed
-rather than each plane's own maximum, two jets at the same airspeed corner
-identically — and going fast costs turn. The Sabre at full throttle is the
-worst-turning thing in the sky.
+rather than any particular top speed, going fast costs turn: flat out on a
+ramjet is the worst-turning you will ever be, and throttling back is how you
+get it back.
 
 ## Enemies
 
@@ -211,7 +209,7 @@ the plain fighter shape).
 
 Turn rate scales *inversely* with airspeed, so slowing down turns tighter.
 That one rule is what makes throttle management, rather than reflexes, decide
-a turning fight — and it is identical on every airframe.
+a turning fight — and it does not depend on which engine you fitted.
 
 ### The bomb
 
@@ -255,7 +253,7 @@ src/
 │   ├── scene.js        The world pass, and the camera
 │   ├── hulls.js        Seven airframe silhouettes, drawn as vector paths
 │   └── hud.js          Instruments, radar, warnings
-├── ui/screens.js       Hangar (plane + loadout pickers) and game-over overlays
+├── ui/screens.js       Hangar (five loadout rows) and game-over overlays
 └── styles.css          Styling for those overlays (the game itself is all canvas)
 scripts/
 ├── serve.js            Dev server
@@ -293,7 +291,8 @@ slow motion, and the physics behave identically on a 60 Hz and a 144 Hz display.
   reading simulation code.
 - **No timers in gameplay.** Delays are tick countdowns on `world`, not
   `setTimeout`, so they pause with the game and stay deterministic.
-- **Per-plane stats live on `player.stats`**, not in module-level constants,
-  so the flight model reads the same whichever airframe you chose.
+- **Chosen fittings hang off the player** as `armour`, `engine`, `cannon`,
+  `missile` and `bomb` specs, so the simulation reads whatever was picked and
+  knows nothing about the hangar.
 - **Angles are radians**, `0` points along +X, and `steer()` in `core/math.js`
   is how anything rotates toward a heading the short way round.

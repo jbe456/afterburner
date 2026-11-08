@@ -5,8 +5,9 @@
  * with airspeed, so slowing down turns tighter. That one rule is what makes
  * throttle management, rather than reflexes, decide a turning fight.
  *
- * Per-airframe numbers live on `player.stats` (see PLANES in config.js); only
- * the handful of properties every jet shares come from PLAYER.
+ * There is one airframe. Two fittings change how it flies — armour sets how
+ * much it absorbs, the engine sets top speed — and both hang off the player
+ * as specs. Everything else comes from PLAYER.
  */
 
 import { clamp, angDiff, rand } from "../core/math.js";
@@ -14,7 +15,7 @@ import { input, isDown } from "../core/input.js";
 import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
-  PLAYER, PLANES, CANNONS, MISSILES, BOMBS, DEFAULT_LOADOUT, LOCK,
+  PLAYER, ARMOUR, ENGINES, CANNONS, MISSILES, BOMBS, DEFAULT_LOADOUT, LOCK,
   ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
 import { fireGun, fireMissile, dropBomb } from "./weapons.js";
@@ -24,21 +25,25 @@ import { explode, addShake } from "./effects.js";
 const DEATH_DELAY = 72;
 
 /**
- * @param {{plane?:string, cannon?:string, missile?:string, bomb?:string}} loadout
- *   Ids chosen in the hangar. Anything missing or unrecognised — a weapon
+ * @param {{armour?:string, engine?:string, cannon?:string, missile?:string,
+ *          bomb?:string}} loadout
+ *   Ids chosen in the hangar. Anything missing or unrecognised — a fitting
  *   removed since the choice was saved — falls back to the default.
  */
 export function createPlayer(loadout = {}) {
   const pick = (table, id, fallback) => table[id] ?? table[fallback];
 
-  const stats = pick(PLANES, loadout.plane, DEFAULT_LOADOUT.plane);
+  const armour = pick(ARMOUR, loadout.armour, DEFAULT_LOADOUT.armour);
+  const engine = pick(ENGINES, loadout.engine, DEFAULT_LOADOUT.engine);
   const cannon = pick(CANNONS, loadout.cannon, DEFAULT_LOADOUT.cannon);
   const missile = pick(MISSILES, loadout.missile, DEFAULT_LOADOUT.missile);
   const bomb = pick(BOMBS, loadout.bomb, DEFAULT_LOADOUT.bomb);
 
   return {
-    /** The chosen airframe's stat block: hull and top speed. */
-    stats,
+    /** How much the hull absorbs. */
+    armour,
+    /** Top speed, and nothing else. */
+    engine,
     /** The three chosen weapon specs. */
     cannon,
     missile,
@@ -47,7 +52,7 @@ export function createPlayer(loadout = {}) {
     y: 0,
     angle: -Math.PI / 2, // nose north
     speed: PLAYER.cruiseSpeed,
-    hp: stats.maxHp,
+    hp: armour.maxHp,
     alive: true,
     gunCooldown: 0,
     missiles: missile.carried,
@@ -136,7 +141,7 @@ function applyThrottle(p) {
   const braking = isDown("KeyS", "ArrowDown");
 
   // Top speed is the airframe's; everything else about the throttle is shared.
-  const target = burning ? p.stats.maxSpeed
+  const target = burning ? p.engine.maxSpeed
     : braking ? PLAYER.minSpeed
     : PLAYER.cruiseSpeed;
   p.speed += clamp(target - p.speed, -PLAYER.brake, PLAYER.accel);

@@ -54,15 +54,14 @@ function drawDamageVignette(ctx, world) {
 /** Hull, throttle and missile rack, stacked top-left. */
 function drawInstruments(ctx, world) {
   const p = world.player;
-  const s = p.stats;
   ctx.textAlign = "left";
   ctx.font = `11px ${MONO}`;
 
-  // Hull — labelled with the airframe so you can see what you picked.
+  // Hull — labelled with the armour fitted, so you can see what you picked.
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText(s.name, 22, 32);
+  ctx.fillText(p.armour.short, 22, 32);
   const barW = 230, barH = 13;
-  const hpFrac = Math.max(0, p.hp / s.maxHp);
+  const hpFrac = Math.max(0, p.hp / p.armour.maxHp);
   ctx.fillStyle = "rgba(0,0,0,.45)";
   ctx.fillRect(22, 40, barW, barH);
   ctx.fillStyle = hpFrac > 0.5 ? "#4fd48a" : hpFrac > 0.25 ? "#ffd166" : "#ff5c5c";
@@ -80,7 +79,7 @@ function drawInstruments(ctx, world) {
   ctx.textAlign = "left";
   ctx.fillStyle = "#6f8ba6";
   ctx.font = `10px ${MONO}`;
-  ctx.fillText(`/ ${s.maxHp}`, 22 + barW + 37, 51);
+  ctx.fillText(`/ ${p.armour.maxHp}`, 22 + barW + 37, 51);
 
   // Airspeed
   ctx.font = `11px ${MONO}`;
@@ -94,6 +93,8 @@ function drawInstruments(ctx, world) {
   ctx.font = `10px ${MONO}`;
   ctx.fillStyle = "#6f8ba6";
   ctx.fillText("km/h", 102, 72);
+  ctx.fillStyle = "#56708a";
+  ctx.fillText(p.engine.short, 140, 72);
 
   ctx.font = `11px ${MONO}`;
 

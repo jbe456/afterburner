@@ -107,7 +107,7 @@ console.log("\nSWARM ARRIVAL");
     // may contain more than one swarm; each is a contiguous run in the queue
     // and is entitled to its own approach bearing, so they are checked apart.
     for (let attempt = 0; attempt < 400 && groups.length < 6; attempt++) {
-      const world = createWorld({ plane: "viper" });
+      const world = createWorld({});
       world.wave = type.fromWave - 1;
       startWave(world);
 

@@ -27,7 +27,7 @@ function check(name, condition, detail = "") {
 
 /** A world with the given loadout and enemies parked along the +X axis. */
 function setup(loadout, enemyXs = []) {
-  const world = createWorld({ plane: "viper", ...loadout });
+  const world = createWorld({ ...loadout });
   const p = world.player;
   p.x = 0; p.y = 0; p.angle = 0; p.speed = 0; p.invuln = 0;
 
@@ -260,7 +260,7 @@ for (const id of ENEMY_TYPE_IDS) {
   const type = ENEMY_TYPES[id];
   const barrels = type.barrels ?? 1;
 
-  const world = createWorld({ plane: "viper" });
+  const world = createWorld({});
   spawnEnemy(world, id);
   const enemy = world.enemies[0];
   enemy.x = 0; enemy.y = 0; enemy.angle = 0;

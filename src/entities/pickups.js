@@ -29,7 +29,7 @@ export function updatePickups(world) {
     if (dist2(p, player) >= PICKUPS.pickupRadius ** 2) continue;
 
     if (p.kind === "repair") {
-      player.hp = Math.min(player.stats.maxHp, player.hp + PICKUPS.repairAmount);
+      player.hp = Math.min(player.armour.maxHp, player.hp + PICKUPS.repairAmount);
       showBanner(world, `+${PICKUPS.repairAmount} HULL`, 60);
     } else {
       // Each weapon type says how much a crate gives it back.
