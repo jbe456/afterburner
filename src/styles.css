@@ -52,8 +52,15 @@ h1 {
   text-transform: uppercase;
 }
 
-/* The help link rides just under the title rather than at the foot. */
-#help { margin-top: 0; margin-bottom: 18px; }
+/* Both reading screens are reached from one row under the title. */
+.nav {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  margin-bottom: 18px;
+}
+
+.nav .linkish { margin-top: 0; }
 
 /* Short rules that the key list cannot carry on its own. */
 .notes {

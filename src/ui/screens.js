@@ -151,7 +151,10 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
   panel().innerHTML = `
     <h1>AFTERBURNER</h1>
     <div class="sub">Fit out your aircraft</div>
-    <button class="linkish" id="help">How to fly &rsaquo;</button>
+    <div class="nav">
+      <button class="linkish" id="help">How to fly &rsaquo;</button>
+      <button class="linkish" id="intel">Know your enemy &rsaquo;</button>
+    </div>
 
     <div class="airframe">
       <!-- Only the summary is re-rendered on a pick. The Launch button is a
@@ -168,8 +171,7 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
       ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
     </div>
 
-    <div class="hint">A longer bar is more of that thing</div>
-    <button class="linkish" id="intel">Know your enemy &rsaquo;</button>`;
+    <div class="hint">A longer bar is more of that thing</div>`;
 
   for (const opt of panel().querySelectorAll(".opt")) {
     opt.addEventListener("click", () => select(opt.dataset.slot, opt.dataset.id));

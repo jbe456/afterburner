@@ -183,7 +183,7 @@ forward-swept `claw` that reaches past its own nose, the bat-winged `wraith`,
 and the spined slab of the `leviathan`. The heavier hulls carry a lit eye, so
 a dangerous contact reads as dangerous before you have parsed its size.
 
-**Know your enemy** at the foot of the hangar lists all sixteen with their hulls,
+**Know your enemy**, beside **How to fly** under the title, lists all sixteen with their hulls,
 guns, reach, armament and bounty, in the order you meet them, each drawn with
 the renderer's own code so the silhouettes cannot drift from the ones in the
 air.
@@ -207,8 +207,8 @@ the plain fighter shape).
 | `B` | Drop bomb |
 | `P` | Pause |
 
-**How to fly** at the top of the hangar carries this table and the three rules
-the keys cannot tell you on their own.
+**How to fly** carries this table and the three rules the keys cannot tell you
+on their own.
 
 Turn rate scales *inversely* with airspeed, so slowing down turns tighter.
 That one rule is what makes throttle management, rather than reflexes, decide
