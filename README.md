@@ -71,9 +71,14 @@ each category.
 
 | Bomb | | |
 | --- | --- | --- |
-| **Dynamite** | 10 carried, 200 m, 1.0s | Usable while someone is on you |
-| **Mk 82 heavy bomb** | 3 carried, 500 m, 5.0s | The middle ground |
-| **B61 nuclear** | 1 carried, 1000 m, 8.0s | Erases the sky |
+| **Dynamite** | 10 carried, 200 m, 90 dmg, 1.0s | Usable while someone is on you |
+| **Mk 82 heavy bomb** | 3 carried, 500 m, 220 dmg, 5.0s | The middle ground |
+| **B61 nuclear** | 1 carried, 1000 m, 650 dmg, 8.0s | Erases almost anything |
+
+Damage scales with the size of the blast and is flat inside the radius, so the
+circle drawn on the ground means exactly what it looks like. Nothing is immune,
+including you — but nothing is guaranteed dead either. A Bastion can walk away
+from its own dynamite; a Sabre cannot.
 
 Firebelt sprays a cone rather than firing rounds: nothing to miss with and it
 catches everything inside it, but you have to be almost on top of the target.
@@ -143,9 +148,10 @@ are the same indiscriminate weapon you carry: they do not check sides, so a
 Sower will gut its own escort, and luring a wave across a minefield is a real
 tactic.
 
-Bombs stay lethal regardless of hull, so even a Leviathan dies to one Mk 82.
-That is what keeps the late waves from becoming a damage race the guns cannot
-win.
+Bombs hit hard enough to clear a late wave in one drop — a B61 kills every
+type in the game outright except the Leviathan, which staggers out of it with
+50 hull. That is what keeps the heavy end from becoming a damage race the guns
+cannot win, without making the boss a formality.
 
 Each type wears one of seven silhouettes from `render/hulls.js`, and the
 roster gets visibly nastier as it goes: an ordinary swept-wing `jet`, the
@@ -153,6 +159,11 @@ needle-nosed `dart`, the twin-boom `brick`, the pod-hung `gunship`, the
 forward-swept `claw` that reaches past its own nose, the bat-winged `wraith`,
 and the spined slab of the `leviathan`. The heavier hulls carry a lit eye, so
 a dangerous contact reads as dangerous before you have parsed its size.
+
+**Know your enemy** on the hangar screen lists all fourteen with their hulls,
+guns, reach, armament and bounty, in the order you meet them, each drawn with
+the renderer's own code so the silhouettes cannot drift from the ones in the
+air.
 
 `check-waves.js` samples the composer across forty waves and fails if any wave
 comes out empty — invisible in code, but it would soft-lock the game, since

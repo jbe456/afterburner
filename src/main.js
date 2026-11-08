@@ -17,9 +17,9 @@ import { simulate } from "./simulate.js";
 import { startWave } from "./waves.js";
 import { drawScene } from "./render/scene.js";
 import { drawHud, drawPauseOverlay } from "./render/hud.js";
-import { showMenu, showGameOver, hideOverlay, getLoadout } from "./ui/screens.js";
+import { showMenu, showIntel, showGameOver, hideOverlay, getLoadout } from "./ui/screens.js";
 
-/** @type {"menu"|"playing"|"dead"} */
+/** @type {"menu"|"intel"|"playing"|"dead"} */
 let screen = "menu";
 let paused = false;
 let world = createWorld();
@@ -28,7 +28,10 @@ const canvas = document.getElementById("c");
 initViewport(canvas);
 initInput(canvas, {
   onPause: () => { if (screen === "playing") paused = !paused; },
-  onConfirm: () => { if (screen !== "playing") startRun(); },
+  onConfirm: () => {
+    if (screen === "intel") returnToHangar();
+    else if (screen !== "playing") startRun();
+  },
   onGesture: initAudio,
 });
 
@@ -45,7 +48,13 @@ function startRun() {
 
 function returnToHangar() {
   screen = "menu";
-  showMenu(startRun);
+  showMenu(startRun, showEnemyRoster);
+}
+
+/** The threat library, reachable from the hangar and backing out to it. */
+function showEnemyRoster() {
+  screen = "intel";
+  showIntel(returnToHangar);
 }
 
 function endRun() {
@@ -75,7 +84,7 @@ function frame(now) {
     accumulator = 0;
   }
 
-  if (screen === "menu") {
+  if (screen === "menu" || screen === "intel") {
     const { ctx, w, h } = viewport;
     ctx.fillStyle = "#0b1016";
     ctx.fillRect(0, 0, w, h);
@@ -86,5 +95,5 @@ function frame(now) {
   }
 }
 
-showMenu(startRun);
+showMenu(startRun, showEnemyRoster);
 requestAnimationFrame(frame);

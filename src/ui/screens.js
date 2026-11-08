@@ -11,7 +11,9 @@ import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
   cannonDps, cannonReach, cannonRate,
+  ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps,
 } from "../config.js";
+import { drawHull } from "../render/hulls.js";
 import { loadBest, saveBest, loadLoadout, saveLoadoutSlot } from "../core/storage.js";
 
 const overlay = () => document.getElementById("overlay");
@@ -143,7 +145,7 @@ export const getLoadout = () => ({ ...chosen });
 
 // --- hangar -----------------------------------------------------------------
 
-export function showMenu(onStart) {
+export function showMenu(onStart, onShowIntel) {
   panel().className = "panel wide";
   panel().innerHTML = `
     <h1>AFTERBURNER</h1>
@@ -160,7 +162,8 @@ export function showMenu(onStart) {
       ${CONTROLS.map(([k, d]) => `<b>${k}</b><span>${d}</span>`).join("")}
     </div>
     <button class="btn" id="start">Launch</button>
-    <div class="hint">Any airframe can carry any loadout · a longer bar is more of that thing</div>`;
+    <div class="hint">Any airframe can carry any loadout · a longer bar is more of that thing</div>
+    <button class="linkish" id="intel">Know your enemy &rsaquo;</button>`;
 
   for (const card of panel().querySelectorAll(".plane")) {
     card.addEventListener("click", () => select("plane", card.dataset.id));
@@ -170,6 +173,8 @@ export function showMenu(onStart) {
     opt.addEventListener("click", () => select(opt.dataset.slot, opt.dataset.id));
   }
 
+  document.getElementById("intel").onclick = onShowIntel;
+
   menuKeyHandler = (e) => {
     const i = SELECT_KEYS.indexOf(e.code);
     if (i >= 0 && i < PLANE_IDS.length) select("plane", PLANE_IDS[i]);
@@ -177,6 +182,73 @@ export function showMenu(onStart) {
   addEventListener("keydown", menuKeyHandler);
 
   show(onStart);
+}
+
+// --- enemy roster -----------------------------------------------------------
+
+/** What a type actually brings to the fight, in plain words. */
+function armament(type) {
+  const parts = [`${type.barrels ?? 1} gun${(type.barrels ?? 1) > 1 ? "s" : ""}`];
+  if (type.missile) {
+    parts.push(type.missile.salvo > 1 ? `${type.missile.salvo} missiles` : "missiles");
+  }
+  if (type.bomb) parts.push("mines");
+  return parts.join(" · ");
+}
+
+/**
+ * The threat library: every enemy in the game, in the order you will meet
+ * them, drawn with the same code that draws them in the air.
+ */
+export function showIntel(onBack) {
+  detachMenuKeys();
+
+  const order = [...ENEMY_TYPE_IDS].sort(
+    (a, b) => ENEMY_TYPES[a].fromWave - ENEMY_TYPES[b].fromWave
+      || ENEMY_TYPES[a].hp - ENEMY_TYPES[b].hp,
+  );
+
+  panel().className = "panel wide";
+  panel().innerHTML = `
+    <h1>KNOW YOUR ENEMY</h1>
+    <div class="sub">${ENEMY_TYPE_IDS.length} types, in the order you meet them</div>
+    <div class="intel">${order.map(foeCard).join("")}</div>
+    <button class="btn" id="start">Back to the hangar</button>
+    <div class="hint">Mines and bombs damage whoever is standing in them, including the side that dropped them</div>`;
+
+  // Drawn rather than inlined as SVG: this is the renderer's own code, so a
+  // silhouette here can never drift from the one you meet in the air.
+  for (const canvas of panel().querySelectorAll(".foe-art")) {
+    const type = ENEMY_TYPES[canvas.dataset.id];
+    const ctx = canvas.getContext("2d");
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Fit the biggest hull in the box and draw everything at that same scale,
+    // so the roster reads as a size comparison as well as a list.
+    const fit = (canvas.clientHeight * 0.42) / 48;
+    drawHull(ctx, type.shape, canvas.clientWidth / 2, canvas.clientHeight / 2,
+      -Math.PI / 2, type.scale * fit, type.color, type.accent, false, 0.45, 0);
+  }
+
+  show(onBack);
+}
+
+function foeCard(id) {
+  const type = ENEMY_TYPES[id];
+  return `
+    <div class="foe" style="--livery:${type.accent}">
+      <canvas class="foe-art" data-id="${id}"></canvas>
+      <div class="foe-name">${type.name}</div>
+      <div class="foe-wave">wave ${type.fromWave}+${type.maxPerWave ? ` · max ${type.maxPerWave}` : ""}</div>
+      <div class="foe-stats">
+        <span>${type.hp}</span> hull<br>
+        <span>${Math.round(enemyDps(type))}</span> dps · <span>${type.range}</span> m<br>
+        ${armament(type)}<br>
+        <span>${type.score}</span> pts
+      </div>
+    </div>`;
 }
 
 function planeCard(id, index) {
@@ -346,10 +418,13 @@ export function showGameOver(world, onFlyAgain, onChangePlane) {
 
 export function hideOverlay() {
   overlay().classList.add("hidden");
-  if (menuKeyHandler) {
-    removeEventListener("keydown", menuKeyHandler);
-    menuKeyHandler = null;
-  }
+  detachMenuKeys();
+}
+
+function detachMenuKeys() {
+  if (!menuKeyHandler) return;
+  removeEventListener("keydown", menuKeyHandler);
+  menuKeyHandler = null;
 }
 
 function show(onStart) {

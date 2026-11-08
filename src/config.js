@@ -288,11 +288,15 @@ export const MISSILE = {
  * Dropped in place rather than fired: it sits still, then levels everything
  * inside its blast radius — enemy jets and your own alike.
  *
- * Radius trades against how many you carry. Every one of them stays lethal
- * inside its radius, so the choice is how much ground you erase and how often,
- * never whether you survive standing in it. Each fuse is long enough to clear
- * its own blast if you leave immediately; the B61 is deliberately tight about
- * it if you dawdle at minimum throttle.
+ * Radius trades against how many you carry, and damage scales with the size
+ * of the blast: a stick of dynamite wounds, a B61 erases almost anything.
+ * Damage is flat inside the radius and nothing outside it, so the drawn circle
+ * means exactly what it looks like.
+ *
+ * Nothing is immune, including you — a bomb makes no distinction — but nothing
+ * is guaranteed dead either, which is what gives the Leviathan the standing of
+ * a boss rather than a bigger target. Each fuse is long enough to clear its own
+ * blast if you leave immediately.
  */
 export const BOMBS = {
   dynamite: {
@@ -302,6 +306,7 @@ export const BOMBS = {
     carried: 10,
     resupply: 2,
     blastRadius: 200,
+    damage: 90,
     fuse: 60,
     dropCooldown: 25,
   },
@@ -313,6 +318,7 @@ export const BOMBS = {
     carried: 3,
     resupply: 1,
     blastRadius: 500,
+    damage: 220,
     fuse: 300,
     dropCooldown: 45,
   },
@@ -324,6 +330,7 @@ export const BOMBS = {
     carried: 1,
     resupply: 1,
     blastRadius: 1000,
+    damage: 650,
     fuse: 480,
     dropCooldown: 90,
   },
@@ -331,8 +338,6 @@ export const BOMBS = {
 
 /** Shared by every bomb regardless of type. */
 export const BOMB = {
-  /** Lethal to any airframe, friend or foe — there is no partial damage. */
-  damage: 999,
   /** Ticks between fuse beeps early on; it accelerates as detonation nears. */
   slowBeepInterval: 60,
   fastBeepInterval: 10,
@@ -375,9 +380,6 @@ export const LOCK = {
  * Enemy bombs are the same indiscriminate weapon the player carries: they do
  * not check sides, so a Sower will happily gut its own escort. Luring a wave
  * across a minefield is a legitimate tactic.
- *
- * Bombs are also lethal regardless of hull, which is what stops the heaviest
- * types becoming a damage race the guns cannot win.
  */
 export const ENEMY_TYPES = {
   scout: {
@@ -457,7 +459,7 @@ export const ENEMY_TYPES = {
     range: 700, fireCd: 40, spread: 0.15, damage: 6,
     score: 420, scale: 1.15,
     // Seeds mines along its track. They do not care whose side you are on.
-    bomb: { cooldown: 150, blastRadius: 300, fuse: 260 },
+    bomb: { cooldown: 150, blastRadius: 300, damage: 130, fuse: 260 },
     fromWave: 7, weight: 2,
   },
 
@@ -511,7 +513,7 @@ export const ENEMY_TYPES = {
     // Everything at once: guns, missiles, and mines in its wake.
     missile: { cooldown: 150, range: 1800, cone: 0.6, damage: 38, turnRate: 0.08,
                speed: 5, accel: 0.26, maxSpeed: 13, life: 300, hitRadius: 20, salvo: 2 },
-    bomb: { cooldown: 220, blastRadius: 420, fuse: 300 },
+    bomb: { cooldown: 220, blastRadius: 420, damage: 180, fuse: 300 },
     fromWave: 15, weight: 1, maxPerWave: 1,
   },
 };

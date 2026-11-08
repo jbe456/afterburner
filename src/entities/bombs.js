@@ -56,19 +56,20 @@ function playFuseBeep(bomb) {
 function detonate(world, bomb) {
   const { x, y } = bomb;
   const radius = bomb.spec.blastRadius;
+  const damage = bomb.spec.damage;
 
   // Enemies first, iterating backwards because damageEnemy removes entries.
   for (let i = world.enemies.length - 1; i >= 0; i--) {
     const e = world.enemies[i];
     if (Math.hypot(e.x - x, e.y - y) <= radius) {
-      damageEnemy(world, e, BOMB.damage, e.x, e.y);
+      damageEnemy(world, e, damage, e.x, e.y);
     }
   }
 
   // Then the player, on exactly the same terms.
   const player = world.player;
   if (player.alive && Math.hypot(player.x - x, player.y - y) <= radius) {
-    damagePlayer(world, BOMB.damage);
+    damagePlayer(world, damage);
   }
 
   bloom(world, x, y, radius);
