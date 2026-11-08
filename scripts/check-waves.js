@@ -14,6 +14,7 @@
 
 import { composeWave, waveSize } from "../src/waves.js";
 import { ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps } from "../src/config.js";
+import { HULL_NAMES } from "../src/render/hulls.js";
 
 const WAVES_CHECKED = 40;
 const SAMPLES = 200; // composition is random, so each wave is sampled
@@ -64,6 +65,16 @@ for (const id of ENEMY_TYPE_IDS) {
   check(`${type.name} actually shows up (from wave ${type.fromWave})`,
     seenAt[id] !== undefined, "never drawn in any sample");
 }
+
+// A misspelled shape silently falls back to the plain fighter hull, so the
+// Leviathan would quietly fly a Scout's silhouette and nothing would complain.
+console.log("\nHULLS");
+const badShapes = ENEMY_TYPE_IDS.filter((id) => !HULL_NAMES.includes(ENEMY_TYPES[id].shape));
+check("every enemy names a hull that exists", badShapes.length === 0,
+  badShapes.map((id) => `${id}: ${ENEMY_TYPES[id].shape}`).join(", "));
+check("every hull is used by something",
+  HULL_NAMES.every((h) => h === "jet" || ENEMY_TYPE_IDS.some((id) => ENEMY_TYPES[id].shape === h)),
+  "an unused hull is dead code");
 
 // Escalation: later waves must be meaningfully harder than early ones.
 console.log("\nESCALATION");

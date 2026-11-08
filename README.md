@@ -113,33 +113,53 @@ worst-turning thing in the sky.
 
 ## Enemies
 
-Eight types, escalating on their own rather than on a schedule. Each declares
-the earliest wave it can appear in and how often it is drawn once unlocked;
-the heaviest also cap how many can show up at once.
+Fourteen types, escalating on their own rather than on a schedule. Each
+declares the earliest wave it can appear in and how often it is drawn once
+unlocked; the heaviest also cap how many can show up at once.
 
-| | Hull | Peak dps | From wave | Notes |
+| | Hull | Gun dps | Armament | From wave |
 | --- | --- | --- | --- | --- |
-| **Scout** | 16 | 7 | 1 | Fast and flimsy |
-| **Fighter** | 30 | 12 | 1 | The baseline |
-| **Ace** | 45 | 18 | 3 | Quick and accurate |
-| **Interceptor** | 55 | 20 | 4 | Long reach, fast rounds |
-| **Heavy** | 90 | 25 | 4 | Slow, hard to shift |
-| **Gunship** | 140 | 69 | 6 | Twin guns, wide spray |
-| **Marauder** | 260 | 87 | 8 | Twin heavy guns; max 2 per wave |
-| **Dreadnought** | 420 | 112 | 11 | Three barrels, 1200 m reach; max 1 per wave |
+| **Scout** | 16 | 7 | gun | 1 |
+| **Fighter** | 30 | 12 | gun | 1 |
+| **Raider** | 24 | 12 | gun | 2 |
+| **Ace** | 45 | 18 | gun | 3 |
+| **Interceptor** | 55 | 20 | gun | 4 |
+| **Heavy** | 90 | 25 | gun | 4 |
+| **Lancer** | 70 | 7 | gun + **missiles** | 5 |
+| **Gunship** | 140 | 69 | twin guns | 6 |
+| **Sower** | 110 | 9 | gun + **mines** | 7 |
+| **Marauder** | 260 | 87 | twin heavy guns · max 2 | 8 |
+| **Reaper** | 150 | 22 | gun + **missiles** | 9 |
+| **Dreadnought** | 420 | 112 | three barrels, 1200 m · max 1 | 11 |
+| **Basilisk** | 340 | 66 | twin guns + **missile pairs** · max 2 | 12 |
+| **Leviathan** | 700 | 132 | three barrels + **missiles** + **mines** · max 1 | 15 |
 
-Peak dps assumes every round connects, which against a moving target it does
-not — but the top of that table will still erase you if you fly straight at it.
+Gun dps assumes every round connects, which against a moving target it does
+not — but the bottom of that table will still erase you if you fly straight at
+it.
 
-Bombs are lethal regardless of hull, so even a Dreadnought dies to one Mk 82.
+Enemy missiles home on you and will not stop on their own side. Enemy mines
+are the same indiscriminate weapon you carry: they do not check sides, so a
+Sower will gut its own escort, and luring a wave across a minefield is a real
+tactic.
+
+Bombs stay lethal regardless of hull, so even a Leviathan dies to one Mk 82.
 That is what keeps the late waves from becoming a damage race the guns cannot
 win.
 
+Each type wears one of seven silhouettes from `render/hulls.js`, and the
+roster gets visibly nastier as it goes: an ordinary swept-wing `jet`, the
+needle-nosed `dart`, the twin-boom `brick`, the pod-hung `gunship`, the
+forward-swept `claw` that reaches past its own nose, the bat-winged `wraith`,
+and the spined slab of the `leviathan`. The heavier hulls carry a lit eye, so
+a dangerous contact reads as dangerous before you have parsed its size.
+
 `check-waves.js` samples the composer across forty waves and fails if any wave
-comes out empty — which would be invisible in code but soft-lock the game,
-since waves advance when the sky is cleared — as well as if anything appears
-before its time, a cap is exceeded, a type is unreachable, or the waves stop
-escalating.
+comes out empty — invisible in code, but it would soft-lock the game, since
+waves advance when the sky is cleared — as well as if anything appears before
+its time, a cap is exceeded, a type is unreachable, the waves stop escalating,
+or a type names a hull that does not exist (which would silently fall back to
+the plain fighter shape).
 
 ## Controls
 
@@ -197,7 +217,7 @@ src/
 │   └── effects.js      Particles, shockwaves, screen shake (cosmetic only)
 ├── render/             Drawing only; never mutates game state
 │   ├── scene.js        The world pass, and the camera
-│   ├── jet.js          The jet silhouette, drawn as vector paths
+│   ├── hulls.js        Seven airframe silhouettes, drawn as vector paths
 │   └── hud.js          Instruments, radar, warnings
 ├── ui/screens.js       Hangar (plane + loadout pickers) and game-over overlays
 └── styles.css          Styling for those overlays (the game itself is all canvas)

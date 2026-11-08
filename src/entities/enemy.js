@@ -12,7 +12,7 @@
 
 import { rand, clamp, steer, angDiff, TAU } from "../core/math.js";
 import { ARENA_HALF, ENEMY, ENEMY_TYPES } from "../config.js";
-import { fireGun } from "./weapons.js";
+import { fireGun, fireEnemyMissile, dropEnemyBomb } from "./weapons.js";
 import { burst, explode } from "./effects.js";
 import { maybeDropPickup } from "./pickups.js";
 import { sfx } from "../core/audio.js";
@@ -38,6 +38,9 @@ export function spawnEnemy(world, typeName) {
     maxHp: type.hp,
     radius: type.radius,
     fireCooldown: rand(20, 80), // staggered, so a wave doesn't volley in unison
+    // Staggered well apart, or a pair of Basilisks would salvo together.
+    missileCooldown: type.missile ? rand(90, type.missile.cooldown) : 0,
+    bombCooldown: type.bomb ? rand(60, type.bomb.cooldown) : 0,
     mode: "pursue",
     modeTimer: 0,
     evadeDir: Math.random() < 0.5 ? 1 : -1,
@@ -90,6 +93,37 @@ export function updateEnemy(world, e) {
   if (canShoot) {
     fireGun(world, e, false);
     e.fireCooldown = type.fireCd + rand(0, 10);
+  }
+
+  updateOrdnance(world, e, type, player, range, offBoresight);
+}
+
+/**
+ * Missiles and mines, for the types that carry them.
+ *
+ * Missiles need only a loose cone — they steer themselves — so a Lancer can
+ * launch from well off the nose. Mines are dropped blind, whenever the thing
+ * is near enough that you might fly through where it has been.
+ */
+function updateOrdnance(world, e, type, player, range, offBoresight) {
+  if (type.missile) {
+    if (e.missileCooldown > 0) e.missileCooldown--;
+    const spec = type.missile;
+    const canLaunch = player.alive && e.mode !== "evade"
+      && range < spec.range && offBoresight < spec.cone && e.missileCooldown <= 0;
+    if (canLaunch) {
+      fireEnemyMissile(world, e, spec);
+      e.missileCooldown = spec.cooldown + rand(0, 60);
+    }
+  }
+
+  if (type.bomb) {
+    if (e.bombCooldown > 0) e.bombCooldown--;
+    // Only worth seeding where the player might actually go.
+    if (player.alive && e.bombCooldown <= 0 && range < 1600) {
+      dropEnemyBomb(world, e, type.bomb);
+      e.bombCooldown = type.bomb.cooldown + rand(0, 90);
+    }
   }
 }
 

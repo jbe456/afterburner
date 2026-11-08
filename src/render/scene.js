@@ -10,7 +10,7 @@ import { rand, TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import { input } from "../core/input.js";
 import { ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK, BOMB, PLAYER } from "../config.js";
-import { drawJet, drawJetShadow } from "./jet.js";
+import { drawHull, drawHullShadow } from "./hulls.js";
 
 const GRID = 320;
 /** How far the camera leans toward the cursor, as a fraction of the offset. */
@@ -209,12 +209,16 @@ function drawTrails(ctx, world) {
 function drawAircraft(ctx, world) {
   const { player, enemies, time } = world;
 
-  for (const e of enemies) drawJetShadow(ctx, e.x, e.y, e.angle, ENEMY_TYPES[e.type].scale);
-  if (player.alive) drawJetShadow(ctx, player.x, player.y, player.angle, PLAYER.scale);
+  for (const e of enemies) {
+    const type = ENEMY_TYPES[e.type];
+    drawHullShadow(ctx, type.shape, e.x, e.y, e.angle, type.scale);
+  }
+  if (player.alive) drawHullShadow(ctx, "jet", player.x, player.y, player.angle, PLAYER.scale);
 
   for (const e of enemies) {
     const type = ENEMY_TYPES[e.type];
-    drawJet(ctx, e.x, e.y, e.angle, type.scale, type.color, type.accent, e.flash > 0, 0.4, time);
+    drawHull(ctx, type.shape, e.x, e.y, e.angle, type.scale,
+      type.color, type.accent, e.flash > 0, 0.4, time);
     if (e.burn) drawBurning(ctx, e, time);
     if (e.hp < e.maxHp) drawHealthPip(ctx, e);
   }
@@ -224,7 +228,7 @@ function drawAircraft(ctx, world) {
     const blink = player.invuln > 0 && Math.floor(time / 4) % 2 === 0;
     if (!blink) {
       const s = player.stats;
-      drawJet(ctx, player.x, player.y, player.angle, PLAYER.scale,
+      drawHull(ctx, "jet", player.x, player.y, player.angle, PLAYER.scale,
         s.color, s.accent, false, 0.35 + player.boost * 0.65, time);
     }
   }

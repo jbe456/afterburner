@@ -156,6 +156,7 @@ export function fireMissile(world) {
 
     world.missiles.push({
       spec,
+      friendly: true,
       x: player.x + Math.cos(perpendicular) * 14 * side,
       y: player.y + Math.sin(perpendicular) * 14 * side,
       angle: aim,
@@ -168,6 +169,44 @@ export function fireMissile(world) {
 
   sfx.missile();
   addShake(world, 3);
+}
+
+/**
+ * An enemy launching homing missiles at the player. Unlike the player's, these
+ * never need a lock: their target is the only thing they ever chase.
+ */
+export function fireEnemyMissile(world, enemy, spec) {
+  const player = world.player;
+
+  for (let i = 0; i < spec.salvo; i++) {
+    const side = i % 2 === 0 ? 1 : -1;
+    const perpendicular = enemy.angle + Math.PI / 2;
+    world.missiles.push({
+      spec,
+      friendly: false,
+      x: enemy.x + Math.cos(perpendicular) * 12 * side,
+      y: enemy.y + Math.sin(perpendicular) * 12 * side,
+      angle: enemy.angle + rand(-0.12, 0.12),
+      speed: spec.speed,
+      target: player,
+      life: spec.life,
+      arming: MISSILE.armingDelay,
+    });
+  }
+
+  sfx.enemyMissile();
+}
+
+/** An enemy seeding a mine along its track. */
+export function dropEnemyBomb(world, enemy, spec) {
+  world.bombs.push({
+    spec,
+    x: enemy.x - Math.cos(enemy.angle) * 20,
+    y: enemy.y - Math.sin(enemy.angle) * 20,
+    fuse: spec.fuse,
+    spent: false,
+  });
+  sfx.bombArm();
 }
 
 /**

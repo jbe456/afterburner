@@ -187,6 +187,11 @@ export const sfx = {
     tone(180, 0.5, "sawtooth", 0.12, 900);
     noise(0.5, 0.12, 700, 2500);
   },
+  /** Incoming: lower and dirtier than your own, so you can tell them apart. */
+  enemyMissile: () => {
+    tone(110, 0.55, "sawtooth", 0.09, 420);
+    noise(0.55, 0.1, 480, 1500);
+  },
   hit: () => noise(0.1, 0.25, 2200, 400),
   lock: () => tone(1250, 0.05, "square", 0.05),
   bombArm: () => {

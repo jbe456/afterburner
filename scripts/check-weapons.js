@@ -12,8 +12,9 @@
  */
 
 import { createWorld } from "../src/world.js";
-import { fireGun, fireMissile } from "../src/entities/weapons.js";
-import { updateBullets, updateFlames } from "../src/entities/projectiles.js";
+import { updateBombs } from "../src/entities/bombs.js";
+import { fireGun, fireMissile, fireEnemyMissile, dropEnemyBomb } from "../src/entities/weapons.js";
+import { updateBullets, updateFlames, updateMissiles } from "../src/entities/projectiles.js";
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
 import { CANNONS, MISSILES, RADAR_RANGE, ENEMY_TYPES, ENEMY_TYPE_IDS } from "../src/config.js";
 
@@ -269,6 +270,81 @@ for (const id of ENEMY_TYPE_IDS) {
     world.bullets.length === barrels, `got ${world.bullets.length}`);
   check(`${type.name}'s rounds are hostile`,
     world.bullets.every((b) => !b.friendly));
+}
+
+// --- enemy ordnance --------------------------------------------------------
+console.log("\nENEMY ORDNANCE");
+
+{
+  // Every type that declares a launcher must actually use it.
+  for (const id of ENEMY_TYPE_IDS) {
+    const type = ENEMY_TYPES[id];
+    if (!type.missile) continue;
+
+    const { world, player } = setup({}, []);
+    spawnEnemy(world, id);
+    const enemy = world.enemies[0];
+    enemy.x = 500; enemy.y = 0; enemy.angle = Math.PI;
+
+    fireEnemyMissile(world, enemy, type.missile);
+    check(`${type.name} launches ${type.missile.salvo} missile(s)`,
+      world.missiles.length === type.missile.salvo, `got ${world.missiles.length}`);
+    check(`${type.name}'s missiles are hostile and chase the player`,
+      world.missiles.every((m) => m.friendly === false && m.target === player));
+  }
+}
+
+{
+  // An enemy missile must damage the player, and must not stop on its friends.
+  const { world, player } = setup({}, []);
+  player.invuln = 0;
+  spawnEnemy(world, "lancer");
+  const shooter = world.enemies[0];
+  shooter.x = 320; shooter.y = 0; shooter.angle = Math.PI;
+
+  // A bystander parked right on the missile's path home.
+  spawnEnemy(world, "fighter");
+  const bystander = world.enemies[1];
+  bystander.x = 160; bystander.y = 0;
+  const bystanderHp = bystander.hp;
+
+  fireEnemyMissile(world, shooter, ENEMY_TYPES.lancer.missile);
+  const hpBefore = player.hp;
+  for (let t = 0; t < 200 && world.missiles.length; t++) updateMissiles(world);
+
+  check("an enemy missile reaches and damages the player", player.hp < hpBefore,
+    `hp unchanged at ${player.hp}`);
+  check("it does not detonate on its own side", bystander.hp === bystanderHp,
+    `bystander took ${bystanderHp - bystander.hp}`);
+}
+
+{
+  // Enemy mines are the same indiscriminate weapon the player carries.
+  const { world, player } = setup({}, []);
+  player.invuln = 0;
+  const spec = ENEMY_TYPES.sower.bomb;
+
+  spawnEnemy(world, "sower");
+  const sower = world.enemies[0];
+  sower.x = 0; sower.y = 0; sower.angle = 0;
+
+  spawnEnemy(world, "fighter");
+  const neighbour = world.enemies[1];
+  neighbour.x = 40; neighbour.y = 0;
+
+  dropEnemyBomb(world, sower, spec);
+  const bomb = world.bombs[0];
+  bomb.x = 0; bomb.y = 0;
+  check("a Sower leaves a mine behind it", world.bombs.length === 1);
+
+  player.x = 60; player.y = 0;
+  for (let t = 0; t <= spec.fuse; t++) {
+    player.x = 60; player.y = 0;
+    updateBombs(world);
+  }
+
+  check("an enemy mine kills the player", !player.alive);
+  check("an enemy mine kills enemies too", !world.enemies.includes(neighbour));
 }
 
 if (failures) {

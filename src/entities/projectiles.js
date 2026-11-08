@@ -104,8 +104,15 @@ export function updateMissiles(world) {
     if (m.arming > 0) m.arming--;
     m.speed = Math.min(m.speed + spec.accel, spec.maxSpeed);
 
-    // Guided types chase; unguided ones simply fly where they were pointed.
-    if (spec.turnRate > 0) {
+    if (!m.friendly) {
+      // An enemy missile only ever chases one thing, and never loses it.
+      if (!world.player.alive) m.target = null;
+      if (m.target) {
+        const bearing = Math.atan2(m.target.y - m.y, m.target.x - m.x);
+        m.angle = steer(m.angle, bearing, spec.turnRate);
+      }
+    } else if (spec.turnRate > 0) {
+      // Guided types chase; unguided ones simply fly where they were pointed.
       if (m.target && !enemies.includes(m.target)) m.target = null;
       if (!m.target) m.target = reacquire(m, enemies);
       if (m.target) {
@@ -121,7 +128,9 @@ export function updateMissiles(world) {
       x: m.x - Math.cos(m.angle) * 9,
       y: m.y - Math.sin(m.angle) * 9,
       vx: rand(-0.4, 0.4), vy: rand(-0.4, 0.4),
-      life: 22, maxLife: 22, color: "#c8d4e0", size: 5,
+      life: 22, maxLife: 22,
+      color: m.friendly ? "#c8d4e0" : "#e0a0a0",
+      size: 5,
     });
 
     if (--m.life <= 0) {
@@ -130,8 +139,25 @@ export function updateMissiles(world) {
       continue;
     }
 
-    if (m.arming <= 0 && detonateIfHit(world, m)) missiles.splice(i, 1);
+    const hit = m.arming <= 0
+      && (m.friendly ? detonateIfHit(world, m) : detonateIfHitPlayer(world, m));
+    if (hit) missiles.splice(i, 1);
   }
+}
+
+/**
+ * An enemy missile reaching the player. It splashes the player only — the
+ * bombs are the indiscriminate weapon, not these.
+ */
+function detonateIfHitPlayer(world, m) {
+  const player = world.player;
+  if (!player.alive) return false;
+  if (dist2(m, player) >= (PLAYER.radius + m.spec.hitRadius) ** 2) return false;
+
+  explode(world, m.x, m.y, false);
+  damagePlayer(world, m.spec.damage);
+  addShake(world, 7);
+  return true;
 }
 
 /**

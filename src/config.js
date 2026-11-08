@@ -361,22 +361,27 @@ export const LOCK = {
 
 // --- enemies ----------------------------------------------------------------
 /**
- * Each type is a complete behavioural profile. `range`/`fireCd`/`spread`/
- * `barrels` govern how dangerous it is; `turn`/`speed` govern how hard it is
- * to shake; `hp`/`radius` govern how long it takes to put down.
+ * Each type is a complete profile: how it flies, how it looks, what it shoots
+ * and when it starts turning up.
  *
- * `fromWave` is the earliest wave a type can appear in and `weight` how often
- * it is drawn once unlocked, so the roster escalates on its own rather than
- * needing a hand-written schedule. `maxPerWave` caps the ones that would
- * otherwise arrive in packs.
+ *   shape       which silhouette from render/hulls.js it wears
+ *   fromWave    earliest wave it can be drawn in
+ *   weight      how often it is drawn once unlocked
+ *   maxPerWave  cap for the ones that would otherwise arrive in packs
+ *   barrels     rounds per burst
+ *   missile     if present, it launches homing missiles at the player
+ *   bomb        if present, it leaves bombs behind it
  *
- * Note that bombs are lethal regardless of hull, so even the heaviest thing
- * here dies to one Mk 82 — which is what stops the late waves becoming a
- * damage race the guns cannot win.
+ * Enemy bombs are the same indiscriminate weapon the player carries: they do
+ * not check sides, so a Sower will happily gut its own escort. Luring a wave
+ * across a minefield is a legitimate tactic.
+ *
+ * Bombs are also lethal regardless of hull, which is what stops the heaviest
+ * types becoming a damage race the guns cannot win.
  */
 export const ENEMY_TYPES = {
   scout: {
-    name: "Scout",
+    name: "Scout", shape: "jet",
     hp: 16, speed: 6.2, turn: 0.058, radius: 12,
     color: "#cf9a7a", accent: "#f0d3bd",
     range: 600, fireCd: 44, spread: 0.13, damage: 5, score: 60, scale: 0.8,
@@ -384,15 +389,23 @@ export const ENEMY_TYPES = {
   },
 
   fighter: {
-    name: "Fighter",
+    name: "Fighter", shape: "jet",
     hp: 30, speed: 4.0, turn: 0.034, radius: 15,
     color: "#d9534f", accent: "#ff9a8b",
     range: 720, fireCd: 34, spread: 0.10, damage: 7, score: 100, scale: 1,
     fromWave: 1, weight: 5,
   },
 
+  raider: {
+    name: "Raider", shape: "jet",
+    hp: 24, speed: 5.4, turn: 0.048, radius: 14,
+    color: "#d96a3d", accent: "#ffbb8a",
+    range: 660, fireCd: 30, spread: 0.12, damage: 6, score: 120, scale: 0.92,
+    fromWave: 2, weight: 4,
+  },
+
   ace: {
-    name: "Ace",
+    name: "Ace", shape: "jet",
     hp: 45, speed: 5.6, turn: 0.050, radius: 15,
     color: "#e8a33d", accent: "#ffe08a",
     range: 780, fireCd: 26, spread: 0.055, damage: 8, score: 300, scale: 1,
@@ -400,7 +413,7 @@ export const ENEMY_TYPES = {
   },
 
   interceptor: {
-    name: "Interceptor",
+    name: "Interceptor", shape: "dart",
     hp: 55, speed: 5.0, turn: 0.040, radius: 16,
     color: "#e0609a", accent: "#ffb3d4",
     range: 1050, fireCd: 30, spread: 0.045, damage: 10, bulletSpeed: 15,
@@ -409,44 +422,103 @@ export const ENEMY_TYPES = {
   },
 
   heavy: {
-    name: "Heavy",
+    name: "Heavy", shape: "brick",
     hp: 90, speed: 2.9, turn: 0.019, radius: 22,
     color: "#8b6ad6", accent: "#c0a9ff",
-    range: 860, fireCd: 22, spread: 0.14, damage: 9, score: 250, scale: 1.35,
+    range: 860, fireCd: 22, spread: 0.14, damage: 9, score: 250, scale: 1.2,
     fromWave: 4, weight: 2,
   },
 
+  lancer: {
+    name: "Lancer", shape: "dart",
+    hp: 70, speed: 4.4, turn: 0.030, radius: 17,
+    color: "#c05fd6", accent: "#edb0ff",
+    range: 760, fireCd: 48, spread: 0.09, damage: 6,
+    score: 450, scale: 1.1,
+    // A stand-off platform: weak guns, but it throws missiles from range.
+    missile: { cooldown: 170, range: 1700, cone: 0.5, damage: 26, turnRate: 0.055,
+               speed: 5, accel: 0.22, maxSpeed: 11, life: 260, hitRadius: 16, salvo: 1 },
+    fromWave: 5, weight: 2,
+  },
+
   gunship: {
-    name: "Gunship",
+    name: "Gunship", shape: "gunship",
     hp: 140, speed: 2.6, turn: 0.017, radius: 25,
     color: "#6f4fd6", accent: "#b9a6ff",
     range: 900, fireCd: 14, spread: 0.17, damage: 8, barrels: 2,
-    score: 500, scale: 1.55,
+    score: 500, scale: 1.25,
     fromWave: 6, weight: 2,
   },
 
+  sower: {
+    name: "Sower", shape: "brick",
+    hp: 110, speed: 3.6, turn: 0.026, radius: 21,
+    color: "#5f8f4f", accent: "#bfe8a8",
+    range: 700, fireCd: 40, spread: 0.15, damage: 6,
+    score: 420, scale: 1.15,
+    // Seeds mines along its track. They do not care whose side you are on.
+    bomb: { cooldown: 150, blastRadius: 300, fuse: 260 },
+    fromWave: 7, weight: 2,
+  },
+
   marauder: {
-    name: "Marauder",
+    name: "Marauder", shape: "claw",
     hp: 260, speed: 3.4, turn: 0.024, radius: 30,
     color: "#9b2c2c", accent: "#ff7a6b",
     range: 1000, fireCd: 18, spread: 0.08, damage: 13, barrels: 2, bulletSpeed: 13,
-    score: 900, scale: 1.9,
+    score: 900, scale: 1.5,
     fromWave: 8, weight: 1, maxPerWave: 2,
   },
 
+  reaper: {
+    name: "Reaper", shape: "claw",
+    hp: 150, speed: 5.2, turn: 0.044, radius: 22,
+    color: "#b03a6e", accent: "#ff9ec4",
+    range: 820, fireCd: 24, spread: 0.07, damage: 9,
+    score: 700, scale: 1.2,
+    // Fast, and it shoots back with missiles while it runs you down.
+    missile: { cooldown: 200, range: 1300, cone: 0.35, damage: 30, turnRate: 0.075,
+               speed: 6, accel: 0.26, maxSpeed: 13, life: 220, hitRadius: 16, salvo: 1 },
+    fromWave: 9, weight: 2,
+  },
+
+  basilisk: {
+    name: "Basilisk", shape: "wraith",
+    hp: 340, speed: 3.0, turn: 0.020, radius: 32,
+    color: "#3d2a6e", accent: "#9b7aff",
+    range: 1100, fireCd: 20, spread: 0.09, damage: 11, barrels: 2, bulletSpeed: 14,
+    score: 1200, scale: 1.5,
+    missile: { cooldown: 190, range: 1600, cone: 0.45, damage: 34, turnRate: 0.07,
+               speed: 5, accel: 0.24, maxSpeed: 12, life: 270, hitRadius: 18, salvo: 2 },
+    fromWave: 12, weight: 1, maxPerWave: 2,
+  },
+
   dreadnought: {
-    name: "Dreadnought",
+    name: "Dreadnought", shape: "wraith",
     hp: 420, speed: 2.4, turn: 0.014, radius: 38,
     color: "#5a1f6e", accent: "#e39bff",
     range: 1200, fireCd: 16, spread: 0.11, damage: 10, barrels: 3, bulletSpeed: 14,
-    score: 1800, scale: 2.4,
+    score: 1800, scale: 1.75,
     fromWave: 11, weight: 1, maxPerWave: 1,
+  },
+
+  leviathan: {
+    name: "Leviathan", shape: "leviathan",
+    hp: 700, speed: 2.2, turn: 0.012, radius: 48,
+    color: "#2a1038", accent: "#ff5ea8",
+    range: 1350, fireCd: 15, spread: 0.10, damage: 11, barrels: 3, bulletSpeed: 15,
+    score: 4000, scale: 1.9,
+    // Everything at once: guns, missiles, and mines in its wake.
+    missile: { cooldown: 150, range: 1800, cone: 0.6, damage: 38, turnRate: 0.08,
+               speed: 5, accel: 0.26, maxSpeed: 13, life: 300, hitRadius: 20, salvo: 2 },
+    bomb: { cooldown: 220, blastRadius: 420, fuse: 300 },
+    fromWave: 15, weight: 1, maxPerWave: 1,
   },
 };
 
 export const ENEMY_TYPE_IDS = Object.keys(ENEMY_TYPES);
 
-/** Peak damage per second a type can put out, if every round connects. */
+/** Peak gun damage per second a type can put out, if every round connects. */
 export const enemyDps = (t) => ((t.barrels ?? 1) * t.damage * (1000 / TICK_MS)) / t.fireCd;
 
 export const ENEMY = {
