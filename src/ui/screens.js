@@ -183,10 +183,23 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
   show(onStart);
 }
 
+/**
+ * The way out of a reading screen, parked at the top where you came in.
+ * It keeps the id every screen's primary button uses, so `show()` wires it.
+ */
+function backBar() {
+  return `
+    <div class="topbar">
+      <button class="btn ghost" id="start">&lsaquo; Back to the hangar</button>
+      <span class="topbar-hint">or press ESC</span>
+    </div>`;
+}
+
 /** The controls, and the three rules that are not obvious from them. */
 export function showHelp(onBack) {
   panel().className = "panel";
   panel().innerHTML = `
+    ${backBar()}
     <h1>HOW TO FLY</h1>
     <div class="sub">Keys, and what they do not tell you</div>
     <div class="keys">
@@ -199,8 +212,7 @@ export function showHelp(onBack) {
       readily as them — drop one and commit to being somewhere else.</p>
       <p><b>The combat zone has edges.</b> Fly past them and the hull bleeds.
       The HUD warns you well before it starts.</p>
-    </div>
-    <button class="btn" id="start">Back to the hangar</button>`;
+    </div>`;
 
   show(onBack);
 }
@@ -247,10 +259,10 @@ export function showIntel(onBack) {
 
   panel().className = "panel wide";
   panel().innerHTML = `
+    ${backBar()}
     <h1>KNOW YOUR ENEMY</h1>
     <div class="sub">${ENEMY_TYPE_IDS.length} types, in the order you meet them</div>
     <div class="intel">${order.map(foeCard).join("")}</div>
-    <button class="btn" id="start">Back to the hangar</button>
     <div class="hint">Mines and bombs damage whoever is standing in them, including the side that dropped them</div>`;
 
   // Drawn rather than inlined as SVG: this is the renderer's own code, so a

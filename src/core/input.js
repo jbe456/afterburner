@@ -17,7 +17,8 @@ const SCROLL_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"]
 
 /**
  * @param {HTMLCanvasElement} canvas
- * @param {{onPause:Function, onConfirm:Function, onGesture:Function}} handlers
+ * @param {{onPause:Function, onConfirm:Function, onBack:Function,
+ *           onGesture:Function}} handlers
  *   onGesture fires on the first click — the hook browsers require before
  *   audio may start.
  */
@@ -31,6 +32,7 @@ export function initInput(canvas, handlers) {
     if (STEER_KEYS.includes(e.code)) mouse.active = false;
     if (e.code === "KeyP") handlers.onPause();
     if (e.code === "Enter") handlers.onConfirm();
+    if (e.code === "Escape") handlers.onBack();
   });
 
   addEventListener("keyup", (e) => { keys[e.code] = false; });

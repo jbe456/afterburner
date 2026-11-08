@@ -206,6 +206,7 @@ the plain fighter shape).
 | Right click / `F` | Fire missile (needs a lock) |
 | `B` | Drop bomb |
 | `P` | Pause |
+| `Esc` | Back a step — out of a reading screen, or pause then abandon a run |
 
 **How to fly** carries this table and the three rules the keys cannot tell you
 on their own.

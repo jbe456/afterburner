@@ -35,6 +35,20 @@ initInput(canvas, {
     if (screen === "intel" || screen === "help") returnToHangar();
     else if (screen !== "playing") startRun();
   },
+
+  /**
+   * Escape goes back a step. Mid-run it pauses first and only abandons on a
+   * second press — losing a run to one stray keystroke would be a poor trade
+   * for the convenience.
+   */
+  onBack: () => {
+    if (screen === "playing") {
+      if (paused) { paused = false; returnToHangar(); }
+      else paused = true;
+      return;
+    }
+    if (screen !== "menu") returnToHangar();
+  },
   onGesture: initAudio,
 });
 

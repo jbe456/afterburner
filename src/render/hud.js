@@ -350,5 +350,5 @@ export function drawPauseOverlay() {
   ctx.fillText("PAUSED", w / 2, h / 2);
   ctx.font = `12px ${MONO}`;
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("PRESS P TO RESUME", w / 2, h / 2 + 30);
+  ctx.fillText("P TO RESUME  ·  ESC TO ABANDON THE RUN", w / 2, h / 2 + 30);
 }

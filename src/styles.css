@@ -52,6 +52,23 @@ h1 {
   text-transform: uppercase;
 }
 
+/* The way out of a reading screen, at the top where you came in. */
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.topbar .btn { padding: 9px 20px; letter-spacing: .14em; font-size: 12px; }
+
+.topbar-hint {
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #50657a;
+}
+
 /* Both reading screens are reached from one row under the title. */
 .nav {
   display: flex;
