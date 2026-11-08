@@ -50,7 +50,6 @@ export const PLANES = {
     id: "viper",
     name: "VIPER",
     role: "Balanced",
-    blurb: "Middle of the road on both counts.",
     color: "#3f7fd4", accent: "#8fd3ff",
     maxHp: 100,
     maxSpeed: 8.5,
@@ -60,7 +59,6 @@ export const PLANES = {
     id: "bastion",
     name: "BASTION",
     role: "Armoured",
-    blurb: "Half again the hull. Slowest thing in the air.",
     color: "#6b7f9e", accent: "#b9cce4",
     maxHp: 150,
     maxSpeed: 7.0,
@@ -70,7 +68,6 @@ export const PLANES = {
     id: "sabre",
     name: "SABRE",
     role: "Fast",
-    blurb: "Fastest thing in the air. Thinnest skin.",
     color: "#2fb0d4", accent: "#9fe4ff",
     maxHp: 70,
     maxSpeed: 10.2,
@@ -125,10 +122,8 @@ export const PLAYER = {
 export const CANNONS = {
   vulcan: {
     id: "vulcan",
-    name: "M61 VULCAN",
+    name: "VULCAN RAPID-FIRE",
     short: "VULCAN",
-    label: "20 mm rotary",
-    blurb: "Highest sustained damage on a single target.",
     kind: "bullet",
     barrels: 2,
     damage: 9,
@@ -144,10 +139,8 @@ export const CANNONS = {
 
   avenger: {
     id: "avenger",
-    name: "GAU-8 AVENGER",
+    name: "AVENGER PIERCING",
     short: "AVENGER",
-    label: "30 mm",
-    blurb: "Pierces up to three aircraft. Brutal if you line it up, dead time if you miss.",
     kind: "bullet",
     barrels: 1,
     damage: 48,
@@ -163,10 +156,8 @@ export const CANNONS = {
 
   firebelt: {
     id: "firebelt",
-    name: "HEI FIREBELT",
+    name: "FIREBELT FLAMETHROWER",
     short: "FIREBELT",
-    label: "flamethrower",
-    blurb: "A cone of fire, no rounds to miss with. Short reach, and everything caught in it burns.",
     /** Not a gun: it sprays a cone that damages everything inside it. */
     kind: "flame",
     /** Applied every tick the trigger is held, to every aircraft in the cone. */
@@ -198,10 +189,8 @@ export const cannonReach = (c) =>
 export const MISSILES = {
   hydra: {
     id: "hydra",
-    name: "HYDRA 70",
+    name: "HYDRA ROCKET POD",
     short: "HYDRA",
-    label: "unguided pod",
-    blurb: "Eighteen rockets, two per pull. No guidance — you do the aiming.",
     carried: 18,
     resupply: 6,
     perShot: 2,
@@ -223,10 +212,8 @@ export const MISSILES = {
 
   sidewinder: {
     id: "sidewinder",
-    name: "AIM-9 SIDEWINDER",
+    name: "SIDEWINDER HEAT-SEEKER",
     short: "AIM-9",
-    label: "IR-guided",
-    blurb: "The all-rounder. Tracks well enough, and you get six.",
     carried: 6,
     resupply: 3,
     perShot: 1,
@@ -247,10 +234,8 @@ export const MISSILES = {
 
   amraam: {
     id: "amraam",
-    name: "AIM-120 AMRAAM",
+    name: "AMRAAM ALL-ASPECT",
     short: "AMRAAM",
-    label: "radar-guided, all-aspect",
-    blurb: "Fire in any direction: if it is on your radar, the missile will find it. Only three.",
     carried: 3,
     resupply: 1,
     perShot: 1,
@@ -295,8 +280,6 @@ export const BOMBS = {
     id: "dynamite",
     name: "DYNAMITE",
     short: "DYNAMITE",
-    label: "satchel charge",
-    blurb: "Small circle, short fuse, six of them. Usable while someone is on you.",
     carried: 6,
     resupply: 2,
     blastRadius: 200,
@@ -306,10 +289,8 @@ export const BOMBS = {
 
   mk82: {
     id: "mk82",
-    name: "MK 82",
+    name: "MK 82 HEAVY BOMB",
     short: "MK 82",
-    label: "500 lb bomb",
-    blurb: "The middle ground. Clears a useful area, and you get three.",
     carried: 3,
     resupply: 1,
     blastRadius: 500,
@@ -319,10 +300,8 @@ export const BOMBS = {
 
   b61: {
     id: "b61",
-    name: "B61",
+    name: "B61 NUCLEAR",
     short: "B61",
-    label: "tactical nuclear",
-    blurb: "Erases the sky. One bomb, eight seconds, and it does not care whose side you are on.",
     carried: 1,
     resupply: 1,
     blastRadius: 1000,

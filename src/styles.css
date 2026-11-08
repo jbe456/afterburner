@@ -92,35 +92,31 @@ h1 {
   box-shadow: 0 0 16px -6px #ffd166;
 }
 
+.opt {
+  /* Bars inside a weapon card use the selection amber. */
+  --livery: #ffd166;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Pinning the bars to the bottom keeps them aligned across a row even when
+   one title wraps to two lines and the others do not. */
+.opt .stats-grid { margin-top: auto; }
+
 .opt b {
   display: block;
-  font-size: 11px;
-  letter-spacing: .07em;
-  color: #f4f8fc;
+  font-size: 10.5px;
+  line-height: 1.35;
+  letter-spacing: .06em;
+  color: #cfdcea;
   font-weight: 700;
+  margin-bottom: 8px;
 }
 
-.opt i {
-  display: block;
-  font-style: normal;
-  font-size: 9px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  color: #6f8ba6;
-  margin-bottom: 4px;
-}
+.opt.selected b { color: #f4f8fc; }
 
-.opt em {
-  display: block;
-  font-style: normal;
-  font-size: 9.5px;
-  color: #ffd166;
-  margin-bottom: 4px;
-}
-
-.opt.selected em { color: #ffdf8f; }
-
-.opt span { display: block; font-size: 9.5px; line-height: 1.45; color: #76899c; }
+/* Narrower label column than the plane cards, which are wider. */
+.opt .stat { grid-template-columns: 44px 1fr; gap: 6px; }
 
 .loadout-recap {
   font-size: 11px;
@@ -208,8 +204,6 @@ h1 {
   filter: brightness(1.5);
   margin-bottom: 7px;
 }
-
-.plane-blurb { font-size: 10.5px; line-height: 1.5; color: #7d94aa; }
 
 .keys {
   display: grid;

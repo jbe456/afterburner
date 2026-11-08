@@ -9,7 +9,7 @@
 
 import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
-  BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
+  BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT,
   cannonDps, cannonReach,
 } from "../config.js";
 import { loadBest, saveBest, loadLoadout, saveLoadoutSlot } from "../core/storage.js";
@@ -27,19 +27,67 @@ const CONTROLS = [
   ["P", "Pause"],
 ];
 
-/** The only two numbers that differ between airframes. */
-const PLANE_AXES = [
-  ["HULL", (p) => p.maxHp],
-  ["SPEED", (p) => p.maxSpeed],
-];
+/**
+ * What each card compares, as bars. Every axis is a quantity read straight
+ * from config.js and normalised against the other options in its own
+ * category, so a card can never advertise something the simulation does not
+ * do. More is more on all of them.
+ */
+const AXES = {
+  plane: [
+    ["HULL", (p) => p.maxHp],
+    ["SPEED", (p) => p.maxSpeed],
+  ],
+  cannon: [
+    ["DAMAGE", cannonDps],
+    ["REACH", cannonReach],
+    ["PIERCE", (c) => c.pierce],
+    ["BURN", (c) => (c.burn ? c.burn.dps : 0)],
+  ],
+  missile: [
+    ["AMMO", (m) => m.carried],
+    ["DAMAGE", (m) => m.damage],
+    ["BLAST", (m) => m.splashRadius],
+    ["SEEKER", (m) => m.acquireRange],
+  ],
+  bomb: [
+    ["AMMO", (b) => b.carried],
+    ["BLAST", (b) => b.blastRadius],
+    ["FUSE", (b) => b.fuse],
+  ],
+};
 
-const RANGES = PLANE_AXES.map(([, read]) => {
-  const values = PLANE_IDS.map((id) => read(PLANES[id]));
-  return [Math.min(...values), Math.max(...values)];
-});
+/**
+ * Builds a bar renderer for one category, normalising each axis across that
+ * category's options. The weakest value still shows an 18% sliver so a card
+ * never looks broken.
+ */
+function barsFor(slot, ids, table) {
+  const axes = AXES[slot];
+  const ranges = axes.map(([, read]) => {
+    const values = ids.map((id) => read(table[id]));
+    return [Math.min(...values), Math.max(...values)];
+  });
+
+  return (spec) => axes.map(([label, read], i) => {
+    const [lo, hi] = ranges[i];
+    const t = hi === lo ? 1 : (read(spec) - lo) / (hi - lo);
+    return `
+      <div class="stat">
+        <i>${label}</i>
+        <div class="track"><div class="fill" style="width:${(18 + t * 82).toFixed(1)}%"></div></div>
+      </div>`;
+  }).join("");
+}
+
+const BARS = {
+  plane: barsFor("plane", PLANE_IDS, PLANES),
+  cannon: barsFor("cannon", CANNON_IDS, CANNONS),
+  missile: barsFor("missile", MISSILE_IDS, MISSILES),
+  bomb: barsFor("bomb", BOMB_IDS, BOMBS),
+};
 
 const SELECT_KEYS = ["Digit1", "Digit2", "Digit3", "Digit4", "Digit5"];
-const TPS = 1000 / TICK_MS;
 
 /** The current selection, seeded from storage and repaired against config. */
 const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout()) };
@@ -67,16 +115,16 @@ export function showMenu(onStart) {
     <div class="hangar">${PLANE_IDS.map(planeCard).join("")}</div>
 
     <div class="loadout">
-      ${weaponRow("cannon", "CANNON", CANNON_IDS, CANNONS, cannonFigures)}
-      ${weaponRow("missile", "MISSILE", MISSILE_IDS, MISSILES, missileFigures)}
-      ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS, bombFigures)}
+      ${weaponRow("cannon", "CANNON", CANNON_IDS, CANNONS)}
+      ${weaponRow("missile", "MISSILE", MISSILE_IDS, MISSILES)}
+      ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
     </div>
 
     <div class="keys">
       ${CONTROLS.map(([k, d]) => `<b>${k}</b><span>${d}</span>`).join("")}
     </div>
     <button class="btn" id="start">Launch</button>
-    <div class="hint">Airframes differ only in hull and top speed · weapons are the same whichever you fly</div>`;
+    <div class="hint">Any airframe can carry any loadout · a longer bar is more of that thing</div>`;
 
   for (const card of panel().querySelectorAll(".plane")) {
     card.addEventListener("click", () => select("plane", card.dataset.id));
@@ -97,12 +145,6 @@ export function showMenu(onStart) {
 
 function planeCard(id, index) {
   const plane = PLANES[id];
-  const bars = PLANE_AXES.map(([label, read], axis) => `
-    <div class="stat">
-      <i>${label}</i>
-      <div class="track"><div class="fill" style="width:${barWidth(axis, read(plane))}%"></div></div>
-    </div>`).join("");
-
   return `
     <div class="plane${id === chosen.plane ? " selected" : ""}" data-id="${id}"
          style="--livery:${plane.color}">
@@ -112,32 +154,22 @@ function planeCard(id, index) {
       </div>
       <div class="plane-role">${plane.role}</div>
       ${silhouette(plane)}
-      <div class="stats-grid">${bars}</div>
+      <div class="stats-grid">${BARS.plane(plane)}</div>
       <div class="plane-figures">${plane.maxHp} hull · ${kmh(plane.maxSpeed)} km/h</div>
-      <div class="plane-blurb">${plane.blurb}</div>
     </div>`;
-}
-
-/** Normalise to 18–100% so the weakest stat is still a visible sliver. */
-function barWidth(axis, value) {
-  const [lo, hi] = RANGES[axis];
-  const t = hi === lo ? 1 : (value - lo) / (hi - lo);
-  return (18 + t * 82).toFixed(1);
 }
 
 const kmh = (unitsPerTick) => Math.round(unitsPerTick * KMH_PER_SPEED_UNIT);
 
 // --- weapon rows ------------------------------------------------------------
 
-function weaponRow(slot, label, ids, table, figures) {
+function weaponRow(slot, label, ids, table) {
   const options = ids.map((id) => {
     const spec = table[id];
     return `
       <div class="opt${id === chosen[slot] ? " selected" : ""}" data-slot="${slot}" data-id="${id}">
         <b>${spec.name}</b>
-        <i>${spec.label}</i>
-        <em>${figures(spec)}</em>
-        <span>${spec.blurb}</span>
+        <div class="stats-grid">${BARS[slot](spec)}</div>
       </div>`;
   }).join("");
 
@@ -146,31 +178,6 @@ function weaponRow(slot, label, ids, table, figures) {
       <div class="loadout-label">${label}</div>
       <div class="options">${options}</div>
     </div>`;
-}
-
-/** Sustained damage per second, which is what a rate of fire really means. */
-function cannonFigures(spec) {
-  const parts = [`${Math.round(cannonDps(spec))} dps`];
-  if (spec.kind === "flame") {
-    parts.push(`${spec.range} m cone`, `${spec.burn.dps}/s burn`, "hits everything in it");
-  } else {
-    parts.push(`${spec.damage}×${spec.barrels} per shot`, `${Math.round(cannonReach(spec))} m reach`);
-    if (spec.pierce > 1) parts.push(`pierces ${spec.pierce}`);
-  }
-  return parts.join(" · ");
-}
-
-function missileFigures(spec) {
-  const parts = [`${spec.carried} carried`, `${spec.damage} dmg`];
-  if (spec.turnRate <= 0) parts.push("unguided");
-  else if (spec.acquireCone >= Math.PI) parts.push(`all-aspect to ${spec.acquireRange} m`);
-  else parts.push(`seeks forward to ${spec.acquireRange} m`);
-  if (spec.perShot > 1) parts.push(`${spec.perShot} per shot`);
-  return parts.join(" · ");
-}
-
-function bombFigures(spec) {
-  return `${spec.carried} carried · ${spec.blastRadius} m blast · ${(spec.fuse / TPS).toFixed(1)}s fuse`;
 }
 
 /**

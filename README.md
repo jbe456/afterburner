@@ -59,21 +59,21 @@ each category.
 
 | Cannon | | |
 | --- | --- | --- |
-| **M61 Vulcan** | 216 dps, 2 barrels | Highest sustained damage on one target |
-| **GAU-8 Avenger** | 160 dps, 48 per shot | Pierces 3 aircraft; dead time if you miss |
-| **HEI Firebelt** | 78 dps + 70/s burn, 260 m cone | A flamethrower: no rounds to miss with, but very short reach. Everything in the cone burns |
+| **Vulcan rapid-fire** | 216 dps, 2 barrels | Highest sustained damage on one target |
+| **Avenger piercing** | 160 dps, 48 per shot | Pierces 3 aircraft; dead time if you miss |
+| **Firebelt flamethrower** | 78 dps + 70/s burn, 260 m cone | No rounds to miss with, but very short reach. Everything in the cone burns |
 
 | Missile | | |
 | --- | --- | --- |
-| **Hydra 70** | 18 carried, 28 dmg | Unguided, 2 per pull — you do the aiming |
-| **AIM-9 Sidewinder** | 6 carried, 70 dmg | IR-guided all-rounder |
-| **AIM-120 AMRAAM** | 3 carried, 150 dmg | All-aspect: fire in any direction and it finds anything on the radar |
+| **Hydra rocket pod** | 18 carried, 28 dmg | Unguided, 2 per pull — you do the aiming |
+| **Sidewinder heat-seeker** | 6 carried, 70 dmg | Seeks a forward arc to 900 m |
+| **AMRAAM all-aspect** | 3 carried, 150 dmg | Fire in any direction; finds anything on the radar |
 
 | Bomb | | |
 | --- | --- | --- |
 | **Dynamite** | 6 carried, 200 m, 2.0s | Usable while someone is on you |
-| **Mk 82** | 3 carried, 500 m, 5.0s | The middle ground |
-| **B61** | 1 carried, 1000 m, 8.0s | Erases the sky |
+| **Mk 82 heavy bomb** | 3 carried, 500 m, 5.0s | The middle ground |
+| **B61 nuclear** | 1 carried, 1000 m, 8.0s | Erases the sky |
 
 Firebelt sprays a cone rather than firing rounds: nothing to miss with and it
 catches everything inside it, but you have to be almost on top of the target,
@@ -91,8 +91,11 @@ pierce depth, ignition and its damage-over-time, salvo size, and the lock
 requirement. `check-bomb.js` proves each bomb kills friend and foe at its own
 radius on its own fuse, and that each is escapable at cruise speed.
 
-The stat bars in the hangar are normalised from those same numbers rather than
-hand-authored, so the UI cannot drift out of sync with the planes.
+Every card in the hangar — airframe and weapon alike — is a name and a set of
+bars, normalised from the config values against the other options in its own
+category. Nothing is hand-authored, so a card cannot advertise something the
+simulation does not do. The prose descriptions that used to sit on each card
+live here in the README instead.
 
 Because the turn-rate penalty is measured against a shared reference speed
 rather than each plane's own maximum, two jets at the same airspeed corner
