@@ -9,7 +9,7 @@
 
 import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
-  BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT,
+  BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
   cannonDps, cannonReach,
 } from "../config.js";
 import { loadBest, saveBest, loadLoadout, saveLoadoutSlot } from "../core/storage.js";
@@ -27,33 +27,43 @@ const CONTROLS = [
   ["P", "Pause"],
 ];
 
+const TPS = 1000 / TICK_MS;
+
+/** Formatters, so each bar can state its own value in its own unit. */
+const count = (v) => String(Math.round(v));
+const metres = (v) => `${Math.round(v)} m`;
+const perSecond = (v) => `${Math.round(v)} dps`;
+const seconds = (v) => `${(v / TPS).toFixed(1)} s`;
+const kmh = (v) => `${Math.round(v * KMH_PER_SPEED_UNIT)} km/h`;
+
 /**
- * What each card compares, as bars. Every axis is a quantity read straight
- * from config.js and normalised against the other options in its own
- * category, so a card can never advertise something the simulation does not
- * do. More is more on all of them.
+ * What each card compares, as bars: a label, the value to read, and how to
+ * print it. Every quantity comes straight from config.js and is normalised
+ * against the other options in its own category, so a card can never
+ * advertise something the simulation does not do. More is more on all of
+ * them — though on FUSE "more" is a longer wait, not a better bomb.
  */
 const AXES = {
   plane: [
-    ["HULL", (p) => p.maxHp],
-    ["SPEED", (p) => p.maxSpeed],
+    ["HULL", (p) => p.maxHp, count],
+    ["SPEED", (p) => p.maxSpeed, kmh],
   ],
   cannon: [
-    ["DAMAGE", cannonDps],
-    ["REACH", cannonReach],
-    ["PIERCE", (c) => c.pierce],
-    ["BURN", (c) => (c.burn ? c.burn.dps : 0)],
+    ["DAMAGE", cannonDps, perSecond],
+    ["REACH", cannonReach, metres],
+    ["PIERCE", (c) => c.pierce, (v) => `x${v}`],
+    ["BURN", (c) => (c.burn ? c.burn.dps : 0), (v) => (v ? perSecond(v) : "none")],
   ],
   missile: [
-    ["AMMO", (m) => m.carried],
-    ["DAMAGE", (m) => m.damage],
-    ["BLAST", (m) => m.splashRadius],
-    ["SEEKER", (m) => m.acquireRange],
+    ["AMMO", (m) => m.carried, count],
+    ["DAMAGE", (m) => m.damage, count],
+    ["BLAST", (m) => m.splashRadius, metres],
+    ["SEEKER", (m) => m.acquireRange, (v) => (v ? metres(v) : "none")],
   ],
   bomb: [
-    ["AMMO", (b) => b.carried],
-    ["BLAST", (b) => b.blastRadius],
-    ["FUSE", (b) => b.fuse],
+    ["AMMO", (b) => b.carried, count],
+    ["BLAST", (b) => b.blastRadius, metres],
+    ["FUSE", (b) => b.fuse, seconds],
   ],
 };
 
@@ -69,13 +79,15 @@ function barsFor(slot, ids, table) {
     return [Math.min(...values), Math.max(...values)];
   });
 
-  return (spec) => axes.map(([label, read], i) => {
+  return (spec) => axes.map(([label, read, format], i) => {
     const [lo, hi] = ranges[i];
-    const t = hi === lo ? 1 : (read(spec) - lo) / (hi - lo);
+    const value = read(spec);
+    const t = hi === lo ? 1 : (value - lo) / (hi - lo);
     return `
       <div class="stat">
         <i>${label}</i>
         <div class="track"><div class="fill" style="width:${(18 + t * 82).toFixed(1)}%"></div></div>
+        <u>${format(value)}</u>
       </div>`;
   }).join("");
 }
@@ -155,11 +167,8 @@ function planeCard(id, index) {
       <div class="plane-role">${plane.role}</div>
       ${silhouette(plane)}
       <div class="stats-grid">${BARS.plane(plane)}</div>
-      <div class="plane-figures">${plane.maxHp} hull · ${kmh(plane.maxSpeed)} km/h</div>
     </div>`;
 }
-
-const kmh = (unitsPerTick) => Math.round(unitsPerTick * KMH_PER_SPEED_UNIT);
 
 // --- weapon rows ------------------------------------------------------------
 
@@ -169,6 +178,7 @@ function weaponRow(slot, label, ids, table) {
     return `
       <div class="opt${id === chosen[slot] ? " selected" : ""}" data-slot="${slot}" data-id="${id}">
         <b>${spec.name}</b>
+        ${weaponArt(id)}
         <div class="stats-grid">${BARS[slot](spec)}</div>
       </div>`;
   }).join("");
@@ -178,6 +188,81 @@ function weaponRow(slot, label, ids, table) {
       <div class="loadout-label">${label}</div>
       <div class="options">${options}</div>
     </div>`;
+}
+
+/**
+ * A small drawing of each weapon, so the row reads at a glance before you
+ * get to the numbers. Muzzle or nose points right, matching the plane art's
+ * convention of facing the direction of travel.
+ *
+ * `main` is the body, `dim` the secondary detail.
+ */
+const WEAPON_ART = {
+  // --- cannons: breech on the left, business end on the right ---
+  vulcan: `
+    <rect class="dim" x="-18" y="-7" width="10" height="14" rx="2"/>
+    <rect class="main" x="-9" y="-5.6" width="23" height="2.6"/>
+    <rect class="main" x="-9" y="-1.3" width="27" height="2.6"/>
+    <rect class="main" x="-9" y="3" width="23" height="2.6"/>`,
+
+  avenger: `
+    <rect class="dim" x="-19" y="-8" width="11" height="16" rx="2"/>
+    <rect class="main" x="-9" y="-3.2" width="23" height="6.4"/>
+    <rect class="dim" x="13" y="-5.4" width="6" height="10.8" rx="1.5"/>`,
+
+  firebelt: `
+    <rect class="dim" x="-19" y="-5" width="11" height="10" rx="3"/>
+    <path class="main" d="M -8,-3.4 L 3,-7 L 7,-2.6 L 14,-4 L 12,0 L 14,4
+                          L 7,2.6 L 3,7 L -8,3.4 Z"/>`,
+
+  // --- missiles: a pod of many, one slim seeker, one big radar shot ---
+  hydra: `
+    <rect class="dim" x="-18" y="-10" width="21" height="20" rx="3"/>
+    <polygon class="main" points="3,-8.4 13,-6.6 3,-4.8"/>
+    <polygon class="main" points="3,-1.8 15,0 3,1.8"/>
+    <polygon class="main" points="3,4.8 13,6.6 3,8.4"/>`,
+
+  sidewinder: `
+    <polygon class="main" points="18,0 8,-3 -12,-3 -12,3 8,3"/>
+    <polygon class="dim" points="-12,-3 -19,-9 -14,-3"/>
+    <polygon class="dim" points="-12,3 -19,9 -14,3"/>
+    <polygon class="dim" points="1,-3 -3,-9 -7,-3"/>
+    <polygon class="dim" points="1,3 -3,9 -7,3"/>`,
+
+  amraam: `
+    <polygon class="main" points="19,0 7,-4.2 -11,-4.2 -11,4.2 7,4.2"/>
+    <polygon class="dim" points="-11,-4.2 -19,-10 -13,-4.2"/>
+    <polygon class="dim" points="-11,4.2 -19,10 -13,4.2"/>
+    <polygon class="dim" points="2,-4.2 -3,-10 -8,-4.2"/>
+    <polygon class="dim" points="2,4.2 -3,10 -8,4.2"/>
+    <path class="arc" d="M 13,-7.5 A 8.5,8.5 0 0 1 13,7.5"/>`,
+
+  // --- bombs: sticks, a shaped case, and the obvious ---
+  dynamite: `
+    <rect class="main" x="-13" y="-8" width="7.5" height="16" rx="2"/>
+    <rect class="main" x="-4" y="-8" width="7.5" height="16" rx="2"/>
+    <rect class="main" x="5" y="-8" width="7.5" height="16" rx="2"/>
+    <rect class="dim" x="-13" y="-2.4" width="25.5" height="4.8"/>
+    <path class="arc" d="M 9,-8 q 6,-5 10,-1"/>`,
+
+  mk82: `
+    <path class="main" d="M 19,0 C 14,-6.5 4,-8 -6,-7.5 L -11,-7.5 L -11,7.5
+                          L -6,7.5 C 4,8 14,6.5 19,0 Z"/>
+    <polygon class="dim" points="-11,-7.5 -19,-11 -19,11 -11,7.5"/>
+    <rect class="dim" x="4" y="-7" width="3.5" height="14"/>`,
+
+  b61: `
+    <ellipse class="main" cx="0" cy="-7" rx="15" ry="5.5"/>
+    <path class="main" d="M -4.5,-5 L 4.5,-5 L 3,7 L -3,7 Z"/>
+    <ellipse class="dim" cx="0" cy="9" rx="12" ry="3.2"/>
+    <ellipse class="dim" cx="0" cy="-11.5" rx="8" ry="2.6"/>`,
+};
+
+function weaponArt(id) {
+  return `
+    <svg class="weapon-art" viewBox="-22 -14 44 28" aria-hidden="true">
+      ${WEAPON_ART[id] ?? ""}
+    </svg>`;
 }
 
 /**

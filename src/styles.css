@@ -115,8 +115,28 @@ h1 {
 
 .opt.selected b { color: #f4f8fc; }
 
-/* Narrower label column than the plane cards, which are wider. */
-.opt .stat { grid-template-columns: 44px 1fr; gap: 6px; }
+.opt .stat { grid-template-columns: 44px 1fr auto; gap: 6px; }
+.opt .stat u { min-width: 42px; }
+
+.weapon-art {
+  display: block;
+  width: 62px;
+  height: 40px;
+  margin: 2px auto 9px;
+}
+
+.weapon-art .main { fill: var(--livery); }
+.weapon-art .dim { fill: var(--livery); opacity: .45; }
+
+.weapon-art .arc {
+  fill: none;
+  stroke: var(--livery);
+  stroke-width: 1.8;
+  opacity: .7;
+}
+
+/* Unpicked weapons sit back a little. */
+.opt:not(.selected) .weapon-art { opacity: .5; }
 
 .loadout-recap {
   font-size: 11px;
@@ -183,7 +203,12 @@ h1 {
 
 .stats-grid { display: grid; gap: 4px; margin-bottom: 9px; }
 
-.stat { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 7px; }
+.stat {
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
+  align-items: center;
+  gap: 7px;
+}
 
 .stat i {
   font-style: normal;
@@ -192,18 +217,22 @@ h1 {
   color: #6f8ba6;
 }
 
+/* The value, stated inline beside its own bar. */
+.stat u {
+  text-decoration: none;
+  font-size: 8.5px;
+  color: #a9bed1;
+  white-space: nowrap;
+  justify-self: end;
+  min-width: 46px;
+  text-align: right;
+}
+
+.plane.selected .stat u, .opt.selected .stat u { color: #e6eff8; }
+
 .track { height: 4px; background: rgba(255, 255, 255, .08); }
 
 .fill { height: 100%; background: var(--livery); filter: brightness(1.3); }
-
-/* The two numbers that actually differ, stated plainly under the bars. */
-.plane-figures {
-  font-size: 10px;
-  letter-spacing: .04em;
-  color: var(--livery);
-  filter: brightness(1.5);
-  margin-bottom: 7px;
-}
 
 .keys {
   display: grid;

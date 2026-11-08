@@ -91,11 +91,12 @@ pierce depth, ignition and its damage-over-time, salvo size, and the lock
 requirement. `check-bomb.js` proves each bomb kills friend and foe at its own
 radius on its own fuse, and that each is escapable at cruise speed.
 
-Every card in the hangar — airframe and weapon alike — is a name and a set of
-bars, normalised from the config values against the other options in its own
-category. Nothing is hand-authored, so a card cannot advertise something the
-simulation does not do. The prose descriptions that used to sit on each card
-live here in the README instead.
+Every card in the hangar — airframe and weapon alike — is a name, a drawing
+and a set of bars. Each bar states its own value and unit inline, and is
+normalised against the other options in its own category. Nothing is
+hand-authored, so a card cannot advertise something the simulation does not
+do. The prose descriptions that used to sit on each card live here in the
+README instead.
 
 Because the turn-rate penalty is measured against a shared reference speed
 rather than each plane's own maximum, two jets at the same airspeed corner
