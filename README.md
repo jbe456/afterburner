@@ -61,13 +61,13 @@ each category.
 | --- | --- | --- |
 | **M61 Vulcan** | 216 dps, 2 barrels | Highest sustained damage on one target |
 | **GAU-8 Avenger** | 160 dps, 48 per shot | Pierces 3 aircraft; dead time if you miss |
-| **HEI Firebelt** | 86 dps + 70/s burn | Ignites: worst in a duel, best against a crowd |
+| **HEI Firebelt** | 78 dps + 70/s burn, 260 m cone | A flamethrower: no rounds to miss with, but very short reach. Everything in the cone burns |
 
 | Missile | | |
 | --- | --- | --- |
 | **Hydra 70** | 18 carried, 28 dmg | Unguided, 2 per pull — you do the aiming |
 | **AIM-9 Sidewinder** | 6 carried, 70 dmg | IR-guided all-rounder |
-| **AIM-120 AMRAAM** | 3 carried, 150 dmg | Radar-guided, one-shots anything, needs a solid lock |
+| **AIM-120 AMRAAM** | 3 carried, 150 dmg | All-aspect: fire in any direction and it finds anything on the radar |
 
 | Bomb | | |
 | --- | --- | --- |
@@ -75,10 +75,16 @@ each category.
 | **Mk 82** | 3 carried, 500 m, 5.0s | The middle ground |
 | **B61** | 1 carried, 1000 m, 8.0s | Erases the sky |
 
-Firebelt's burn keeps running after you break off and applies to every target
-you have lit, which is the part a stat table cannot show. Avenger's pierce
-only pays when enemies line up. Hydra needs no lock, which matters in a knife
-fight; AMRAAM refuses to leave the rail without one.
+Firebelt sprays a cone rather than firing rounds: nothing to miss with and it
+catches everything inside it, but you have to be almost on top of the target,
+and its burn keeps running after you break off. Avenger's pierce only pays
+when enemies line up.
+
+The missiles differ in how far and how wide their seekers look. Hydra has no
+seeker at all. The Sidewinder searches a forward arc out to 900 m. The AMRAAM
+is all-aspect out to `RADAR_RANGE`, the same constant the radar display uses —
+so "if it is on your radar, the missile will find it" is enforced rather than
+merely claimed, including for something sitting on your six.
 
 `check-weapons.js` pins the mechanics that are invisible when they break —
 pierce depth, ignition and its damage-over-time, salvo size, and the lock

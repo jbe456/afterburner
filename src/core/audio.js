@@ -76,6 +76,11 @@ export const sfx = {
     noise(0.05, 0.1, 3000);
   },
   enemyGun: () => tone(rand(300, 360), 0.05, "square", 0.03, 120),
+  /** Flamethrower: breathy, low, and overlapping into a continuous roar. */
+  flame: () => {
+    noise(0.22, 0.09, rand(500, 900), 240);
+    tone(rand(80, 110), 0.18, "sawtooth", 0.025, 55);
+  },
   boom: (big) => {
     noise(big ? 0.75 : 0.4, big ? 0.6 : 0.3, big ? 1400 : 900, 60);
     tone(big ? 70 : 110, big ? 0.6 : 0.3, "sine", big ? 0.4 : 0.2, 30);

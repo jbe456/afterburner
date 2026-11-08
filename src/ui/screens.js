@@ -10,6 +10,7 @@
 import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
+  cannonDps, cannonReach,
 } from "../config.js";
 import { loadBest, saveBest, loadLoadout, saveLoadoutSlot } from "../core/storage.js";
 
@@ -149,18 +150,22 @@ function weaponRow(slot, label, ids, table, figures) {
 
 /** Sustained damage per second, which is what a rate of fire really means. */
 function cannonFigures(spec) {
-  const dps = Math.round((spec.barrels * spec.damage * TPS) / spec.cooldown);
-  const parts = [`${dps} dps`, `${spec.damage}×${spec.barrels} per shot`];
-  if (spec.pierce > 1) parts.push(`pierces ${spec.pierce}`);
-  if (spec.burn) parts.push(`${spec.burn.dps}/s burn`);
+  const parts = [`${Math.round(cannonDps(spec))} dps`];
+  if (spec.kind === "flame") {
+    parts.push(`${spec.range} m cone`, `${spec.burn.dps}/s burn`, "hits everything in it");
+  } else {
+    parts.push(`${spec.damage}×${spec.barrels} per shot`, `${Math.round(cannonReach(spec))} m reach`);
+    if (spec.pierce > 1) parts.push(`pierces ${spec.pierce}`);
+  }
   return parts.join(" · ");
 }
 
 function missileFigures(spec) {
   const parts = [`${spec.carried} carried`, `${spec.damage} dmg`];
-  parts.push(spec.turnRate > 0 ? "guided" : "unguided");
+  if (spec.turnRate <= 0) parts.push("unguided");
+  else if (spec.acquireCone >= Math.PI) parts.push(`all-aspect to ${spec.acquireRange} m`);
+  else parts.push(`seeks forward to ${spec.acquireRange} m`);
   if (spec.perShot > 1) parts.push(`${spec.perShot} per shot`);
-  if (spec.requiresLock) parts.push("needs lock");
   return parts.join(" · ");
 }
 

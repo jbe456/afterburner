@@ -21,13 +21,12 @@
 
 import {
   PLANES, PLANE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
-  BOMBS, BOMB_IDS, PLAYER, TICK_MS,
+  BOMBS, BOMB_IDS, PLAYER, cannonDps, cannonReach,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
 import { agility } from "../src/entities/player.js";
 
-const TPS = 1000 / TICK_MS;
 let failures = 0;
 
 /**
@@ -73,12 +72,12 @@ assertNoDominance("AIRFRAMES", PLANE_IDS, PLANES, {
 // --- cannons ---------------------------------------------------------------
 assertNoDominance("CANNONS", CANNON_IDS, CANNONS, {
   /** Sustained damage on one target, which is what rate of fire really buys. */
-  dps: (c) => (c.barrels * c.damage * TPS) / c.cooldown,
-  burst: (c) => c.barrels * c.damage,
+  dps: cannonDps,
+  /** Damage landed by a single trigger event. */
+  burst: (c) => (c.kind === "flame" ? c.damage : c.barrels * c.damage),
   rateOfFire: (c) => 1 / c.cooldown,
-  accuracy: (c) => -c.spread,
-  reach: (c) => c.bulletSpeed,
-  pierce: (c) => c.pierce,
+  /** How far it can actually hurt something, in world units. */
+  reach: cannonReach,
   burnDps: (c) => (c.burn ? c.burn.dps : 0),
 });
 
@@ -91,8 +90,9 @@ assertNoDominance("MISSILES", MISSILE_IDS, MISSILES, {
   guidance: (m) => m.turnRate,
   salvo: (m) => m.perShot,
   reload: (m) => 1 / m.cooldown,
-  /** Not needing a lock is a real advantage in a knife fight. */
-  freeToFire: (m) => (m.requiresLock ? 0 : 1),
+  /** How far, and over how wide an arc, the seeker can find a target itself. */
+  acquisition: (m) => m.acquireRange,
+  allAspect: (m) => m.acquireCone,
 });
 
 // --- bombs -----------------------------------------------------------------

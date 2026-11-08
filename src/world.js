@@ -19,6 +19,8 @@ export function createWorld(loadout) {
     bullets: [],
     missiles: [],
     bombs: [],
+    /** Short-lived flamethrower cones, one per tick while the trigger is held. */
+    flames: [],
     pickups: [],
     particles: [],
     rings: [],

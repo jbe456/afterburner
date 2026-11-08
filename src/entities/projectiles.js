@@ -38,6 +38,37 @@ export function updateBullets(world) {
 }
 
 /**
+ * Resolves the flamethrower's cone: everything caught in it takes damage and
+ * catches fire. Unlike a bullet there is nothing to dodge inside the cone and
+ * nothing to miss with — the tradeoff is that the cone is very short.
+ */
+export function updateFlames(world) {
+  for (let i = world.flames.length - 1; i >= 0; i--) {
+    const flame = world.flames[i];
+    const spec = flame.spec;
+
+    // A cone damages once, then survives until the next tick purely so the
+    // renderer has something to draw — otherwise the flame would be created
+    // and consumed between frames and never appear on screen.
+    if (flame.spent) { world.flames.splice(i, 1); continue; }
+
+    for (let k = world.enemies.length - 1; k >= 0; k--) {
+      const e = world.enemies[k];
+      const dx = e.x - flame.x;
+      const dy = e.y - flame.y;
+      if (Math.hypot(dx, dy) > spec.range + e.radius) continue;
+      if (Math.abs(angDiff(Math.atan2(dy, dx), flame.angle)) > spec.coneHalfAngle) continue;
+
+      ignite(world, e, spec.burn);
+      // Quiet: this lands every tick, so it must not sound like a hit each time.
+      damageEnemy(world, e, spec.damage, e.x, e.y, { quiet: true });
+    }
+
+    flame.spent = true;
+  }
+}
+
+/**
  * Applies a player round to whatever it touched.
  * @returns true if the round is spent and should be removed.
  */
@@ -100,13 +131,18 @@ export function updateMissiles(world) {
   }
 }
 
+/**
+ * Find a new target mid-flight, inside the missile's own seeker envelope.
+ * An all-aspect seeker will happily turn around for something behind it.
+ */
 function reacquire(m, enemies) {
+  const spec = m.spec;
   let best = null;
-  let bestDist2 = 900 ** 2;
+  let bestDist2 = spec.acquireRange ** 2;
   for (const e of enemies) {
     const d2 = dist2(m, e);
     if (d2 >= bestDist2) continue;
-    if (Math.abs(angDiff(Math.atan2(e.y - m.y, e.x - m.x), m.angle)) > 0.9) continue;
+    if (Math.abs(angDiff(Math.atan2(e.y - m.y, e.x - m.x), m.angle)) > spec.acquireCone) continue;
     bestDist2 = d2;
     best = e;
   }

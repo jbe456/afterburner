@@ -10,12 +10,11 @@ import { TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import {
   ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, KMH_PER_SPEED_UNIT,
+  RADAR_RANGE,
 } from "../config.js";
 
 const MONO = "ui-monospace, monospace";
 const RADAR_RADIUS = 78;
-/** World distance covered by the radar's outer ring. */
-const RADAR_RANGE = 2600;
 /** How far ahead of the nose the gun pipper floats. */
 const PIPPER_DISTANCE = 95;
 

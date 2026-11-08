@@ -16,6 +16,13 @@ export const TICK_MS = 1000 / 60;
  */
 export const KMH_PER_SPEED_UNIT = (1000 / TICK_MS) * 3.6;
 
+/**
+ * World distance covered by the radar's outer ring. The AMRAAM's acquisition
+ * range is this same number, so "if it is on the radar, it can be shot" is a
+ * guarantee rather than a coincidence.
+ */
+export const RADAR_RANGE = 2600;
+
 // --- arena ------------------------------------------------------------------
 export const ARENA_SIZE = 7000; // square, centred on (0, 0)
 export const ARENA_HALF = ARENA_SIZE / 2;
@@ -122,6 +129,7 @@ export const CANNONS = {
     short: "VULCAN",
     label: "20 mm rotary",
     blurb: "Highest sustained damage on a single target.",
+    kind: "bullet",
     barrels: 2,
     damage: 9,
     cooldown: 5,
@@ -140,6 +148,7 @@ export const CANNONS = {
     short: "AVENGER",
     label: "30 mm",
     blurb: "Pierces up to three aircraft. Brutal if you line it up, dead time if you miss.",
+    kind: "bullet",
     barrels: 1,
     damage: 48,
     cooldown: 18,
@@ -156,21 +165,29 @@ export const CANNONS = {
     id: "firebelt",
     name: "HEI FIREBELT",
     short: "FIREBELT",
-    label: "incendiary",
-    blurb: "Sets them alight. Worst in a duel, best against a crowd.",
-    barrels: 2,
-    damage: 5,
-    cooldown: 7,
-    spread: 0.030,
-    bulletSpeed: 13,
-    bulletLife: 55,
+    label: "flamethrower",
+    blurb: "A cone of fire, no rounds to miss with. Short reach, and everything caught in it burns.",
+    /** Not a gun: it sprays a cone that damages everything inside it. */
+    kind: "flame",
+    /** Applied every tick the trigger is held, to every aircraft in the cone. */
+    damage: 1.3,
+    cooldown: 1,
+    /** How far the cone reaches, and its half-angle in radians. */
+    range: 260,
+    coneHalfAngle: 0.30,
     pierce: 1,
-    /** Damage per second, and how long it burns after the last hit. */
+    /** Damage per second, and how long it burns after leaving the flame. */
     burn: { dps: 70, duration: 90 },
-    tracer: "#ff9a4a",
-    tracerWidth: 3.2,
   },
 };
+
+/** Sustained damage per second on one target. */
+export const cannonDps = (c) =>
+  ((c.kind === "flame" ? c.damage : c.barrels * c.damage) * (1000 / TICK_MS)) / c.cooldown;
+
+/** How far the weapon can actually hurt something, in world units. */
+export const cannonReach = (c) =>
+  c.kind === "flame" ? c.range : c.bulletSpeed * c.bulletLife;
 
 // --- missiles ---------------------------------------------------------------
 /**
@@ -194,7 +211,9 @@ export const MISSILES = {
     splashRadius: 70,
     /** 0 means it flies dead straight. */
     turnRate: 0,
-    requiresLock: false,
+    /** Unguided: it acquires nothing and goes where it was pointed. */
+    acquireRange: 0,
+    acquireCone: 0,
     launchSpeed: 6,
     accel: 0.4,
     maxSpeed: 16,
@@ -216,7 +235,9 @@ export const MISSILES = {
     splashDamage: 30,
     splashRadius: 110,
     turnRate: 0.085,
-    requiresLock: false,
+    /** Seeks forward only, and not far — point it roughly at something. */
+    acquireRange: 900,
+    acquireCone: 0.9,
     launchSpeed: 5,
     accel: 0.26,
     maxSpeed: 13,
@@ -228,8 +249,8 @@ export const MISSILES = {
     id: "amraam",
     name: "AIM-120 AMRAAM",
     short: "AMRAAM",
-    label: "radar-guided",
-    blurb: "One-shots anything. Three of them, and it needs a solid lock.",
+    label: "radar-guided, all-aspect",
+    blurb: "Fire in any direction: if it is on your radar, the missile will find it. Only three.",
     carried: 3,
     resupply: 1,
     perShot: 1,
@@ -237,8 +258,13 @@ export const MISSILES = {
     damage: 150,
     splashDamage: 70,
     splashRadius: 190,
-    turnRate: 0.13,
-    requiresLock: true,
+    turnRate: 0.15,
+    /**
+     * All-aspect: acquires anything on the radar regardless of bearing, so it
+     * can be fired over your shoulder at something chasing you.
+     */
+    acquireRange: RADAR_RANGE,
+    acquireCone: Math.PI,
     launchSpeed: 5,
     accel: 0.3,
     maxSpeed: 15,

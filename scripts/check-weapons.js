@@ -3,8 +3,8 @@
  * to the raw numbers that check-balance.js already compares.
  *
  * Each of these is invisible when it breaks: a pierce that stops at the first
- * target, an incendiary that does no burn damage, or a lock requirement that
- * silently lets AMRAAMs off the rail all look completely normal on screen.
+ * target, a flame cone that quietly damages twice, or a seeker that stops
+ * finding targets behind the jet all look completely normal on screen.
  *
  *   npm test
  *
@@ -13,9 +13,9 @@
 
 import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
-import { updateBullets } from "../src/entities/projectiles.js";
+import { updateBullets, updateFlames } from "../src/entities/projectiles.js";
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
-import { CANNONS, MISSILES, LOCK } from "../src/config.js";
+import { CANNONS, MISSILES, RADAR_RANGE } from "../src/config.js";
 
 let failures = 0;
 
@@ -46,8 +46,9 @@ for (const id of Object.keys(CANNONS)) {
   const spec = CANNONS[id];
   const { world, player } = setup({ cannon: id });
   fireGun(world, player, true);
-  check(`${spec.name} fires ${spec.barrels} round(s) per pull`,
-    world.bullets.length === spec.barrels, `got ${world.bullets.length}`);
+  const expected = spec.kind === "flame" ? 0 : spec.barrels;
+  check(`${spec.name} emits ${expected} round(s) per pull`,
+    world.bullets.length === expected, `got ${world.bullets.length}`);
 }
 
 {
@@ -73,22 +74,69 @@ for (const id of Object.keys(CANNONS)) {
 }
 
 {
-  // Firebelt must keep damaging after the round has landed and firing stopped.
-  const { world, player, enemies } = setup({ cannon: "firebelt" }, [200]);
+  // The flamethrower fires a cone, not a projectile.
+  const { world, player } = setup({ cannon: "firebelt" }, [150]);
+  fireGun(world, player, true);
+  check("FIREBELT produces no bullets", world.bullets.length === 0);
+  check("FIREBELT produces a flame cone", world.flames.length === 1);
+}
+
+{
+  // Everything inside the cone burns; nothing outside it is touched.
+  const spec = CANNONS.firebelt;
+  const inCone = 150;              // within range, dead ahead
+  const behind = -150;             // within range, but behind the nose
+  const tooFar = spec.range + 300; // dead ahead, well beyond the cone
+
+  const { world, player, enemies } = setup({ cannon: "firebelt" }, [inCone, behind, tooFar]);
+  const [front, back, distant] = enemies;
+  const before = enemies.map((e) => e.hp);
+
+  fireGun(world, player, true);
+  updateFlames(world);
+
+  check("flame damages an aircraft inside the cone", front.hp < before[0]);
+  check("flame ignites an aircraft inside the cone", Boolean(front.burn));
+  check("flame does not reach behind the jet", back.hp === before[1] && !back.burn);
+  check("flame does not reach past its range", distant.hp === before[2] && !distant.burn);
+}
+
+{
+  // The cone outlives its damage by one tick so the renderer can draw it.
+  // That must not turn into damage landing twice.
+  const { world, player, enemies } = setup({ cannon: "firebelt" }, [150]);
+  const target = enemies[0];
+  const before = target.hp;
+
+  fireGun(world, player, true);
+  updateFlames(world);
+  const afterOne = target.hp;
+  const dealt = before - afterOne;
+
+  check("one spray deals its damage once", Math.abs(dealt - CANNONS.firebelt.damage) < 1e-9,
+    `dealt ${dealt}`);
+  check("the cone survives a tick so it can be drawn", world.flames.length === 1);
+
+  updateFlames(world); // the lingering cone must not hurt anything again
+  check("the lingering cone deals no further damage", target.hp === afterOne,
+    `hp ${afterOne} -> ${target.hp}`);
+  check("the cone is cleaned up next tick", world.flames.length === 0);
+}
+
+{
+  // Fire keeps working after you stop, and kills on its own.
+  const { world, player, enemies } = setup({ cannon: "firebelt" }, [150]);
   const target = enemies[0];
   fireGun(world, player, true);
-  for (let t = 0; t < 120 && world.bullets.length; t++) updateBullets(world);
+  updateFlames(world);
 
-  check("FIREBELT ignites what it hits", Boolean(target.burn), "no burn state");
-
-  const hpAfterImpact = target.hp;
+  const hpAfterFlame = target.hp;
   updateBurning(world);
   updateBurning(world);
-  const burning = target.hp < hpAfterImpact;
-  check("burn damages over time with no further hits", burning,
-    `hp ${hpAfterImpact} -> ${target.hp}`);
+  check("burn damages over time with no further hits", target.hp < hpAfterFlame,
+    `hp ${hpAfterFlame} -> ${target.hp}`);
 
-  for (let t = 0; t < 200; t++) updateBurning(world);
+  for (let t = 0; t < 300; t++) updateBurning(world);
   check("a sustained burn is lethal on its own",
     !world.enemies.includes(target), `survived with ${target.hp.toFixed(1)} hp`);
 }
@@ -106,12 +154,9 @@ console.log("\nMISSILES");
 
 for (const id of Object.keys(MISSILES)) {
   const spec = MISSILES[id];
-  const { world, player, enemies } = setup({ missile: id }, [400]);
+  const { world, player } = setup({ missile: id }, [400]);
 
-  // Give every type a solid lock so only the lock *requirement* is under test.
-  player.lock = enemies[0];
-  player.lockTime = LOCK.ticksToSolid;
-
+  // No lock given: nothing should need one any more.
   fireMissile(world);
   check(`${spec.name} launches ${spec.perShot} per pull`,
     world.missiles.length === spec.perShot, `got ${world.missiles.length}`);
@@ -120,21 +165,45 @@ for (const id of Object.keys(MISSILES)) {
 }
 
 {
-  // AMRAAM must refuse to launch without a solid lock, and fire with one.
-  const { world, player, enemies } = setup({ missile: "amraam" }, [400]);
+  // AMRAAM is all-aspect: no lock needed, and it will take a target that is
+  // directly behind the jet, anywhere inside radar range.
+  const { world, player, enemies } = setup({ missile: "amraam" }, []);
+  spawnEnemy(world, "fighter");
+  const chaser = world.enemies[0];
+  chaser.x = -1800; // on our six, well outside any forward cone
+  chaser.y = 0;
 
   player.lock = null;
   fireMissile(world);
-  check("AMRAAM will not launch with no lock", world.missiles.length === 0);
+  check("AMRAAM launches with no lock at all", world.missiles.length === 1);
+  check("AMRAAM acquires a target behind the jet",
+    world.missiles[0].target === chaser, "took no target");
+}
 
-  player.lock = enemies[0];
-  player.lockTime = LOCK.ticksToSolid - 1;
-  fireMissile(world);
-  check("AMRAAM will not launch on a partial lock", world.missiles.length === 0);
+{
+  // And it must still respect the radar's edge.
+  const { world, player } = setup({ missile: "amraam" }, []);
+  spawnEnemy(world, "fighter");
+  world.enemies[0].x = RADAR_RANGE + 400;
+  world.enemies[0].y = 0;
 
-  player.lockTime = LOCK.ticksToSolid;
+  player.lock = null;
   fireMissile(world);
-  check("AMRAAM launches on a solid lock", world.missiles.length === 1);
+  check("AMRAAM takes no target beyond radar range",
+    world.missiles[0].target === null);
+}
+
+{
+  // The Sidewinder's seeker looks forward only — that is its limitation.
+  const { world, player } = setup({ missile: "sidewinder" }, []);
+  spawnEnemy(world, "fighter");
+  world.enemies[0].x = -400;
+  world.enemies[0].y = 0;
+
+  player.lock = null;
+  fireMissile(world);
+  check("AIM-9 will not acquire a target behind the jet",
+    world.missiles[0].target === null);
 }
 
 {
@@ -162,4 +231,4 @@ if (failures) {
   console.error(`\nFAIL — ${failures} weapon behaviour check(s) failed`);
   process.exit(1);
 }
-console.log("\nPASS — pierce, ignition, salvo size and lock requirements all behave");
+console.log("\nPASS — pierce, flame cones, ignition, salvos and seeker envelopes all behave");

@@ -6,7 +6,7 @@
 
 import { updatePlayer, updateWreckage } from "./entities/player.js";
 import { updateEnemy, updateBurning } from "./entities/enemy.js";
-import { updateBullets, updateMissiles } from "./entities/projectiles.js";
+import { updateBullets, updateMissiles, updateFlames } from "./entities/projectiles.js";
 import { updateBombs } from "./entities/bombs.js";
 import { updatePickups } from "./entities/pickups.js";
 import { updateEffects } from "./entities/effects.js";
@@ -20,6 +20,7 @@ export function simulate(world) {
   for (const enemy of world.enemies) updateEnemy(world, enemy);
 
   updateBullets(world);
+  updateFlames(world);
   updateMissiles(world);
   updateBombs(world);
   updateBurning(world);

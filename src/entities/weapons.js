@@ -8,9 +8,9 @@
  * whatever spec it is handed.
  */
 
-import { rand } from "../core/math.js";
+import { rand, angDiff } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { ENEMY, ENEMY_TYPES, LOCK, MISSILE } from "../config.js";
+import { ENEMY, ENEMY_TYPES, MISSILE } from "../config.js";
 import { muzzleFlash, addShake } from "./effects.js";
 
 /** Where each barrel sits relative to the nose, by barrel count. */
@@ -22,6 +22,7 @@ const BARREL_OFFSETS = { 1: [0], 2: [-11, 11], 3: [-14, 0, 14] };
  */
 export function fireGun(world, shooter, isPlayer) {
   const spec = isPlayer ? shooter.cannon : ENEMY_TYPES[shooter.type];
+  if (spec.kind === "flame") return sprayFlame(world, shooter, spec);
 
   // Enemy profiles happen to use the same field names for these two.
   const spread = spec.spread;
@@ -62,11 +63,72 @@ export function fireGun(world, shooter, isPlayer) {
   isPlayer ? sfx.gun() : sfx.enemyGun();
 }
 
+/**
+ * The flamethrower emits no projectiles. It pushes one short-lived cone per
+ * tick; projectiles.js resolves what that cone touches, keeping the usual
+ * split between creating a weapon effect and applying it.
+ */
+function sprayFlame(world, player, spec) {
+  world.flames.push({
+    x: player.x + Math.cos(player.angle) * 16,
+    y: player.y + Math.sin(player.angle) * 16,
+    angle: player.angle,
+    spec,
+    /** Set once its damage has landed; it then lives one frame to be drawn. */
+    spent: false,
+  });
+
+  // Burning fuel, thrown forward and spreading as it goes.
+  for (let i = 0; i < 3; i++) {
+    const a = player.angle + rand(-spec.coneHalfAngle, spec.coneHalfAngle);
+    const reach = rand(0.2, 1) * spec.range;
+    const speed = reach / 18;
+    world.particles.push({
+      x: player.x + Math.cos(player.angle) * 16,
+      y: player.y + Math.sin(player.angle) * 16,
+      vx: Math.cos(a) * speed + Math.cos(player.angle) * player.speed,
+      vy: Math.sin(a) * speed + Math.sin(player.angle) * player.speed,
+      life: rand(10, 20),
+      maxLife: 20,
+      color: Math.random() < 0.45 ? "#fff0b8" : Math.random() < 0.6 ? "#ff9a30" : "#ff5a28",
+      size: rand(5, 11),
+    });
+  }
+
+  // A continuous roar rather than one bark per tick.
+  if (world.time % 6 === 0) sfx.flame();
+}
+
 /** True if the chosen missile is willing to leave the rail right now. */
 export function missileReady(player) {
-  if (player.missiles <= 0 || player.missileCooldown > 0) return false;
-  if (!player.missile.requiresLock) return true;
-  return Boolean(player.lock) && player.lockTime >= LOCK.ticksToSolid;
+  return player.missiles > 0 && player.missileCooldown <= 0;
+}
+
+/**
+ * Pick what a guided missile should chase at launch.
+ *
+ * The player's forward lock wins if there is one, so deliberate aim is
+ * respected; otherwise the missile takes the nearest aircraft inside its own
+ * acquisition envelope. For the AMRAAM that envelope is the whole radar, in
+ * every direction.
+ */
+function acquireAtLaunch(world, player, spec) {
+  if (spec.turnRate <= 0) return null;
+  if (player.lock && Math.hypot(player.lock.x - player.x, player.lock.y - player.y) <= spec.acquireRange) {
+    return player.lock;
+  }
+
+  let best = null;
+  let bestRange = spec.acquireRange;
+  for (const e of world.enemies) {
+    const range = Math.hypot(e.x - player.x, e.y - player.y);
+    if (range > bestRange) continue;
+    const bearing = Math.atan2(e.y - player.y, e.x - player.x);
+    if (Math.abs(angDiff(bearing, player.angle)) > spec.acquireCone) continue;
+    bestRange = range;
+    best = e;
+  }
+  return best;
 }
 
 /**
@@ -82,6 +144,8 @@ export function fireMissile(world) {
   player.missiles -= salvo;
   player.missileCooldown = spec.cooldown;
 
+  const target = acquireAtLaunch(world, player, spec);
+
   for (let i = 0; i < salvo; i++) {
     // Alternate rails so a salvo visibly comes off both wings.
     const side = i % 2 === 0 ? 1 : -1;
@@ -95,7 +159,7 @@ export function fireMissile(world) {
       y: player.y + Math.sin(perpendicular) * 14 * side,
       angle: aim,
       speed: spec.launchSpeed,
-      target: spec.turnRate > 0 ? player.lock : null,
+      target,
       life: spec.life,
       arming: MISSILE.armingDelay,
     });

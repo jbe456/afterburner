@@ -32,6 +32,7 @@ export function drawScene(world) {
   drawBombs(ctx, world);
   drawPickups(ctx, world);
   drawTrails(ctx, world);
+  drawFlames(ctx, world);
   drawAircraft(ctx, world);
   drawLockReticle(ctx, world);
   drawMissiles(ctx, world);
@@ -226,6 +227,46 @@ function drawAircraft(ctx, world) {
       drawJet(ctx, player.x, player.y, player.angle, PLAYER.scale,
         s.color, s.accent, false, 0.35 + player.boost * 0.65, time);
     }
+  }
+}
+
+/**
+ * The flamethrower's cone. Drawn under the aircraft so the jet sits on top of
+ * its own fire, with a soft radial falloff and a flickering edge rather than
+ * a hard wedge.
+ */
+function drawFlames(ctx, world) {
+  for (const flame of world.flames) {
+    const { x, y, angle, spec } = flame;
+    const flicker = 0.85 + Math.sin(world.time * 1.3) * 0.15;
+    const reach = spec.range * flicker;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.globalCompositeOperation = "lighter";
+
+    // Three nested cones, narrowing and brightening toward the nozzle.
+    const layers = [
+      [spec.coneHalfAngle, reach, "rgba(255,80,20,0.30)"],
+      [spec.coneHalfAngle * 0.68, reach * 0.86, "rgba(255,150,40,0.34)"],
+      [spec.coneHalfAngle * 0.34, reach * 0.62, "rgba(255,235,170,0.42)"],
+    ];
+    for (const [halfAngle, length, color] of layers) {
+      const grad = ctx.createLinearGradient(0, 0, length, 0);
+      grad.addColorStop(0, color);
+      grad.addColorStop(0.55, color.replace(/[\d.]+\)$/, "0.18)"));
+      grad.addColorStop(1, "rgba(255,60,0,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, length, -halfAngle, halfAngle);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.restore();
+    ctx.globalCompositeOperation = "source-over";
   }
 }
 
