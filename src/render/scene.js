@@ -136,20 +136,24 @@ function drawPickups(ctx, world) {
  */
 function drawBombs(ctx, world) {
   for (const bomb of world.bombs) {
-    const urgency = 1 - bomb.fuse / bomb.spec.fuse;
-    const seconds = Math.ceil(bomb.fuse / 60);
+    const contact = bomb.spec.trigger === "contact";
+    // A fused bomb grows more urgent as it counts down; a mine just waits.
+    const urgency = contact ? 0.3 : 1 - bomb.fuse / bomb.spec.fuse;
     // Blink faster as the fuse runs down.
     const blinkRate = Math.max(4, Math.round(26 - urgency * 22));
     const lit = Math.floor(world.time / blinkRate) % 2 === 0;
+    const live = bomb.arming <= 0;
 
-    // Danger zone
+    // Danger zone. A mine may sit for a minute, so its wash is much lighter
+    // than a fused bomb's — several of them overlapping should not drown the
+    // sky in red.
     ctx.save();
-    ctx.globalAlpha = 0.1 + urgency * 0.3;
+    ctx.globalAlpha = contact ? 0.055 : 0.1 + urgency * 0.3;
     ctx.fillStyle = "#ff3b2f";
     ctx.beginPath();
     ctx.arc(bomb.x, bomb.y, bomb.spec.blastRadius, 0, TAU);
     ctx.fill();
-    ctx.globalAlpha = 0.35 + urgency * 0.55;
+    ctx.globalAlpha = contact ? 0.3 : 0.35 + urgency * 0.55;
     ctx.strokeStyle = lit ? "#ff6b5c" : "#ff3b2f";
     ctx.lineWidth = 3;
     ctx.setLineDash([22, 16]);
@@ -171,19 +175,32 @@ function drawBombs(ctx, world) {
     ctx.fill();
     ctx.fillStyle = "#47556a";
     ctx.fillRect(-13, -2, 26, 4);
-    ctx.fillStyle = lit ? "#ff5544" : "#5a2520";
+    ctx.fillStyle = live && lit ? "#ff5544" : "#5a2520";
     ctx.beginPath();
     ctx.arc(0, 0, 4, 0, TAU);
     ctx.fill();
     ctx.restore();
 
-    // Countdown, sat just above the casing
-    ctx.font = "bold 20px ui-monospace, monospace";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = urgency > 0.7 ? "#ff5544" : "#ffd166";
-    ctx.fillText(String(seconds), bomb.x, bomb.y - 24);
-    ctx.textBaseline = "alphabetic";
+    if (contact) {
+      // The ring you must not cross. Drawn solid and bright, because unlike
+      // the blast circle this one is the thing that actually sets it off.
+      ctx.save();
+      ctx.globalAlpha = live ? 0.75 : 0.3;
+      ctx.strokeStyle = live ? "#ff8c42" : "#6f8ba6";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(bomb.x, bomb.y, bomb.spec.triggerRadius, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      // Countdown, sat just above the casing
+      ctx.font = "bold 20px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = urgency > 0.7 ? "#ff5544" : "#ffd166";
+      ctx.fillText(String(Math.ceil(bomb.fuse / 60)), bomb.x, bomb.y - 24);
+      ctx.textBaseline = "alphabetic";
+    }
   }
 }
 

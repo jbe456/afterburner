@@ -11,7 +11,7 @@
 
 import { rand, TAU } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { BOMB } from "../config.js";
+import { BOMB, PLAYER } from "../config.js";
 import { burst, addShake } from "./effects.js";
 import { damageEnemy } from "./enemy.js";
 import { damagePlayer } from "./player.js";
@@ -22,12 +22,17 @@ export function updateBombs(world) {
 
   for (let i = world.bombs.length - 1; i >= 0; i--) {
     const bomb = world.bombs[i];
-    bomb.fuse--;
+    const timed = Number.isFinite(bomb.spec.fuse);
 
-    playFuseBeep(bomb);
+    if (bomb.arming > 0) bomb.arming--;
+
+    if (timed) {
+      bomb.fuse--;
+      playFuseBeep(bomb);
+    }
 
     // A lazy plume so a live bomb is findable against a busy background.
-    if (bomb.fuse % 7 === 0) {
+    if (world.time % 7 === 0) {
       world.particles.push({
         x: bomb.x + rand(-5, 5), y: bomb.y + rand(-5, 5),
         vx: rand(-0.25, 0.25), vy: rand(-0.6, -0.2),
@@ -35,11 +40,34 @@ export function updateBombs(world) {
       });
     }
 
-    if (bomb.fuse <= 0) {
+    const triggered = timed
+      ? bomb.fuse <= 0
+      : bomb.arming <= 0 && touchedBy(world, bomb) !== null;
+
+    if (triggered) {
       detonate(world, bomb);
       world.bombs.splice(i, 1);
     }
   }
+}
+
+/**
+ * The first aircraft close enough to set a contact mine off, or null.
+ *
+ * It does not look at whose side anyone is on — flying into your own mine
+ * works exactly as well as an enemy doing it.
+ */
+function touchedBy(world, bomb) {
+  const reach = bomb.spec.triggerRadius;
+
+  for (const e of world.enemies) {
+    if (Math.hypot(e.x - bomb.x, e.y - bomb.y) <= reach + e.radius) return e;
+  }
+
+  const p = world.player;
+  if (p.alive && Math.hypot(p.x - bomb.x, p.y - bomb.y) <= reach + PLAYER.radius) return p;
+
+  return null;
 }
 
 /** Beeps slowly at first, then faster as the fuse runs down. */
@@ -111,11 +139,22 @@ function bloom(world, x, y, radius) {
   }
 }
 
-/** True if the player is standing in a blast they will not survive. */
+/**
+ * True if the player should be told to move.
+ *
+ * For a timed bomb that means standing anywhere in the blast, because it is
+ * going off regardless. For a contact mine it means being close enough to set
+ * it off — sitting inside a mine's blast radius is only dangerous if somebody
+ * touches it, and warning about every mine on the map would be noise.
+ */
 function playerInBlastZone(world) {
   const p = world.player;
   if (!p.alive) return false;
-  return world.bombs.some(
-    (b) => Math.hypot(p.x - b.x, p.y - b.y) <= b.spec.blastRadius,
-  );
+
+  return world.bombs.some((b) => {
+    const distance = Math.hypot(p.x - b.x, p.y - b.y);
+    return b.spec.trigger === "contact"
+      ? b.arming <= 0 && distance <= b.spec.triggerRadius + PLAYER.radius
+      : distance <= b.spec.blastRadius;
+  });
 }

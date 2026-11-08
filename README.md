@@ -72,6 +72,7 @@ each category.
 | Bomb | | |
 | --- | --- | --- |
 | **Dynamite** | 10 carried, 200 m, 90 dmg, 1.0s | Usable while someone is on you |
+| **Proximity mine** | 5 carried, 260 m, 260 dmg, no fuse | Waits where you left it until something touches it |
 | **Mk 82 heavy bomb** | 3 carried, 500 m, 220 dmg, 5.0s | The middle ground |
 | **B61 nuclear** | 1 carried, 1000 m, 650 dmg, 8.0s | Erases almost anything |
 
@@ -79,6 +80,14 @@ Damage scales with the size of the blast and is flat inside the radius, so the
 circle drawn on the ground means exactly what it looks like. Nothing is immune,
 including you — but nothing is guaranteed dead either. A Bastion can walk away
 from its own dynamite; a Sabre cannot.
+
+The **proximity mine** is the odd one. It has no fuse at all: it sits where you
+dropped it indefinitely, and goes off when any aircraft comes within 46 m of
+it — yours or theirs, it does not look. It draws a bright ring at that trigger
+distance as well as its blast circle, greyed out until it arms 40 ticks after
+the drop, which is what stops it killing you on release. Laying a line of them
+across a wave's approach is the point; forgetting where you put one is the
+cost.
 
 Firebelt sprays a cone rather than firing rounds: nothing to miss with and it
 catches everything inside it, but you have to be almost on top of the target.

@@ -289,7 +289,8 @@ export const MISSILE = {
  * inside its blast radius — enemy jets and your own alike.
  *
  * Radius trades against how many you carry, and damage scales with the size
- * of the blast: a stick of dynamite wounds, a B61 erases almost anything.
+ * of the blast: a stick of dynamite wounds, a B61 erases almost anything. Most
+ * run on a fuse; the proximity mine instead waits to be touched.
  * Damage is flat inside the radius and nothing outside it, so the drawn circle
  * means exactly what it looks like.
  *
@@ -309,6 +310,28 @@ export const BOMBS = {
     damage: 90,
     fuse: 60,
     dropCooldown: 25,
+  },
+
+  mine: {
+    id: "mine",
+    name: "PROXIMITY MINE",
+    short: "MINE",
+    carried: 5,
+    resupply: 2,
+    blastRadius: 260,
+    damage: 260,
+    /**
+     * Never times out. It sits where you left it until something flies into
+     * it — yours or theirs, it does not look. `fuse: Infinity` keeps it in
+     * the same shape as every other bomb while meaning "waits forever".
+     */
+    fuse: Infinity,
+    trigger: "contact",
+    /** How close an aircraft has to come, on top of its own radius. */
+    triggerRadius: 46,
+    /** Ticks before it is live, so you are not killed by your own drop. */
+    armTime: 40,
+    dropCooldown: 35,
   },
 
   mk82: {

@@ -142,7 +142,9 @@ h1 {
   padding-top: 10px;
 }
 
-.options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* Rows hold three or four options depending on the slot, and wrap on a
+   narrow window rather than squeezing. */
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 8px; }
 
 .opt {
   text-align: left;
@@ -196,6 +198,7 @@ h1 {
 }
 
 .weapon-art .main { fill: var(--livery); }
+.weapon-art circle.main, .weapon-art circle.dim { fill: var(--livery); }
 .weapon-art .dim { fill: var(--livery); opacity: .45; }
 
 .weapon-art .arc {

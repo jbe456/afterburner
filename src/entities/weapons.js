@@ -204,7 +204,7 @@ export function dropEnemyBomb(world, enemy, spec) {
     x: enemy.x - Math.cos(enemy.angle) * 20,
     y: enemy.y - Math.sin(enemy.angle) * 20,
     fuse: spec.fuse,
-    spent: false,
+    arming: spec.armTime ?? 0,
   });
   sfx.bombArm();
 }
@@ -227,6 +227,8 @@ export function dropBomb(world) {
     x: player.x - Math.cos(player.angle) * 18,
     y: player.y - Math.sin(player.angle) * 18,
     fuse: spec.fuse,
+    // Contact mines need a moment to go live, or you set off your own drop.
+    arming: spec.armTime ?? 0,
   });
 
   sfx.bombArm();

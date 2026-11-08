@@ -71,7 +71,8 @@ const AXES = {
   bomb: [
     ["AMMO", (b) => b.carried, count],
     ["BLAST", (b) => b.blastRadius, metres],
-    ["FUSE", (b) => b.fuse, seconds],
+    // A mine has no fuse at all — it waits, which the unbounded bar says too.
+    ["FUSE", (b) => b.fuse, (v) => (Number.isFinite(v) ? seconds(v) : "on touch")],
   ],
 };
 
@@ -335,6 +336,18 @@ const WEAPON_ART = {
     <path class="arc" d="M 13,-7.5 A 8.5,8.5 0 0 1 13,7.5"/>`,
 
   // --- bombs: sticks, a shaped case, and the obvious ---
+  mine: `
+    <polygon class="dim" points="15.0,0.0 8.0,3.2 8.0,-3.2"/>
+    <polygon class="dim" points="10.6,10.6 3.4,7.9 7.9,3.4"/>
+    <polygon class="dim" points="0.0,15.0 -3.2,8.0 3.2,8.0"/>
+    <polygon class="dim" points="-10.6,10.6 -7.9,3.4 -3.4,7.9"/>
+    <polygon class="dim" points="-15.0,0.0 -8.0,-3.2 -8.0,3.2"/>
+    <polygon class="dim" points="-10.6,-10.6 -3.4,-7.9 -7.9,-3.4"/>
+    <polygon class="dim" points="-0.0,-15.0 3.2,-8.0 -3.2,-8.0"/>
+    <polygon class="dim" points="10.6,-10.6 7.9,-3.4 3.4,-7.9"/>
+    <circle class="main" cx="0" cy="0" r="8.5"/>
+    <circle class="dim" cx="-2.5" cy="-2.5" r="2.6"/>`,
+
   dynamite: `
     <rect class="main" x="-13" y="-8" width="7.5" height="16" rx="2"/>
     <rect class="main" x="-4" y="-8" width="7.5" height="16" rx="2"/>

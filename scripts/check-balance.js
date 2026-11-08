@@ -105,9 +105,12 @@ assertNoDominance("MISSILES", MISSILE_IDS, MISSILES, {
 assertNoDominance("BOMBS", BOMB_IDS, BOMBS, {
   carried: (b) => b.carried,
   blastRadius: (b) => b.blastRadius,
+  damage: (b) => b.damage,
   /** A shorter fuse pays off sooner, which is its own kind of better. */
   fuseSpeed: (b) => -b.fuse,
   readyAgain: (b) => -b.dropCooldown,
+  /** Waiting to be touched means never having to time anything. */
+  contact: (b) => (b.trigger === "contact" ? 1 : 0),
 });
 
 // --- every airframe shoots the same ---------------------------------------
