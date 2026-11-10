@@ -214,94 +214,159 @@ export const PLAYER = {
   trailLength: 26,
 };
 
-// --- cannons ----------------------------------------------------------------
+// --- forward weapons --------------------------------------------------------
 /**
- * Three guns, each best at something the others are worst at: Vulcan wins a
- * one-on-one, Avenger wins a lineup, Firebelt wins against a pack.
+ * Evenly spaced rungs between two endpoints, rounded to something readable.
+ * The endpoints are always exact; only the rungs between them are rounded.
+ */
+function steps(from, to, count, round = 1) {
+  const out = Array.from({ length: count }, (_, i) => {
+    const raw = from + ((to - from) * i) / (count - 1);
+    return Math.round(raw / round) * round;
+  });
+  out[0] = from;
+  out[count - 1] = to;
+  return out;
+}
+
+/**
+ * Three forward weapons, all of which can be fitted at once and all of which
+ * fire on the same trigger.
  *
- * `pierce` is how many aircraft one round can pass through. `burn` ignites
- * what it hits, dealing damage over time that keeps running after you have
- * broken off — which is why Firebelt's direct damage is so low.
+ *   cannon  bullets from the wings, in pairs
+ *   flame   a cone from the nose
+ *   laser   a beam from the nose
+ *
+ * Each is a set of properties rather than a choice between models, and each
+ * property is its own ladder: more is always better, the rungs are generated
+ * from their endpoints, and the hangar builds a card per property from this
+ * table alone.
+ *
+ * A zero first rung means "not fitted" — the flame and the laser both start
+ * that way, so a new pilot flies with wing guns and nothing else.
  */
-export const CANNONS = {
-  vulcan: {
-    id: "vulcan",
-    name: "VULCAN RAPID-FIRE",
-    short: "VULCAN",
-    kind: "bullet",
-    barrels: 2,
-    damage: 9,
-    cooldown: 5,
-    spread: 0.012,
-    bulletSpeed: 15,
-    bulletLife: 60,
-    pierce: 1,
-    burn: null,
-    tracer: "#aef5ff",
-    tracerWidth: 3.2,
+export const WEAPONS = {
+  cannon: {
+    label: "CANNON",
+    blurb: "Bullets, from the wings",
+    props: {
+      type: {
+        label: "TYPE",
+        tiers: [1, 3],
+        format: (v) => (v > 1 ? `PIERCES ${v}` : "REGULAR"),
+      },
+      slots: {
+        label: "SLOTS",
+        tiers: [2, 4, 6, 8],
+        format: (v) => `${v}`,
+      },
+      damage: {
+        label: "DAMAGE",
+        tiers: steps(10, 300, 10, 5),
+        format: (v) => `${v}`,
+      },
+      reach: {
+        label: "REACH",
+        tiers: steps(200, 4000, 10, 50),
+        format: (v) => `${v} m`,
+      },
+      rate: {
+        label: "RATE",
+        tiers: steps(1, 20, 10),
+        format: (v) => `${v}/s`,
+      },
+    },
   },
 
-  avenger: {
-    id: "avenger",
-    name: "AVENGER PIERCING",
-    short: "AVENGER",
-    kind: "bullet",
-    barrels: 1,
-    damage: 48,
-    cooldown: 18,
-    spread: 0.002,
-    bulletSpeed: 26,
-    bulletLife: 70,
-    pierce: 3,
-    burn: null,
-    tracer: "#ffe08a",
-    tracerWidth: 4.4,
+  flame: {
+    label: "FLAME",
+    blurb: "A cone from the nose",
+    props: {
+      damage: {
+        label: "DAMAGE",
+        tiers: [0, ...steps(10, 250, 10, 5)],
+        format: (v) => (v ? `${v}/s` : "NOT FITTED"),
+      },
+      reach: {
+        label: "REACH",
+        tiers: steps(100, 500, 10, 10),
+        format: (v) => `${v} m`,
+      },
+    },
   },
 
-  firebelt: {
-    id: "firebelt",
-    name: "FIREBELT FLAMETHROWER",
-    short: "FIREBELT",
-    /** Not a gun: it sprays a cone that sets light to everything inside it. */
-    kind: "flame",
-    /**
-     * The flame does no damage of its own — it only ignites. Everything this
-     * weapon kills, the fire kills.
-     */
-    damage: 0,
-    cooldown: 1,
-    /** How far the cone reaches, and its half-angle in radians. */
-    range: 260,
-    coneHalfAngle: 0.30,
-    pierce: 1,
-    /** Damage per second while alight, and how long it burns after leaving the flame. */
-    burn: { dps: 100, duration: 48 },
+  laser: {
+    label: "LASER",
+    blurb: "A beam from the nose",
+    props: {
+      damage: {
+        label: "DAMAGE",
+        tiers: [0, ...steps(10, 250, 10, 5)],
+        format: (v) => (v ? `${v}/s` : "NOT FITTED"),
+      },
+      reach: {
+        label: "REACH",
+        tiers: steps(500, 4000, 10, 50),
+        format: (v) => `${v} m`,
+      },
+    },
   },
 };
 
+export const WEAPON_IDS = Object.keys(WEAPONS);
+
 /**
- * Sustained damage per second on one target, counting any fire the weapon
- * leaves behind. The Firebelt's whole output is that fire, so splitting the
- * two apart would only make it look weaker than it is.
+ * Turn a loadout's rung indices into the concrete numbers the simulation
+ * uses. Everything downstream reads this, so nothing else needs to know that
+ * these came from ladders.
  */
-export const cannonDps = (c) => {
-  const direct = ((c.kind === "flame" ? c.damage : c.barrels * c.damage) * (1000 / TICK_MS)) / c.cooldown;
-  return direct + (c.burn ? c.burn.dps : 0);
+export function resolveWeapons(loadout) {
+  const value = (track, prop) => {
+    const tiers = WEAPONS[track].props[prop].tiers;
+    const rung = loadout[`${track}.${prop}`] ?? 0;
+    return tiers[Math.min(Math.max(rung, 0), tiers.length - 1)];
+  };
+
+  const rate = value("cannon", "rate");
+  const reach = value("cannon", "reach");
+
+  return {
+    cannon: {
+      pierce: value("cannon", "type"),
+      slots: value("cannon", "slots"),
+      damage: value("cannon", "damage"),
+      reach,
+      rate,
+      /** Ticks between bursts, from the shots-per-second rung. */
+      cooldown: Math.max(1, Math.round((1000 / TICK_MS) / rate)),
+      /** Ticks a round survives, so it dies exactly at its reach. */
+      bulletLife: Math.max(1, Math.round(reach / CANNON.bulletSpeed)),
+    },
+
+    // A nose weapon with no damage is simply not fitted.
+    flame: value("flame", "damage") > 0
+      ? { damage: value("flame", "damage"), range: value("flame", "reach") }
+      : null,
+
+    laser: value("laser", "damage") > 0
+      ? { damage: value("laser", "damage"), range: value("laser", "reach") }
+      : null,
+  };
+}
+
+/** Shared by every forward weapon, whatever its properties are set to. */
+export const CANNON = {
+  bulletSpeed: 18,
+  spread: 0.014,
+  tracer: "#aef5ff",
+  tracerWidth: 3.2,
+  /** Half-angle of the flame cone, in radians. */
+  flameConeHalfAngle: 0.30,
+  /** How wide a target counts as touching the laser beam. */
+  laserHalfWidth: 7,
+  /** Ticks a target keeps burning after leaving flame or beam. */
+  burnDuration: 48,
 };
-
-/** Ticks of damage that keep landing after the weapon stops touching a target. */
-export const cannonLingering = (c) => (c.burn ? c.burn.duration : 0);
-
-/**
- * Shots per second. A flamethrower has no discrete shots — it is simply on or
- * off — so its rate is unbounded rather than merely large.
- */
-export const cannonRate = (c) =>
-  c.kind === "flame" ? Infinity : (1000 / TICK_MS) / c.cooldown;
-
-/** How far the weapon can actually hurt something, in world units. */
-export const cannonReach = (c) =>
-  c.kind === "flame" ? c.range : c.bulletSpeed * c.bulletLife;
 
 // --- missiles ---------------------------------------------------------------
 /**
@@ -471,19 +536,31 @@ export const BOMB = {
 };
 
 // --- loadout ----------------------------------------------------------------
-export const CANNON_IDS = Object.keys(CANNONS);
 export const MISSILE_IDS = Object.keys(MISSILES);
 export const BOMB_IDS = Object.keys(BOMBS);
 
-/** What a pilot flies with before they touch anything in the hangar. */
+/**
+ * Every upgradeable property in the game, as "track.property" keys. The
+ * hangar, the save file and the defaults all walk this one list, so adding a
+ * property to WEAPONS above is the only edit a new rung needs.
+ */
+export const WEAPON_PROP_KEYS = WEAPON_IDS.flatMap(
+  (id) => Object.keys(WEAPONS[id].props).map((prop) => `${id}.${prop}`),
+);
+
+/**
+ * What a pilot flies with before they touch anything in the hangar: the base
+ * airframe, two wing guns at their weakest, and no nose weapons at all.
+ *
+ * Ladders are stored as a rung index, so the saved value stays meaningful if
+ * the numbers on a rung are retuned later.
+ */
 export const DEFAULT_LOADOUT = {
-  // Both ladders start at the bottom rung: you fly the base aircraft until
-  // you choose to build it up.
   armour: "scout",
   engine: "spark",
-  cannon: "vulcan",
   missile: "sidewinder",
   bomb: "mk82",
+  ...Object.fromEntries(WEAPON_PROP_KEYS.map((key) => [key, 0])),
 };
 
 /** Missile lock-on, acquired by holding a target inside a forward cone. */

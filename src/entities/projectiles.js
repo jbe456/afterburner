@@ -44,31 +44,42 @@ export function updateBullets(world) {
  */
 export function updateFlames(world) {
   for (let i = world.flames.length - 1; i >= 0; i--) {
-    const flame = world.flames[i];
-    const spec = flame.spec;
+    const emission = world.flames[i];
 
-    // A cone damages once, then survives until the next tick purely so the
-    // renderer has something to draw — otherwise the flame would be created
-    // and consumed between frames and never appear on screen.
-    if (flame.spent) { world.flames.splice(i, 1); continue; }
+    // An emission burns once, then survives until the next tick purely so the
+    // renderer has something to draw — otherwise it would be created and
+    // consumed between frames and never appear on screen.
+    if (emission.spent) { world.flames.splice(i, 1); continue; }
 
     for (let k = world.enemies.length - 1; k >= 0; k--) {
       const e = world.enemies[k];
-      const dx = e.x - flame.x;
-      const dy = e.y - flame.y;
-      if (Math.hypot(dx, dy) > spec.range + e.radius) continue;
-      if (Math.abs(angDiff(Math.atan2(dy, dx), flame.angle)) > spec.coneHalfAngle) continue;
-
-      ignite(world, e, spec.burn);
-      // The flame itself may do nothing — the Firebelt's damage is all fire.
-      if (spec.damage > 0) {
-        // Quiet: this lands every tick, so it must not sound like a hit each time.
-        damageEnemy(world, e, spec.damage, e.x, e.y, { quiet: true });
-      }
+      if (touches(emission, e)) ignite(world, e, emission.burn);
     }
 
-    flame.spent = true;
+    emission.spent = true;
   }
+}
+
+/**
+ * Whether an aircraft is inside a nose weapon's reach: a wedge for the flame,
+ * a line for the laser. Neither deals damage on contact — both set light to
+ * what they touch, and the fire does the work.
+ */
+function touches(emission, e) {
+  const dx = e.x - emission.x;
+  const dy = e.y - emission.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance > emission.range + e.radius) return false;
+
+  if (emission.kind === "cone") {
+    return Math.abs(angDiff(Math.atan2(dy, dx), emission.angle)) <= emission.halfAngle;
+  }
+
+  // Beam: project onto the line, then measure how far off it the target sits.
+  const along = dx * Math.cos(emission.angle) + dy * Math.sin(emission.angle);
+  if (along < 0 || along > emission.range) return false;
+  const across = Math.abs(-dx * Math.sin(emission.angle) + dy * Math.cos(emission.angle));
+  return across <= emission.halfWidth + e.radius;
 }
 
 /**

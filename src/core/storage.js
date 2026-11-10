@@ -29,21 +29,22 @@ export const saveBest = (score) => write(BEST_KEY, String(score));
  * Stored as four separate keys rather than one blob, so a single unreadable
  * value cannot take the rest with it.
  */
-const SLOT_KEYS = {
-  armour: "afterburner.armour",
-  engine: "afterburner.engine",
-  cannon: "afterburner.cannon",
-  missile: "afterburner.missile",
-  bomb: "afterburner.bomb",
-};
+/**
+ * Named fittings are stored as ids; weapon properties as rung numbers under
+ * "track.property" keys. Both go in the same namespace, one key per slot, so
+ * one unreadable value cannot take the rest with it.
+ */
+const key = (slot) => `afterburner.${slot}`;
 
-export function loadLoadout() {
+export function loadLoadout(slots) {
   const out = {};
-  for (const [slot, key] of Object.entries(SLOT_KEYS)) {
-    const value = read(key);
-    if (value) out[slot] = value;
+  for (const slot of slots) {
+    const value = read(key(slot));
+    if (value === null) continue;
+    // A rung index round-trips as a string; a fitting id does not.
+    out[slot] = /^\d+$/.test(value) ? Number(value) : value;
   }
   return out;
 }
 
-export const saveLoadoutSlot = (slot, id) => write(SLOT_KEYS[slot], id);
+export const saveLoadoutSlot = (slot, id) => write(key(slot), String(id));

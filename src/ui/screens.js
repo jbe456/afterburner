@@ -8,9 +8,8 @@
  */
 
 import {
-  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, CANNONS, CANNON_IDS, MISSILES, MISSILE_IDS,
+  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, MISSILE_IDS,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
-  cannonDps, cannonReach, cannonRate,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps,
 } from "../config.js";
 import { drawHull } from "../render/hulls.js";
@@ -55,12 +54,6 @@ const kmh = (v) => `${Math.round(v * KMH_PER_SPEED_UNIT)} km/h`;
 const AXES = {
   armour: [["HULL", (a) => a.maxHp, count]],
   engine: [["SPEED", (e) => e.maxSpeed, kmh]],
-  cannon: [
-    // Fire damage is folded into DAMAGE rather than shown apart from it.
-    ["DAMAGE", cannonDps, perSecond],
-    ["REACH", cannonReach, metres],
-    ["RATE", cannonRate, perSecondShots],
-  ],
   missile: [
     ["AMMO", (m) => m.carried, count],
     ["DAMAGE", (m) => m.damage, count],
@@ -120,28 +113,42 @@ function barsFor(slot, ids, table) {
 const BARS = {
   armour: barsFor("armour", ARMOUR_IDS, ARMOUR),
   engine: barsFor("engine", ENGINE_IDS, ENGINES),
-  cannon: barsFor("cannon", CANNON_IDS, CANNONS),
   missile: barsFor("missile", MISSILE_IDS, MISSILES),
   bomb: barsFor("bomb", BOMB_IDS, BOMBS),
 };
 
+/** Every slot the hangar knows how to store. */
+const ALL_SLOTS = Object.keys(DEFAULT_LOADOUT);
+
 /** The current selection, seeded from storage and repaired against config. */
-const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout()) };
+const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout(ALL_SLOTS)) };
 
 /** Kept so a reset can redraw the hangar without main.js handing them over again. */
 let menuHandlers = null;
 let menuKeyHandler = null;
 
-/** Drops any saved id that no longer names a real plane or weapon. */
+/**
+ * Drops anything saved that no longer makes sense: a fitting that has been
+ * removed from config, or a rung beyond the end of a ladder that has been
+ * shortened since.
+ */
 function validated(saved) {
-  const tables = {
-    armour: ARMOUR, engine: ENGINES,
-    cannon: CANNONS, missile: MISSILES, bomb: BOMBS,
-  };
+  const tables = { armour: ARMOUR, engine: ENGINES, missile: MISSILES, bomb: BOMBS };
   const out = {};
+
   for (const [slot, table] of Object.entries(tables)) {
     if (saved[slot] && table[saved[slot]]) out[slot] = saved[slot];
   }
+
+  for (const slot of Object.keys(saved)) {
+    if (!slot.includes(".")) continue;
+    const [track, prop] = slot.split(".");
+    const tiers = WEAPONS[track]?.props[prop]?.tiers;
+    if (!tiers) continue;
+    const rung = Number(saved[slot]);
+    if (Number.isInteger(rung) && rung >= 0 && rung < tiers.length) out[slot] = rung;
+  }
+
   return out;
 }
 
@@ -170,7 +177,7 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
     <div class="loadout">
       ${upgradeRow("armour", "HULL", ARMOUR_IDS, ARMOUR)}
       ${upgradeRow("engine", "ENGINE", ENGINE_IDS, ENGINES)}
-      ${weaponRow("cannon", "CANNON", CANNON_IDS, CANNONS)}
+      ${WEAPON_IDS.map(weaponTrackRow).join("")}
       ${weaponRow("missile", "MISSILE", MISSILE_IDS, MISSILES)}
       ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
     </div>
@@ -411,11 +418,81 @@ function resetLoadout() {
   showMenu(onStart, onShowIntel, onShowHelp);
 }
 
-/** Step a fitting up one tier. The top rung simply has nothing to step to. */
+/** Step a fitting up one rung. The top rung simply has nothing to step to. */
 function upgrade(slot) {
+  // Forward weapons store a rung index under a "track.property" key.
+  if (slot.includes(".")) {
+    const [track, prop] = slot.split(".");
+    const top = WEAPONS[track].props[prop].tiers.length - 1;
+    const next = Math.min((chosen[slot] ?? 0) + 1, top);
+    if (next !== chosen[slot]) select(slot, next);
+    return;
+  }
+
   const ids = slot === "armour" ? ARMOUR_IDS : ENGINE_IDS;
   const next = ids[ids.indexOf(chosen[slot]) + 1];
   if (next) select(slot, next);
+}
+
+// --- forward weapon tracks --------------------------------------------------
+
+/**
+ * A forward weapon is a row of property ladders rather than a choice between
+ * models: one card per property, each with its own upgrade button. The whole
+ * row is generated from WEAPONS, so adding a property adds a card.
+ */
+function weaponTrackRow(track) {
+  const spec = WEAPONS[track];
+  const cards = Object.keys(spec.props)
+    .map((prop) => propCard(track, prop))
+    .join("");
+
+  return `
+    <div class="loadout-row">
+      <div class="loadout-label">${spec.label}<i>${spec.blurb}</i></div>
+      <div class="options" id="row-${track}">${cards}</div>
+    </div>`;
+}
+
+/**
+ * Whether a weapon is on the aircraft at all. It is a property of the whole
+ * track, not of one card: a flamethrower with reach but no damage is still
+ * not fitted, and its reach card should not look live.
+ */
+function trackFitted(track) {
+  for (const [prop, spec] of Object.entries(WEAPONS[track].props)) {
+    // The property carrying a zero first rung is the one that fits the weapon.
+    if (spec.tiers[0] === 0) return (chosen[`${track}.${prop}`] ?? 0) > 0;
+  }
+  return true; // nothing to fit: the wing guns are always there
+}
+
+function propCard(track, prop) {
+  const spec = WEAPONS[track].props[prop];
+  const key = `${track}.${prop}`;
+  const rung = chosen[key] ?? 0;
+  const top = spec.tiers.length - 1;
+  const fitted = trackFitted(track);
+  const isFitting = spec.tiers[0] === 0 && rung === 0;
+
+  const pips = spec.tiers
+    .map((_, i) => `<span class="${i <= rung ? "on" : ""}"></span>`)
+    .join("");
+
+  const button = rung < top
+    ? `<button class="upgrade" data-upgrade="${key}">
+         ${isFitting ? "Fit" : "Upgrade"}
+         <i>${spec.format(spec.tiers[rung + 1])}</i>
+       </button>`
+    : `<button class="upgrade" disabled>Maxed</button>`;
+
+  return `
+    <div class="opt prop${fitted ? " selected" : ""}" data-slot="${key}">
+      <b>${spec.label}</b>
+      <div class="tier">${pips}</div>
+      <div class="prop-value${isFitting ? " unfitted" : ""}">${spec.format(spec.tiers[rung])}</div>
+      ${button}
+    </div>`;
 }
 
 // --- weapon rows ------------------------------------------------------------
@@ -545,6 +622,19 @@ function silhouette() {
 function select(slot, id) {
   chosen[slot] = id;
   saveLoadoutSlot(slot, id);
+
+  // Fitting a weapon changes how its whole row looks, not just one card, so
+  // the row is redrawn rather than the card that was clicked.
+  if (slot.includes(".")) {
+    const [track] = slot.split(".");
+    const row = document.getElementById(`row-${track}`);
+    if (row) {
+      row.innerHTML = Object.keys(WEAPONS[track].props)
+        .map((prop) => propCard(track, prop))
+        .join("");
+    }
+    return;
+  }
 
   // Hull and engine own their whole row, and also feed the summary above.
   if (slot === "armour" || slot === "engine") {

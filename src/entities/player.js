@@ -15,10 +15,10 @@ import { input, isDown } from "../core/input.js";
 import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
-  PLAYER, ARMOUR, ENGINES, CANNONS, MISSILES, BOMBS, DEFAULT_LOADOUT, LOCK,
+  PLAYER, ARMOUR, ENGINES, MISSILES, BOMBS, DEFAULT_LOADOUT, LOCK, resolveWeapons,
   ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
-import { fireGun, fireMissile, dropBomb } from "./weapons.js";
+import { fireGun, fireMissile, dropBomb, sprayFlame, fireLaser } from "./weapons.js";
 import { explode, addShake } from "./effects.js";
 
 /** Ticks between the jet being hit and the game-over screen appearing. */
@@ -35,17 +35,23 @@ export function createPlayer(loadout = {}) {
 
   const armour = pick(ARMOUR, loadout.armour, DEFAULT_LOADOUT.armour);
   const engine = pick(ENGINES, loadout.engine, DEFAULT_LOADOUT.engine);
-  const cannon = pick(CANNONS, loadout.cannon, DEFAULT_LOADOUT.cannon);
   const missile = pick(MISSILES, loadout.missile, DEFAULT_LOADOUT.missile);
   const bomb = pick(BOMBS, loadout.bomb, DEFAULT_LOADOUT.bomb);
+
+  // The three forward weapons come from ladder rungs rather than a named
+  // model, and any combination of them may be fitted at once.
+  const { cannon, flame, laser } = resolveWeapons({ ...DEFAULT_LOADOUT, ...loadout });
 
   return {
     /** How much the hull absorbs. */
     armour,
     /** Top speed, and nothing else. */
     engine,
-    /** The three chosen weapon specs. */
+    /** Wing guns, always fitted. */
     cannon,
+    /** Nose weapons, null until fitted. */
+    flame,
+    laser,
     missile,
     bomb,
     x: 0,
@@ -90,9 +96,15 @@ export function updatePlayer(world) {
   if (p.bombCooldown > 0) p.bombCooldown--;
   if (p.invuln > 0) p.invuln--;
 
-  if ((input.mouse.left || isDown("Space")) && p.gunCooldown <= 0) {
-    fireGun(world, p, true);
-    p.gunCooldown = p.cannon.cooldown;
+  // One trigger runs every forward weapon that is fitted: the wing guns on
+  // their own cadence, the nose weapons continuously while it is held.
+  if (input.mouse.left || isDown("Space")) {
+    if (p.gunCooldown <= 0) {
+      fireGun(world, p, true);
+      p.gunCooldown = p.cannon.cooldown;
+    }
+    if (p.flame) sprayFlame(world, p);
+    if (p.laser) fireLaser(world, p);
   }
   if ((input.mouse.right || isDown("KeyF", "KeyX")) && p.missileCooldown <= 0) {
     fireMissile(world);

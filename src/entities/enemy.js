@@ -180,10 +180,17 @@ function aimPoint(player, range, e) {
 
 /**
  * Set an enemy alight, or refresh a fire already burning on it.
+ *
  * Burn damage does not stack — a longer burn is the reward for staying on
- * target, not a multiplying one.
+ * target, not a multiplying one. Where two sources overlap, as the flame and
+ * the laser will when both are fitted, the fiercer one wins rather than
+ * whichever happened to be applied last.
  */
 export function ignite(world, e, burnSpec) {
+  if (e.burn && e.burn.dps > burnSpec.dps) {
+    e.burn.ticksLeft = burnSpec.duration;
+    return;
+  }
   e.burn = { ticksLeft: burnSpec.duration, dps: burnSpec.dps };
 }
 

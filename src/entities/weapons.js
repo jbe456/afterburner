@@ -10,11 +10,23 @@
 
 import { rand, angDiff } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { ENEMY, ENEMY_TYPES, MISSILE } from "../config.js";
+import { ENEMY, ENEMY_TYPES, MISSILE, CANNON } from "../config.js";
 import { muzzleFlash, addShake } from "./effects.js";
 
-/** Where each barrel sits relative to the nose, by barrel count. */
-const BARREL_OFFSETS = { 1: [0], 2: [-11, 11], 3: [-14, 0, 14] };
+/**
+ * Where the barrels sit across the wings, in symmetric pairs working outward.
+ * Generated so any even slot count has somewhere to fire from.
+ */
+function barrelOffsets(count) {
+  if (count <= 1) return [0];
+  // An odd count keeps one on the centreline; the rest go out in pairs.
+  const out = count % 2 ? [0] : [];
+  for (let pair = 0; pair < Math.floor(count / 2); pair++) {
+    const x = 9 + pair * 7;
+    out.push(-x, x);
+  }
+  return out;
+}
 
 /**
  * Cannon fire. Rounds inherit half the shooter's velocity, so a fast pass
@@ -22,15 +34,15 @@ const BARREL_OFFSETS = { 1: [0], 2: [-11, 11], 3: [-14, 0, 14] };
  */
 export function fireGun(world, shooter, isPlayer) {
   const spec = isPlayer ? shooter.cannon : ENEMY_TYPES[shooter.type];
-  if (spec.kind === "flame") return sprayFlame(world, shooter, spec);
 
-  // Enemy profiles happen to use the same field names for these two.
-  const spread = spec.spread;
+  const spread = isPlayer ? CANNON.spread : spec.spread;
   const damage = spec.damage;
   // Enemy types may override the shared round speed; most do not.
-  const speed = isPlayer ? spec.bulletSpeed : (spec.bulletSpeed ?? ENEMY.bulletSpeed);
+  const speed = isPlayer ? CANNON.bulletSpeed : (spec.bulletSpeed ?? ENEMY.bulletSpeed);
   const life = isPlayer ? spec.bulletLife : ENEMY.bulletLife;
-  const offsets = BARREL_OFFSETS[spec.barrels] ?? [0];
+  const offsets = isPlayer
+    ? barrelOffsets(spec.slots)
+    : barrelOffsets(spec.barrels ?? 1);
 
   for (const offset of offsets) {
     const angle = shooter.angle + rand(-spread, spread);
@@ -49,9 +61,9 @@ export function fireGun(world, shooter, isPlayer) {
       pierce: isPlayer ? spec.pierce : 1,
       /** Already-struck targets, so one round cannot hit the same jet twice. */
       struck: null,
-      burn: isPlayer ? spec.burn : null,
-      color: isPlayer ? spec.tracer : "#ff8a5c",
-      width: isPlayer ? spec.tracerWidth : 2.6,
+      burn: null,
+      color: isPlayer ? CANNON.tracer : "#ff8a5c",
+      width: isPlayer ? CANNON.tracerWidth : 2.6,
     });
   }
 
@@ -65,23 +77,28 @@ export function fireGun(world, shooter, isPlayer) {
 }
 
 /**
- * The flamethrower emits no projectiles. It pushes one short-lived cone per
- * tick; projectiles.js resolves what that cone touches, keeping the usual
- * split between creating a weapon effect and applying it.
+ * Nose weapons emit no projectiles. Each pushes one short-lived shape per
+ * tick and projectiles.js resolves what it touches, keeping the usual split
+ * between creating a weapon effect and applying it.
  */
-function sprayFlame(world, player, spec) {
+export function sprayFlame(world, player) {
+  const spec = player.flame;
+
   world.flames.push({
+    kind: "cone",
     x: player.x + Math.cos(player.angle) * 16,
     y: player.y + Math.sin(player.angle) * 16,
     angle: player.angle,
-    spec,
+    range: spec.range,
+    halfAngle: CANNON.flameConeHalfAngle,
+    burn: { dps: spec.damage, duration: CANNON.burnDuration },
     /** Set once its damage has landed; it then lives one frame to be drawn. */
     spent: false,
   });
 
   // Burning fuel, thrown forward and spreading as it goes.
   for (let i = 0; i < 3; i++) {
-    const a = player.angle + rand(-spec.coneHalfAngle, spec.coneHalfAngle);
+    const a = player.angle + rand(-CANNON.flameConeHalfAngle, CANNON.flameConeHalfAngle);
     const reach = rand(0.2, 1) * spec.range;
     const speed = reach / 18;
     world.particles.push({
@@ -98,6 +115,27 @@ function sprayFlame(world, player, spec) {
 
   // Re-open the roar often enough that it never audibly gutters out.
   if (world.time % 4 === 0) sfx.flame();
+}
+
+/**
+ * The laser is a line rather than a cone: a fixed-width beam out to its reach
+ * that sets light to anything it crosses, exactly as the flame does.
+ */
+export function fireLaser(world, player) {
+  const spec = player.laser;
+
+  world.flames.push({
+    kind: "beam",
+    x: player.x + Math.cos(player.angle) * 16,
+    y: player.y + Math.sin(player.angle) * 16,
+    angle: player.angle,
+    range: spec.range,
+    halfWidth: CANNON.laserHalfWidth,
+    burn: { dps: spec.damage, duration: CANNON.burnDuration },
+    spent: false,
+  });
+
+  if (world.time % 6 === 0) sfx.laser();
 }
 
 /** True if the chosen missile is willing to leave the rail right now. */

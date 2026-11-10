@@ -24,9 +24,9 @@
  */
 
 import {
-  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, CANNONS, CANNON_IDS,
-  MISSILES, MISSILE_IDS, BOMBS, BOMB_IDS, PLAYER,
-  cannonDps, cannonReach, cannonLingering, cannonRate, KMH_PER_SPEED_UNIT,
+  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
+  MISSILES, MISSILE_IDS, BOMBS, BOMB_IDS, PLAYER, DEFAULT_LOADOUT,
+  WEAPON_PROP_KEYS, resolveWeapons, KMH_PER_SPEED_UNIT,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
@@ -93,22 +93,33 @@ assertLadder("ENGINE", ENGINE_IDS, ENGINES, "km/h",
   (e) => Math.round(e.maxSpeed * KMH_PER_SPEED_UNIT));
 
 // --- cannons ---------------------------------------------------------------
-assertNoDominance("CANNONS", CANNON_IDS, CANNONS, {
-  /** Sustained damage on one target, fire included. */
-  dps: cannonDps,
-  /** Damage landed by a single trigger event. */
-  burst: (c) => (c.kind === "flame" ? c.damage : c.barrels * c.damage),
-  /** How far it can actually hurt something, in world units. */
-  reach: cannonReach,
-  /** Shots per second; unbounded for a weapon with no discrete shots. */
-  rate: cannonRate,
-  /**
-   * Damage that keeps landing after the weapon stops touching the target.
-   * This is the Firebelt's only win, and the reason it is not dominated now
-   * that its fire is folded into the damage figure.
-   */
-  lingering: cannonLingering,
-});
+// --- the forward weapons, which are ladders too ---------------------------
+for (const track of WEAPON_IDS) {
+  const spec = WEAPONS[track];
+  for (const [prop, ladder] of Object.entries(spec.props)) {
+    assertLadder(`${spec.label} ${ladder.label}`,
+      ladder.tiers.map((_, i) => i),
+      Object.fromEntries(ladder.tiers.map((v, i) => [i, { name: ladder.format(v), value: v }])),
+      "value", (rung) => rung.value);
+  }
+}
+
+// A weapon that starts fitted cannot be "not fitted" later, and one that
+// starts unfitted must actually be off at rung zero.
+console.log("\nSTOCK FORWARD WEAPONS");
+{
+  const stock = resolveWeapons(DEFAULT_LOADOUT);
+  const checks = [
+    ["the wing guns are always fitted", stock.cannon.slots >= 2],
+    ["they start on the lowest rung", stock.cannon.damage === WEAPONS.cannon.props.damage.tiers[0]],
+    ["the flame starts unfitted", stock.flame === null],
+    ["the laser starts unfitted", stock.laser === null],
+  ];
+  for (const [name, ok] of checks) {
+    if (!ok) failures++;
+    console.log(`  ${ok ? "pass" : "FAIL"}  ${name}`);
+  }
+}
 
 // --- missiles --------------------------------------------------------------
 assertNoDominance("MISSILES", MISSILE_IDS, MISSILES, {
@@ -177,7 +188,7 @@ for (const id of ENGINE_IDS) {
 // --- hull and engine must not touch the guns ------------------------------
 /** Fires one of everything and reports what actually came out. */
 function observeLoadout(armourId, engineId) {
-  const world = createWorld({ armour: armourId, engine: engineId });
+  const world = createWorld({ ...DEFAULT_LOADOUT, armour: armourId, engine: engineId });
   const p = world.player;
   p.x = 0; p.y = 0; p.angle = 0; p.speed = 0;
 

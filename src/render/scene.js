@@ -256,38 +256,67 @@ function drawAircraft(ctx, world) {
  * a hard wedge.
  */
 function drawFlames(ctx, world) {
-  for (const flame of world.flames) {
-    const { x, y, angle, spec } = flame;
-    const flicker = 0.85 + Math.sin(world.time * 1.3) * 0.15;
-    const reach = spec.range * flicker;
-
+  for (const emission of world.flames) {
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
+    ctx.translate(emission.x, emission.y);
+    ctx.rotate(emission.angle);
     ctx.globalCompositeOperation = "lighter";
 
-    // Three nested cones, narrowing and brightening toward the nozzle.
-    const layers = [
-      [spec.coneHalfAngle, reach, "rgba(255,80,20,0.30)"],
-      [spec.coneHalfAngle * 0.68, reach * 0.86, "rgba(255,150,40,0.34)"],
-      [spec.coneHalfAngle * 0.34, reach * 0.62, "rgba(255,235,170,0.42)"],
-    ];
-    for (const [halfAngle, length, color] of layers) {
-      const grad = ctx.createLinearGradient(0, 0, length, 0);
-      grad.addColorStop(0, color);
-      grad.addColorStop(0.55, color.replace(/[\d.]+\)$/, "0.18)"));
-      grad.addColorStop(1, "rgba(255,60,0,0)");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, length, -halfAngle, halfAngle);
-      ctx.closePath();
-      ctx.fill();
-    }
+    if (emission.kind === "beam") drawBeam(ctx, world, emission);
+    else drawCone(ctx, world, emission);
 
     ctx.restore();
     ctx.globalCompositeOperation = "source-over";
   }
+}
+
+/** Three nested cones, narrowing and brightening toward the nozzle. */
+function drawCone(ctx, world, emission) {
+  const flicker = 0.85 + Math.sin(world.time * 1.3) * 0.15;
+  const reach = emission.range * flicker;
+
+  const layers = [
+    [emission.halfAngle, reach, "rgba(255,80,20,0.30)"],
+    [emission.halfAngle * 0.68, reach * 0.86, "rgba(255,150,40,0.34)"],
+    [emission.halfAngle * 0.34, reach * 0.62, "rgba(255,235,170,0.42)"],
+  ];
+  for (const [halfAngle, length, color] of layers) {
+    const grad = ctx.createLinearGradient(0, 0, length, 0);
+    grad.addColorStop(0, color);
+    grad.addColorStop(0.55, color.replace(/[\d.]+\)$/, "0.18)"));
+    grad.addColorStop(1, "rgba(255,60,0,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, length, -halfAngle, halfAngle);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/** A hard white core inside a wide glow, held straight out from the nose. */
+function drawBeam(ctx, world, emission) {
+  const pulse = 0.88 + Math.sin(world.time * 0.9) * 0.12;
+  const length = emission.range;
+
+  for (const [width, color] of [
+    [emission.halfWidth * 3.4, "rgba(120,60,255,0.22)"],
+    [emission.halfWidth * 1.7, "rgba(190,110,255,0.42)"],
+    [emission.halfWidth * 0.7, "rgba(245,230,255,0.95)"],
+  ]) {
+    const grad = ctx.createLinearGradient(0, 0, length, 0);
+    grad.addColorStop(0, color);
+    grad.addColorStop(0.86, color);
+    grad.addColorStop(1, "rgba(190,110,255,0)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, -width * pulse, length, width * 2 * pulse);
+  }
+
+  // A brighter knot where it leaves the nose.
+  ctx.fillStyle = "rgba(245,230,255,0.9)";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, emission.halfWidth * 1.6, emission.halfWidth * 2.2, 0, 0, TAU);
+  ctx.fill();
 }
 
 /** A flickering halo on an aircraft that is on fire. */

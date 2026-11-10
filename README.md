@@ -66,11 +66,29 @@ The three weapon rows are real choices: the same no-dominance rule applies
 inside each category, so no cannon, missile or bomb is better than its
 siblings at everything.
 
-| Cannon | | |
+### Forward weapons
+
+Three of them, and you can fly with all three at once — one trigger fires
+whatever is fitted.
+
+| | | |
 | --- | --- | --- |
-| **Vulcan rapid-fire** | 216 dps, 12 shots/s | Highest sustained damage on one target |
-| **Avenger piercing** | 160 dps, 3.3 shots/s | Pierces 3 aircraft; dead time if you miss |
-| **Firebelt flamethrower** | 100 dps, 260 m cone | No rounds to miss with, but very short reach. The flame does no damage itself — it only ignites, and the fire does all the killing |
+| **Cannon** | from the wings | type (regular / pierces 3), slots (2–8), damage (10–300), reach (200–4000 m), rate (1–20/s) |
+| **Flame** | a cone from the nose | damage (10–250/s), reach (100–500 m) |
+| **Laser** | a beam from the nose | damage (10–250/s), reach (500–4000 m) |
+
+Each property is its own ladder with its own card and upgrade button, defined
+in `WEAPONS` in `src/config.js` — add a property and the hangar grows a card
+for it. Cannon slots are barrels, fitted in pairs across the wings, and reach
+is a real distance: a round expires exactly at it.
+
+Neither nose weapon damages on contact. Both *ignite*, and the fire does the
+killing, so a laser sweeping across a formation lights up everything it
+crosses. Where the two overlap, the fiercer fire wins rather than whichever
+landed last.
+
+You start with two wing guns at their weakest and no nose weapons at all;
+both of those rows read **NOT FITTED** until you fit them.
 
 | Missile | | |
 | --- | --- | --- |
@@ -97,19 +115,6 @@ distance as well as its blast circle, greyed out until it arms 40 ticks after
 the drop, which is what stops it killing you on release. Laying a line of them
 across a wave's approach is the point; forgetting where you put one is the
 cost.
-
-Firebelt sprays a cone rather than firing rounds: nothing to miss with and it
-catches everything inside it, but you have to be almost on top of the target.
-The flame deals no damage of its own — it sets light to what it touches, and
-the fire does all the killing, burning for 0.8 s after you break off. At 100
-dps that is 80 damage from a single touch: enough to kill a fighter or an ace
-outright, not quite enough for a heavy, which needs a second pass. Avenger's
-pierce only pays when enemies line up.
-
-The cards fold that fire into the one DAMAGE figure rather than splitting it
-out, because for the Firebelt it *is* the damage. Its RATE reads as infinite,
-since a flamethrower has no discrete shots — it is simply on or off. Pierce
-is not a bar; the Avenger's name carries it.
 
 The missiles differ in how far and how wide their seekers look. Hydra has no
 seeker at all. The Sidewinder searches a forward arc out to 900 m. The AMRAAM

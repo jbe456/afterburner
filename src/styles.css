@@ -184,7 +184,7 @@ h1 {
 
 /* Rows hold three or four options depending on the slot, and wrap on a
    narrow window rather than squeezing. */
-.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 8px; }
+.options { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
 
 .opt {
   text-align: left;
@@ -337,6 +337,38 @@ h1 {
   background: none;
   color: #56708a;
   cursor: default;
+}
+
+/* --- property cards: one ladder each, inside a weapon track --- */
+
+.loadout-label i {
+  display: block;
+  font-style: normal;
+  font-size: 8.5px;
+  letter-spacing: .06em;
+  text-transform: none;
+  color: #44596e;
+  margin-top: 3px;
+}
+
+.opt.prop { --livery: #ffd166; }
+
+/* An unfitted weapon sits back until something is bolted to it. */
+.opt.prop:not(.selected) { opacity: .62; }
+
+.prop-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f4f8fc;
+  margin: 2px 0 4px;
+}
+
+.prop-value.unfitted {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: .1em;
+  color: #56708a;
+  padding: 4px 0 5px;
 }
 
 /* --- option cards: shared by every loadout row --- */

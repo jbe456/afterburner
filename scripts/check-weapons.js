@@ -13,10 +13,26 @@
 
 import { createWorld } from "../src/world.js";
 import { updateBombs } from "../src/entities/bombs.js";
-import { fireGun, fireMissile, fireEnemyMissile, dropEnemyBomb } from "../src/entities/weapons.js";
+import {
+  fireGun, fireMissile, fireEnemyMissile, dropEnemyBomb, sprayFlame, fireLaser,
+} from "../src/entities/weapons.js";
 import { updateBullets, updateFlames, updateMissiles } from "../src/entities/projectiles.js";
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
-import { CANNONS, MISSILES, RADAR_RANGE, ENEMY_TYPES, ENEMY_TYPE_IDS } from "../src/config.js";
+import {
+  WEAPONS, MISSILES, RADAR_RANGE, ENEMY_TYPES, ENEMY_TYPE_IDS,
+  DEFAULT_LOADOUT, resolveWeapons, CANNON,
+} from "../src/config.js";
+
+/** A loadout with the named weapon properties pushed to a given rung. */
+function fit(overrides = {}) {
+  const out = { ...DEFAULT_LOADOUT };
+  for (const [key, rung] of Object.entries(overrides)) {
+    const [track, prop] = key.split(".");
+    const tiers = WEAPONS[track].props[prop].tiers;
+    out[key] = rung === "max" ? tiers.length - 1 : rung;
+  }
+  return out;
+}
 
 let failures = 0;
 
@@ -27,7 +43,7 @@ function check(name, condition, detail = "") {
 
 /** A world with the given loadout and enemies parked along the +X axis. */
 function setup(loadout, enemyXs = []) {
-  const world = createWorld({ ...loadout });
+  const world = createWorld({ ...DEFAULT_LOADOUT, ...loadout });
   const p = world.player;
   p.x = 0; p.y = 0; p.angle = 0; p.speed = 0; p.invuln = 0;
 
@@ -41,141 +57,129 @@ function setup(loadout, enemyXs = []) {
 }
 
 // --- cannons ---------------------------------------------------------------
-console.log("\nCANNONS");
+console.log("\nCANNON");
 
-for (const id of Object.keys(CANNONS)) {
-  const spec = CANNONS[id];
-  const { world, player } = setup({ cannon: id });
-  fireGun(world, player, true);
-  const expected = spec.kind === "flame" ? 0 : spec.barrels;
-  check(`${spec.name} emits ${expected} round(s) per pull`,
-    world.bullets.length === expected, `got ${world.bullets.length}`);
+{
+  // Slots are barrels: every one of them must put a round in the air.
+  for (const [rung, slots] of WEAPONS.cannon.props.slots.tiers.entries()) {
+    const { world, player } = setup(fit({ "cannon.slots": rung }));
+    fireGun(world, player, true);
+    check(`${slots} slots fire ${slots} rounds`,
+      world.bullets.length === slots, `got ${world.bullets.length}`);
+  }
 }
 
 {
-  // Three fighters in a line; one Avenger round should go through all three.
-  const { world, player, enemies } = setup({ cannon: "avenger" }, [200, 400, 600]);
-  fireGun(world, player, true);
-  for (let t = 0; t < 120 && world.bullets.length; t++) updateBullets(world);
-
-  const killed = enemies.filter((e) => !world.enemies.includes(e)).length;
-  check("one AVENGER round kills three aircraft in a line",
-    killed === 3, `killed ${killed}`);
+  // Reach is a distance, so a round must die at it rather than fly forever.
+  for (const rung of [0, 4, 9]) {
+    const loadout = fit({ "cannon.reach": rung });
+    const { reach, bulletLife } = resolveWeapons(loadout).cannon;
+    const travelled = bulletLife * CANNON.bulletSpeed;
+    check(`reach ${reach} m expires within a tick of its range (flew ${travelled})`,
+      Math.abs(travelled - reach) <= CANNON.bulletSpeed, `flew ${travelled}`);
+  }
 }
 
 {
-  // A Vulcan round must stop at the first target it touches.
-  const { world, player, enemies } = setup({ cannon: "vulcan" }, [200, 400, 600]);
-  // One round is not lethal, so compare damage taken rather than kills.
-  const before = enemies.map((e) => e.hp);
-  fireGun(world, player, true);
-  for (let t = 0; t < 120 && world.bullets.length; t++) updateBullets(world);
-  const hit = enemies.filter((e, i) => e.hp < before[i]).length;
-  check("a VULCAN round stops at the first aircraft", hit === 1, `hit ${hit}`);
+  // Rate is shots per second, which is what the cooldown has to deliver.
+  for (const rung of [0, 5, 9]) {
+    const { rate, cooldown } = resolveWeapons(fit({ "cannon.rate": rung })).cannon;
+    const actual = 60 / cooldown;
+    check(`rate ${rate}/s lands within half a shot of its cadence`,
+      Math.abs(actual - rate) < 0.5, `fires ${actual.toFixed(2)}/s`);
+  }
 }
 
 {
-  // The flamethrower fires a cone, not a projectile.
-  const { world, player } = setup({ cannon: "firebelt" }, [150]);
+  // Regular rounds stop at the first aircraft; piercing go through three.
+  const line = [200, 400, 600];
+
+  const plain = setup(fit({ "cannon.type": 0, "cannon.damage": "max", "cannon.reach": "max" }), line);
+  // One barrel, or two rounds would kill two aircraft without piercing at all
+  // and the test would pass for the wrong reason.
+  plain.world.player.cannon.slots = 1;
+  fireGun(plain.world, plain.player, true);
+  for (let t = 0; t < 200 && plain.world.bullets.length; t++) updateBullets(plain.world);
+  const plainKills = plain.enemies.filter((e) => !plain.world.enemies.includes(e)).length;
+  check("a regular round stops at the first aircraft", plainKills === 1, `killed ${plainKills}`);
+
+  const pierce = setup(fit({ "cannon.type": 1, "cannon.damage": "max", "cannon.reach": "max" }), line);
+  // One barrel again, so three kills can only mean one round went through three.
+  pierce.world.player.cannon.slots = 1;
+  fireGun(pierce.world, pierce.player, true);
+  for (let t = 0; t < 200 && pierce.world.bullets.length; t++) updateBullets(pierce.world);
+  const pierceKills = pierce.enemies.filter((e) => !pierce.world.enemies.includes(e)).length;
+  check("a piercing round goes through three", pierceKills === 3, `killed ${pierceKills}`);
+}
+
+console.log("\nFLAME");
+
+{
+  const { world, player } = setup(fit());
+  check("not fitted at stock", player.flame === null);
   fireGun(world, player, true);
-  check("FIREBELT produces no bullets", world.bullets.length === 0);
-  check("FIREBELT produces a flame cone", world.flames.length === 1);
+  check("and emits nothing", world.flames.length === 0);
 }
 
 {
-  // Everything inside the cone catches fire; nothing outside it is touched.
-  const spec = CANNONS.firebelt;
-  const inCone = 150;              // within range, dead ahead
-  const behind = -150;             // within range, but behind the nose
-  const tooFar = spec.range + 300; // dead ahead, well beyond the cone
-
-  const { world, player, enemies } = setup({ cannon: "firebelt" }, [inCone, behind, tooFar]);
+  const inCone = 80;
+  const { world, player, enemies } = setup(
+    fit({ "flame.damage": 5, "flame.reach": 0 }), [inCone, -inCone, 4000]);
   const [front, back, distant] = enemies;
-  const before = enemies.map((e) => e.hp);
+  check("fitted once it has damage", player.flame !== null);
 
-  fireGun(world, player, true);
+  sprayFlame(world, player);
   updateFlames(world);
 
-  check("flame ignites an aircraft inside the cone", Boolean(front.burn));
-  // The Firebelt's damage is all fire: the cone itself must do none.
-  check("the flame itself deals no direct damage", front.hp === before[0],
-    `hp ${before[0]} -> ${front.hp}`);
-  check("flame does not reach behind the jet", back.hp === before[1] && !back.burn);
-  check("flame does not reach past its range", distant.hp === before[2] && !distant.burn);
+  check("ignites what is in the cone", Boolean(front.burn));
+  check("the cone itself deals no damage", front.hp === ENEMY_TYPES.fighter.hp);
+  check("does not reach behind", !back.burn);
+  check("does not reach past its range", !distant.burn);
 
-  // The fire is what actually hurts.
   updateBurning(world);
-  check("the fire it starts does the damage", front.hp < before[0],
-    `hp still ${front.hp}`);
+  check("the fire it starts does the damage", front.hp < ENEMY_TYPES.fighter.hp);
+}
+
+console.log("\nLASER");
+
+{
+  const { world, player } = setup(fit());
+  check("not fitted at stock", player.laser === null);
 }
 
 {
-  // The cone outlives its effect by one tick so the renderer can draw it.
-  const { world, player, enemies } = setup({ cannon: "firebelt" }, [150]);
+  // A beam is a line: far along it is fine, far off to the side is not.
+  const { world, player, enemies } = setup(
+    fit({ "laser.damage": "max", "laser.reach": "max" }), [3500, 3500, 6000]);
+  const [onBeam, offBeam, beyond] = enemies;
+  offBeam.y = 400;          // directly abeam, well off the line
+  beyond.y = 0;             // dead ahead but past the reach
+
+  check("fitted once it has damage", player.laser !== null);
+  fireLaser(world, player);
+  updateFlames(world);
+
+  check("ignites a target far down the beam", Boolean(onBeam.burn));
+  check("misses one off to the side", !offBeam.burn);
+  check("stops at its reach", !beyond.burn);
+}
+
+{
+  // Both nose weapons on one target: the fiercer fire must win, not the last.
+  const { world, player, enemies } = setup(
+    fit({ "flame.damage": 10, "flame.reach": "max", "laser.damage": 1, "laser.reach": "max" }),
+    [120]);
   const target = enemies[0];
 
-  fireGun(world, player, true);
-  updateFlames(world);
-  check("the cone survives a tick so it can be drawn", world.flames.length === 1);
-
-  updateFlames(world);
-  check("the cone is cleaned up next tick", world.flames.length === 0);
-}
-
-{
-  // Burning does not stack: re-lighting an already-burning target refreshes
-  // the fire rather than doubling its rate.
-  const { world, player, enemies } = setup({ cannon: "firebelt" }, [150]);
-  const target = enemies[0];
-
-  fireGun(world, player, true);
-  updateFlames(world);
-  const singleRate = (() => {
-    const before = target.hp;
-    updateBurning(world);
-    return before - target.hp;
-  })();
-
-  for (let i = 0; i < 5; i++) { fireGun(world, player, true); updateFlames(world); }
-  const before = target.hp;
-  updateBurning(world);
-  const afterRelights = before - target.hp;
-
-  check("re-lighting refreshes the fire rather than stacking it",
-    Math.abs(afterRelights - singleRate) < 1e-9,
-    `${singleRate} -> ${afterRelights} per tick`);
-  check("the fire burns at the configured rate",
-    Math.abs(singleRate - CANNONS.firebelt.burn.dps / 60) < 1e-9,
-    `${singleRate} per tick`);
-}
-
-{
-  // Fire keeps working after you stop, and kills on its own.
-  const { world, player, enemies } = setup({ cannon: "firebelt" }, [150]);
-  const target = enemies[0];
-  fireGun(world, player, true);
+  sprayFlame(world, player);
+  fireLaser(world, player);
   updateFlames(world);
 
-  const hpAfterFlame = target.hp;
-  updateBurning(world);
-  updateBurning(world);
-  check("burn damages over time with no further hits", target.hp < hpAfterFlame,
-    `hp ${hpAfterFlame} -> ${target.hp}`);
-
-  for (let t = 0; t < 300; t++) updateBurning(world);
-  check("a sustained burn is lethal on its own",
-    !world.enemies.includes(target), `survived with ${target.hp.toFixed(1)} hp`);
+  const fiercest = Math.max(player.flame.damage, player.laser.damage);
+  check("overlapping fires keep the fiercer rate",
+    target.burn?.dps === fiercest, `burning at ${target.burn?.dps}`);
 }
 
-{
-  // And the plain guns must not set anything alight.
-  const { world, player, enemies } = setup({ cannon: "vulcan" }, [200]);
-  fireGun(world, player, true);
-  for (let t = 0; t < 120 && world.bullets.length; t++) updateBullets(world);
-  check("VULCAN does not ignite", !enemies[0].burn);
-}
-
-// --- missiles --------------------------------------------------------------
 console.log("\nMISSILES");
 
 for (const id of Object.keys(MISSILES)) {
@@ -351,4 +355,4 @@ if (failures) {
   console.error(`\nFAIL — ${failures} weapon behaviour check(s) failed`);
   process.exit(1);
 }
-console.log("\nPASS — pierce, flame cones, ignition, salvos and seeker envelopes all behave");
+console.log("\nPASS — slots, reach, rate, pierce, flame, laser, salvos and seekers all behave");
