@@ -29,10 +29,11 @@ bundler); development does not.
 ## Your aircraft
 
 There is one airframe. Hull and engine are single fittings you **upgrade**
-through three tiers; cannon, missile and bomb are **choices** between three or
-four alternatives. The hangar shows the aircraft above the rows with the
-figures your current fit adds up to, so the consequence of a change is visible
-as you make it.
+rung by rung; the forward weapon is a **switch** between three systems, each
+with property ladders of its own; missile and bomb are **choices** between
+three or four alternatives. The hangar shows the aircraft above the rows with
+the figures your current fit adds up to, so the consequence of a change is
+visible as you make it.
 
 Both are ladders defined in `ARMOUR` and `ENGINES` in `src/config.js`, in
 order from weakest to strongest. Add or remove a rung and the hangar follows:
@@ -62,33 +63,38 @@ applies to them too.
 
 ## Loadout
 
-The three weapon rows are real choices: the same no-dominance rule applies
-inside each category, so no cannon, missile or bomb is better than its
-siblings at everything.
+Missiles and bombs are real choices: the same no-dominance rule applies
+inside each category, so no missile or bomb is better than its siblings at
+everything.
 
 ### Forward weapons
 
-Three of them, and you can fly with all three at once — one trigger fires
-whatever is fitted.
+Three of them, and you fly with exactly one. The weapon row is a switch:
+fitting a weapon unfits the other two, and only the fitted weapon's property
+cards are shown. Each weapon remembers the rungs you bought for it, so
+switching away and back returns you to the gun you built rather than a stock
+one.
 
 | | | |
 | --- | --- | --- |
-| **Cannon** | from the wings | type (regular / pierces 3), slots (2–8), damage (10–300), reach (200–4000 m), rate (1–20/s) |
-| **Flame** | a cone from the nose | damage (10–250/s), reach (100–500 m) |
-| **Laser** | a beam from the nose | damage (10–250/s), reach (500–4000 m) |
+| **Cannon** | bullets, from the wings | type (regular / pierces 3), slots (2 or 4), damage (10–250), reach (200–2000 m), rate (1–15/s) |
+| **Flame** | a cone from the nose | damage (10–150/s), reach (100–500 m) |
+| **Laser** | a beam from the nose | damage (10–150/s), reach (500–2000 m) |
 
-Each property is its own ladder with its own card and upgrade button, defined
-in `WEAPONS` in `src/config.js` — add a property and the hangar grows a card
-for it. Cannon slots are barrels, fitted in pairs across the wings, and reach
-is a real distance: a round expires exactly at it.
+Each property is its own ladder of five rungs with its own card and upgrade
+button, defined in `WEAPONS` in `src/config.js` — add a property and the
+hangar grows a card for it. Cannon slots are barrels, fitted in pairs across
+the wings, and reach is a real distance: a round expires exactly at it.
+Piercing rounds carry on through what they kill, and fly as heavy amber slugs
+instead of the thin cyan of a regular belt, so the belt you are firing reads
+off the tracers rather than the HUD.
 
 Neither nose weapon damages on contact. Both *ignite*, and the fire does the
 killing, so a laser sweeping across a formation lights up everything it
 crosses. Where the two overlap, the fiercer fire wins rather than whichever
 landed last.
 
-You start with two wing guns at their weakest and no nose weapons at all;
-both of those rows read **NOT FITTED** until you fit them.
+You start on the cannon at its weakest: two wing guns, regular rounds.
 
 | Missile | | |
 | --- | --- | --- |
@@ -193,16 +199,17 @@ budget, so the swarms cost far less than they look like they should.
 never a combination. A flame or beam carrier has no guns at all, so it has to
 get its nose on you to do anything: the Cinder has to be within 180 m, and
 the Censer's 120/s is the fiercest fire in the game but only out to 340 m.
-The beam carriers trade that reach back, up to the Cyclops at 2200 m.
+The beam carriers trade that reach back, up to the Cyclops at 1700 m.
 
 Their fire works the way yours does: it sets you alight rather than damaging
 on contact, the HUD says **ON FIRE** with the rate, and the fire keeps burning
 after you break away. Enemy beams are drawn red against your violet, and none
 of it touches their own side.
 
-Enemy figures stay well under what you can reach — the fiercest enemy fire is
-120/s against your ceiling of 250/s, and the longest enemy beam 2200 m against
-4000 m.
+Enemy figures stay under what you can reach — the fiercest enemy fire is
+120/s against your ceiling of 150/s, and the longest enemy beam 1700 m against
+2000 m. `npm test` holds that gap, so a new specialist cannot quietly
+out-range a fully upgraded player.
 
 Enemy missiles home on you and will not stop on their own side.
 

@@ -230,20 +230,17 @@ function steps(from, to, count, round = 1) {
 }
 
 /**
- * Three forward weapons, all of which can be fitted at once and all of which
- * fire on the same trigger.
+ * Three forward weapons. You carry exactly one — picking a different one puts
+ * the other away rather than adding to it.
  *
  *   cannon  bullets from the wings, in pairs
  *   flame   a cone from the nose
  *   laser   a beam from the nose
  *
  * Each is a set of properties rather than a choice between models, and each
- * property is its own ladder: more is always better, the rungs are generated
- * from their endpoints, and the hangar builds a card per property from this
- * table alone.
- *
- * A zero first rung means "not fitted" — the flame and the laser both start
- * that way, so a new pilot flies with wing guns and nothing else.
+ * property is its own five-rung ladder generated from its endpoints. Rungs are
+ * stored per weapon and kept when you switch away, so coming back to a weapon
+ * restores what it was at rather than starting over.
  */
 export const WEAPONS = {
   cannon: {
@@ -257,22 +254,22 @@ export const WEAPONS = {
       },
       slots: {
         label: "SLOTS",
-        tiers: [2, 4, 6, 8],
+        tiers: [2, 4],
         format: (v) => `${v}`,
       },
       damage: {
         label: "DAMAGE",
-        tiers: steps(10, 300, 10, 5),
+        tiers: steps(10, 250, 5, 5),
         format: (v) => `${v}`,
       },
       reach: {
         label: "REACH",
-        tiers: steps(200, 4000, 10, 50),
+        tiers: steps(200, 2000, 5, 50),
         format: (v) => `${v} m`,
       },
       rate: {
         label: "RATE",
-        tiers: steps(1, 20, 10),
+        tiers: steps(1, 15, 5),
         format: (v) => `${v}/s`,
       },
     },
@@ -284,12 +281,12 @@ export const WEAPONS = {
     props: {
       damage: {
         label: "DAMAGE",
-        tiers: [0, ...steps(10, 250, 10, 5)],
-        format: (v) => (v ? `${v}/s` : "NOT FITTED"),
+        tiers: steps(10, 150, 5, 5),
+        format: (v) => `${v}/s`,
       },
       reach: {
         label: "REACH",
-        tiers: steps(100, 500, 10, 10),
+        tiers: steps(100, 500, 5, 10),
         format: (v) => `${v} m`,
       },
     },
@@ -301,12 +298,12 @@ export const WEAPONS = {
     props: {
       damage: {
         label: "DAMAGE",
-        tiers: [0, ...steps(10, 250, 10, 5)],
-        format: (v) => (v ? `${v}/s` : "NOT FITTED"),
+        tiers: steps(10, 150, 5, 5),
+        format: (v) => `${v}/s`,
       },
       reach: {
         label: "REACH",
-        tiers: steps(500, 4000, 10, 50),
+        tiers: steps(500, 2000, 5, 25),
         format: (v) => `${v} m`,
       },
     },
@@ -327,11 +324,17 @@ export function resolveWeapons(loadout) {
     return tiers[Math.min(Math.max(rung, 0), tiers.length - 1)];
   };
 
+  // Exactly one is fitted; the others resolve to null however their ladders
+  // happen to be set, so nothing downstream re-checks the selection.
+  const fitted = WEAPONS[loadout.weapon] ? loadout.weapon : "cannon";
+
   const rate = value("cannon", "rate");
   const reach = value("cannon", "reach");
 
   return {
-    cannon: {
+    weapon: fitted,
+
+    cannon: fitted !== "cannon" ? null : {
       pierce: value("cannon", "type"),
       slots: value("cannon", "slots"),
       damage: value("cannon", "damage"),
@@ -343,14 +346,11 @@ export function resolveWeapons(loadout) {
       bulletLife: Math.max(1, Math.round(reach / CANNON.bulletSpeed)),
     },
 
-    // A nose weapon with no damage is simply not fitted.
-    flame: value("flame", "damage") > 0
-      ? { damage: value("flame", "damage"), range: value("flame", "reach") }
-      : null,
+    flame: fitted !== "flame" ? null
+      : { damage: value("flame", "damage"), range: value("flame", "reach") },
 
-    laser: value("laser", "damage") > 0
-      ? { damage: value("laser", "damage"), range: value("laser", "reach") }
-      : null,
+    laser: fitted !== "laser" ? null
+      : { damage: value("laser", "damage"), range: value("laser", "reach") },
   };
 }
 
@@ -360,6 +360,9 @@ export const CANNON = {
   spread: 0.014,
   tracer: "#aef5ff",
   tracerWidth: 3.2,
+  /** Piercing rounds are heavier and hotter, and have to read that way. */
+  pierceTracer: "#ffd98a",
+  pierceTracerWidth: 5.4,
   /** Half-angle of the flame cone, in radians. */
   flameConeHalfAngle: 0.30,
   /** How wide a target counts as touching the laser beam. */
@@ -560,6 +563,8 @@ export const DEFAULT_LOADOUT = {
   engine: "spark",
   missile: "sidewinder",
   bomb: "mk82",
+  /** Which forward weapon is carried. Only one, ever. */
+  weapon: "cannon",
   ...Object.fromEntries(WEAPON_PROP_KEYS.map((key) => [key, 0])),
 };
 
@@ -742,8 +747,8 @@ export const ENEMY_TYPES = {
     name: "Cyclops", shape: "wraith",
     hp: 540, speed: 2.6, turn: 0.015, radius: 35,
     color: "#3b1f6e", accent: "#b08aff",
-    range: 2200, score: 2400, scale: 1.65,
-    laser: { damage: 110, range: 2200 },
+    range: 1700, score: 2400, scale: 1.65,
+    laser: { damage: 110, range: 1700 },
     fromWave: 16, weight: 1, maxPerWave: 2,
   },
 

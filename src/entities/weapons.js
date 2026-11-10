@@ -62,8 +62,13 @@ export function fireGun(world, shooter, isPlayer) {
       /** Already-struck targets, so one round cannot hit the same jet twice. */
       struck: null,
       burn: null,
-      color: isPlayer ? CANNON.tracer : "#ff8a5c",
-      width: isPlayer ? CANNON.tracerWidth : 2.6,
+      // Piercing rounds are visibly heavier, so you can tell at a glance
+      // which belt is loaded without reading the HUD.
+      color: !isPlayer ? "#ff8a5c"
+        : spec.pierce > 1 ? CANNON.pierceTracer : CANNON.tracer,
+      width: !isPlayer ? 2.6
+        : spec.pierce > 1 ? CANNON.pierceTracerWidth : CANNON.tracerWidth,
+      pierces: isPlayer && spec.pierce > 1,
     });
   }
 

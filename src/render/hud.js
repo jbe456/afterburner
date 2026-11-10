@@ -98,37 +98,27 @@ function drawInstruments(ctx, world) {
 
   ctx.font = `11px ${MONO}`;
 
-  // Forward weapons carry no ammunition, so they only need naming. The nose
-  // weapons appear once fitted.
+  // Exactly one forward weapon is carried, so one line names it.
+  const [label, headline, detail, colour] = p.cannon
+    ? ["GUN", `${p.cannon.slots}x${p.cannon.damage}`,
+       `${p.cannon.rate}/s · ${p.cannon.reach} m`
+         + (p.cannon.pierce > 1 ? ` · pierces ${p.cannon.pierce}` : ""),
+       "#dfe9f3"]
+    : p.flame
+      ? ["FLM", `${p.flame.damage}/s`, `${p.flame.range} m cone`, "#ff8a3a"]
+      : ["LSR", `${p.laser.damage}/s`, `${p.laser.range} m beam`, "#c89bff"];
+
   ctx.fillStyle = "#6f8ba6";
-  ctx.fillText("GUN", 22, 94);
-  ctx.fillStyle = "#dfe9f3";
-  ctx.fillText(`${p.cannon.slots}x${p.cannon.damage}`, 52, 94);
+  ctx.fillText(label, 22, 94);
+  ctx.fillStyle = colour;
+  ctx.fillText(headline, 52, 94);
   ctx.fillStyle = "#56708a";
   ctx.font = `10px ${MONO}`;
-  ctx.fillText(`${p.cannon.rate}/s · ${p.cannon.reach} m`
-    + (p.cannon.pierce > 1 ? ` · pierces ${p.cannon.pierce}` : ""), 108, 94);
-
+  ctx.fillText(detail, 108, 94);
   ctx.font = `11px ${MONO}`;
-  let y = 114;
-  for (const [label, spec, colour] of [
-    ["FLM", p.flame, "#ff8a3a"],
-    ["LSR", p.laser, "#c89bff"],
-  ]) {
-    if (!spec) continue;
-    ctx.fillStyle = "#6f8ba6";
-    ctx.fillText(label, 22, y);
-    ctx.fillStyle = colour;
-    ctx.fillText(`${spec.damage}/s`, 52, y);
-    ctx.fillStyle = "#56708a";
-    ctx.font = `10px ${MONO}`;
-    ctx.fillText(`${spec.range} m`, 108, y);
-    ctx.font = `11px ${MONO}`;
-    y += 20;
-  }
 
-  drawRack(ctx, "MSL", y, p.missiles, p.missile, "#ffd166", "square");
-  drawRack(ctx, "BMB", y + 20, p.bombs, p.bomb, "#ff6b4a", "round");
+  drawRack(ctx, "MSL", 114, p.missiles, p.missile, "#ffd166", "square");
+  drawRack(ctx, "BMB", 134, p.bombs, p.bomb, "#ff6b4a", "round");
 }
 
 /**

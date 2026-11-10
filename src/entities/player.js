@@ -98,10 +98,10 @@ export function updatePlayer(world) {
   if (p.bombCooldown > 0) p.bombCooldown--;
   if (p.invuln > 0) p.invuln--;
 
-  // One trigger runs every forward weapon that is fitted: the wing guns on
-  // their own cadence, the nose weapons continuously while it is held.
+  // Exactly one forward weapon is fitted: the guns on their own cadence, a
+  // nose weapon continuously while the trigger is held.
   if (input.mouse.left || isDown("Space")) {
-    if (p.gunCooldown <= 0) {
+    if (p.cannon && p.gunCooldown <= 0) {
       fireGun(world, p, true);
       p.gunCooldown = p.cannon.cooldown;
     }

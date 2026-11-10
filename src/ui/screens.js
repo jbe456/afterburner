@@ -140,6 +140,8 @@ function validated(saved) {
     if (saved[slot] && table[saved[slot]]) out[slot] = saved[slot];
   }
 
+  if (WEAPONS[saved.weapon]) out.weapon = saved.weapon;
+
   for (const slot of Object.keys(saved)) {
     if (!slot.includes(".")) continue;
     const [track, prop] = slot.split(".");
@@ -177,7 +179,7 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
     <div class="loadout">
       ${upgradeRow("armour", "HULL", ARMOUR_IDS, ARMOUR)}
       ${upgradeRow("engine", "ENGINE", ENGINE_IDS, ENGINES)}
-      ${WEAPON_IDS.map(weaponTrackRow).join("")}
+      ${weaponRowMarkup()}
       ${weaponRow("missile", "MISSILE", MISSILE_IDS, MISSILES)}
       ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
     </div>
@@ -198,8 +200,11 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
   // upgrade once per visit to the hangar — stepping several tiers at a time.
   // This element is rebuilt with the markup, so its listener dies with it.
   panel().querySelector(".loadout").addEventListener("click", (e) => {
-    const button = e.target.closest("[data-upgrade]");
-    if (button) upgrade(button.dataset.upgrade);
+    const upgradeButton = e.target.closest("[data-upgrade]");
+    if (upgradeButton) { upgrade(upgradeButton.dataset.upgrade); return; }
+
+    const pick = e.target.closest("[data-weapon]");
+    if (pick) select("weapon", pick.dataset.weapon);
   });
 
   document.getElementById("intel").onclick = onShowIntel;
@@ -440,34 +445,31 @@ function upgrade(slot) {
 // --- forward weapon tracks --------------------------------------------------
 
 /**
- * A forward weapon is a row of property ladders rather than a choice between
- * models: one card per property, each with its own upgrade button. The whole
- * row is generated from WEAPONS, so adding a property adds a card.
+ * One forward weapon at a time: a switch to pick which, and the properties of
+ * whichever is picked. The others keep their rungs while they are put away,
+ * so coming back to one finds it where you left it.
  */
-function weaponTrackRow(track) {
-  const spec = WEAPONS[track];
-  const cards = Object.keys(spec.props)
-    .map((prop) => propCard(track, prop))
-    .join("");
-
+function weaponRowMarkup() {
   return `
     <div class="loadout-row">
-      <div class="loadout-label">${spec.label}<i>${spec.blurb}</i></div>
-      <div class="options" id="row-${track}">${cards}</div>
+      <div class="loadout-label">WEAPON<i>one at a time</i></div>
+      <div class="weapon-column" id="weapon-row">${weaponColumn()}</div>
     </div>`;
 }
 
-/**
- * Whether a weapon is on the aircraft at all. It is a property of the whole
- * track, not of one card: a flamethrower with reach but no damage is still
- * not fitted, and its reach card should not look live.
- */
-function trackFitted(track) {
-  for (const [prop, spec] of Object.entries(WEAPONS[track].props)) {
-    // The property carrying a zero first rung is the one that fits the weapon.
-    if (spec.tiers[0] === 0) return (chosen[`${track}.${prop}`] ?? 0) > 0;
-  }
-  return true; // nothing to fit: the wing guns are always there
+function weaponColumn() {
+  const picks = WEAPON_IDS.map((id) => `
+    <button class="pick${id === chosen.weapon ? " selected" : ""}" data-weapon="${id}">
+      ${WEAPONS[id].label}<i>${WEAPONS[id].blurb}</i>
+    </button>`).join("");
+
+  const cards = Object.keys(WEAPONS[chosen.weapon].props)
+    .map((prop) => propCard(chosen.weapon, prop))
+    .join("");
+
+  return `
+    <div class="weapon-pick">${picks}</div>
+    <div class="options">${cards}</div>`;
 }
 
 function propCard(track, prop) {
@@ -475,8 +477,6 @@ function propCard(track, prop) {
   const key = `${track}.${prop}`;
   const rung = chosen[key] ?? 0;
   const top = spec.tiers.length - 1;
-  const fitted = trackFitted(track);
-  const isFitting = spec.tiers[0] === 0 && rung === 0;
 
   const pips = spec.tiers
     .map((_, i) => `<span class="${i <= rung ? "on" : ""}"></span>`)
@@ -484,16 +484,15 @@ function propCard(track, prop) {
 
   const button = rung < top
     ? `<button class="upgrade" data-upgrade="${key}">
-         ${isFitting ? "Fit" : "Upgrade"}
-         <i>${spec.format(spec.tiers[rung + 1])}</i>
+         Upgrade <i>${spec.format(spec.tiers[rung + 1])}</i>
        </button>`
     : `<button class="upgrade" disabled>Maxed</button>`;
 
   return `
-    <div class="opt prop${fitted ? " selected" : ""}" data-slot="${key}">
+    <div class="opt prop selected" data-slot="${key}">
       <b>${spec.label}</b>
       <div class="tier">${pips}</div>
-      <div class="prop-value${isFitting ? " unfitted" : ""}">${spec.format(spec.tiers[rung])}</div>
+      <div class="prop-value">${spec.format(spec.tiers[rung])}</div>
       ${button}
     </div>`;
 }
@@ -626,16 +625,11 @@ function select(slot, id) {
   chosen[slot] = id;
   saveLoadoutSlot(slot, id);
 
-  // Fitting a weapon changes how its whole row looks, not just one card, so
-  // the row is redrawn rather than the card that was clicked.
-  if (slot.includes(".")) {
-    const [track] = slot.split(".");
-    const row = document.getElementById(`row-${track}`);
-    if (row) {
-      row.innerHTML = Object.keys(WEAPONS[track].props)
-        .map((prop) => propCard(track, prop))
-        .join("");
-    }
+  // Switching weapon or upgrading one redraws the whole weapon block: the
+  // switch, and the cards for whichever is now carried.
+  if (slot === "weapon" || slot.includes(".")) {
+    const row = document.getElementById("weapon-row");
+    if (row) row.innerHTML = weaponColumn();
     return;
   }
 

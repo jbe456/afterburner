@@ -25,9 +25,12 @@ import {
 } from "../src/config.js";
 import { updatePlayerBurn } from "../src/entities/player.js";
 
-/** A loadout with the named weapon properties pushed to a given rung. */
-function fit(overrides = {}) {
-  const out = { ...DEFAULT_LOADOUT };
+/**
+ * A loadout carrying `weapon`, with its properties pushed to given rungs.
+ * Only one forward weapon can be fitted, so the weapon is always stated.
+ */
+function fit(weapon, overrides = {}) {
+  const out = { ...DEFAULT_LOADOUT, weapon };
   for (const [key, rung] of Object.entries(overrides)) {
     const [track, prop] = key.split(".");
     const tiers = WEAPONS[track].props[prop].tiers;
@@ -64,7 +67,7 @@ console.log("\nCANNON");
 {
   // Slots are barrels: every one of them must put a round in the air.
   for (const [rung, slots] of WEAPONS.cannon.props.slots.tiers.entries()) {
-    const { world, player } = setup(fit({ "cannon.slots": rung }));
+    const { world, player } = setup(fit("cannon", { "cannon.slots": rung }));
     fireGun(world, player, true);
     check(`${slots} slots fire ${slots} rounds`,
       world.bullets.length === slots, `got ${world.bullets.length}`);
@@ -74,7 +77,7 @@ console.log("\nCANNON");
 {
   // Reach is a distance, so a round must die at it rather than fly forever.
   for (const rung of [0, 4, 9]) {
-    const loadout = fit({ "cannon.reach": rung });
+    const loadout = fit("cannon", { "cannon.reach": rung });
     const { reach, bulletLife } = resolveWeapons(loadout).cannon;
     const travelled = bulletLife * CANNON.bulletSpeed;
     check(`reach ${reach} m expires within a tick of its range (flew ${travelled})`,
@@ -85,7 +88,7 @@ console.log("\nCANNON");
 {
   // Rate is shots per second, which is what the cooldown has to deliver.
   for (const rung of [0, 5, 9]) {
-    const { rate, cooldown } = resolveWeapons(fit({ "cannon.rate": rung })).cannon;
+    const { rate, cooldown } = resolveWeapons(fit("cannon", { "cannon.rate": rung })).cannon;
     const actual = 60 / cooldown;
     check(`rate ${rate}/s lands within half a shot of its cadence`,
       Math.abs(actual - rate) < 0.5, `fires ${actual.toFixed(2)}/s`);
@@ -96,7 +99,7 @@ console.log("\nCANNON");
   // Regular rounds stop at the first aircraft; piercing go through three.
   const line = [200, 400, 600];
 
-  const plain = setup(fit({ "cannon.type": 0, "cannon.damage": "max", "cannon.reach": "max" }), line);
+  const plain = setup(fit("cannon", { "cannon.type": 0, "cannon.damage": "max", "cannon.reach": "max" }), line);
   // One barrel, or two rounds would kill two aircraft without piercing at all
   // and the test would pass for the wrong reason.
   plain.world.player.cannon.slots = 1;
@@ -105,7 +108,7 @@ console.log("\nCANNON");
   const plainKills = plain.enemies.filter((e) => !plain.world.enemies.includes(e)).length;
   check("a regular round stops at the first aircraft", plainKills === 1, `killed ${plainKills}`);
 
-  const pierce = setup(fit({ "cannon.type": 1, "cannon.damage": "max", "cannon.reach": "max" }), line);
+  const pierce = setup(fit("cannon", { "cannon.type": 1, "cannon.damage": "max", "cannon.reach": "max" }), line);
   // One barrel again, so three kills can only mean one round went through three.
   pierce.world.player.cannon.slots = 1;
   fireGun(pierce.world, pierce.player, true);
@@ -117,18 +120,11 @@ console.log("\nCANNON");
 console.log("\nFLAME");
 
 {
-  const { world, player } = setup(fit());
-  check("not fitted at stock", player.flame === null);
-  fireGun(world, player, true);
-  check("and emits nothing", world.flames.length === 0);
-}
+  const { world, player } = setup(fit("flame", { "flame.reach": 2 }), [80, -80, 4000]);
+  const [front, back, distant] = world.enemies;
 
-{
-  const inCone = 80;
-  const { world, player, enemies } = setup(
-    fit({ "flame.damage": 5, "flame.reach": 0 }), [inCone, -inCone, 4000]);
-  const [front, back, distant] = enemies;
-  check("fitted once it has damage", player.flame !== null);
+  check("fitted when selected", player.flame !== null);
+  check("and the guns are put away", player.cannon === null);
 
   sprayFlame(world, player);
   updateFlames(world);
@@ -145,19 +141,17 @@ console.log("\nFLAME");
 console.log("\nLASER");
 
 {
-  const { world, player } = setup(fit());
-  check("not fitted at stock", player.laser === null);
-}
-
-{
   // A beam is a line: far along it is fine, far off to the side is not.
+  const reach = WEAPONS.laser.props.reach.tiers.at(-1);
   const { world, player, enemies } = setup(
-    fit({ "laser.damage": "max", "laser.reach": "max" }), [3500, 3500, 6000]);
+    fit("laser", { "laser.damage": "max", "laser.reach": "max" }),
+    [reach * 0.9, reach * 0.9, reach * 1.5]);
   const [onBeam, offBeam, beyond] = enemies;
   offBeam.y = 400;          // directly abeam, well off the line
-  beyond.y = 0;             // dead ahead but past the reach
 
-  check("fitted once it has damage", player.laser !== null);
+  check("fitted when selected", player.laser !== null);
+  check("and the guns are put away", player.cannon === null);
+
   fireLaser(world, player);
   updateFlames(world);
 
@@ -166,20 +160,22 @@ console.log("\nLASER");
   check("stops at its reach", !beyond.burn);
 }
 
+console.log("\nONE WEAPON AT A TIME");
+
 {
-  // Both nose weapons on one target: the fiercer fire must win, not the last.
-  const { world, player, enemies } = setup(
-    fit({ "flame.damage": 10, "flame.reach": "max", "laser.damage": 1, "laser.reach": "max" }),
-    [120]);
-  const target = enemies[0];
+  for (const weapon of Object.keys(WEAPONS)) {
+    const { player } = setup(fit(weapon));
+    const carried = ["cannon", "flame", "laser"].filter((k) => player[k]);
+    check(`choosing ${weapon} carries only ${weapon}`,
+      carried.length === 1 && carried[0] === weapon, `carries ${carried.join(", ")}`);
+  }
 
-  sprayFlame(world, player);
-  fireLaser(world, player);
-  updateFlames(world);
-
-  const fiercest = Math.max(player.flame.damage, player.laser.damage);
-  check("overlapping fires keep the fiercer rate",
-    target.burn?.dps === fiercest, `burning at ${target.burn?.dps}`);
+  // Rungs survive being switched away from and back.
+  const stashed = fit("flame", { "flame.damage": "max" });
+  const away = { ...stashed, weapon: "cannon" };
+  const back = { ...away, weapon: "flame" };
+  check("a weapon's rungs are kept while it is put away",
+    resolveWeapons(back).flame.damage === WEAPONS.flame.props.damage.tiers.at(-1));
 }
 
 console.log("\nMISSILES");
@@ -271,6 +267,29 @@ console.log("\nENEMY FORWARD WEAPONS");
   });
   check("every type carries exactly one forward weapon", doubled.length === 0,
     doubled.join(", "));
+}
+
+{
+  // Enemy nose weapons stay under a fully upgraded player's. Losing to
+  // something you cannot out-shoot even when maxed is not a difficulty curve.
+  const best = (weapon) => resolveWeapons(
+    fit(weapon, { [`${weapon}.damage`]: "max", [`${weapon}.reach`]: "max" }),
+  )[weapon];
+
+  for (const kind of ["flame", "laser"]) {
+    const ceiling = best(kind);
+    const carriers = ENEMY_TYPE_IDS
+      .map((id) => ENEMY_TYPES[id])
+      .filter((t) => enemyWeapon(t) === kind);
+
+    const fiercest = Math.max(...carriers.map((t) => (t.flame ?? t.laser).damage));
+    const longest = Math.max(...carriers.map((t) => (t.flame ?? t.laser).range));
+
+    check(`no enemy ${kind} out-damages ${ceiling.damage}/s`,
+      fiercest < ceiling.damage, `fiercest ${fiercest}/s`);
+    check(`no enemy ${kind} out-ranges ${ceiling.range} m`,
+      longest < ceiling.range, `longest ${longest} m`);
+  }
 }
 
 for (const id of ENEMY_TYPE_IDS) {
