@@ -141,7 +141,7 @@ get it back.
 
 ## Enemies
 
-Sixteen types, escalating on their own rather than on a schedule. Each
+Twenty-six types, escalating on their own rather than on a schedule. Each
 declares the earliest wave it can appear in and how often it is drawn once
 unlocked; the heaviest also cap how many can show up at once.
 
@@ -150,6 +150,16 @@ unlocked; the heaviest also cap how many can show up at once.
 | **Scout** | 16 | 7 | gun | 1 |
 | **Fighter** | 30 | 12 | gun | 1 |
 | **Midge** | 8 | 3 | gun · **swarms of 7** | 2 |
+| **Shrike** | 55 | 54 | 2 guns | 3 |
+| **Cinder** | 70 | 40 | **flame**, 180 m | 5 |
+| **Glint** | 95 | 35 | **beam**, 900 m | 7 |
+| **Culverin** | 240 | 126 | 3 guns | 8 |
+| **Pyre** | 210 | 85 | **flame**, 260 m | 10 |
+| **Prism** | 250 | 70 | **beam**, 1500 m | 11 |
+| **Fusillade** | 300 | 240 | 4 guns | 12 |
+| **Censer** | 430 | 120 | **flame**, 340 m | 15 |
+| **Cyclops** | 540 | 110 | **beam**, 2200 m | 16 |
+| **Bombarde** | 560 | 200 | 4 guns | 17 |
 | **Moucheron** | 2 | 1 | gun · **swarms of 30** | 6 |
 | **Raider** | 24 | 12 | gun | 2 |
 | **Ace** | 45 | 18 | gun | 3 |
@@ -178,6 +188,21 @@ thirty are the ceilings.
 
 A worst case of 43 aircraft on screen measured 1 ms a frame against a 16.7 ms
 budget, so the swarms cost far less than they look like they should.
+
+**Every type carries exactly one forward weapon** — guns, a flame, or a beam,
+never a combination. A flame or beam carrier has no guns at all, so it has to
+get its nose on you to do anything: the Cinder has to be within 180 m, and
+the Censer's 120/s is the fiercest fire in the game but only out to 340 m.
+The beam carriers trade that reach back, up to the Cyclops at 2200 m.
+
+Their fire works the way yours does: it sets you alight rather than damaging
+on contact, the HUD says **ON FIRE** with the rate, and the fire keeps burning
+after you break away. Enemy beams are drawn red against your violet, and none
+of it touches their own side.
+
+Enemy figures stay well under what you can reach — the fiercest enemy fire is
+120/s against your ceiling of 250/s, and the longest enemy beam 2200 m against
+4000 m.
 
 Enemy missiles home on you and will not stop on their own side.
 

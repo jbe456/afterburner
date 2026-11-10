@@ -179,6 +179,9 @@ export const sfx = {
   enemyGun: () => tone(rand(300, 360), 0.05, "square", 0.03, 120),
   /** Flamethrower: a sustained roar, held open for as long as it is called. */
   flame: roar,
+  /** Incoming fire and beams: sparse and quiet, since many may be firing. */
+  enemyFlame: () => noise(0.18, 0.045, rand(360, 540), 220),
+  enemyLaser: () => tone(rand(620, 700), 0.1, "sawtooth", 0.025, 420),
   /** Laser: a thin electric hum, deliberately nothing like the flame. */
   laser: () => {
     tone(rand(1180, 1320), 0.14, "sawtooth", 0.035, 760);

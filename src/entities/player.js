@@ -70,6 +70,8 @@ export function createPlayer(loadout = {}) {
     lock: null,
     /** Ticks the current target has been held; a solid lock needs LOCK.ticksToSolid. */
     lockTime: 0,
+    /** Set by an enemy flame or beam: {ticksLeft, dps}. */
+    burn: null,
     /** 0..1, drives the exhaust flame. */
     boost: 0,
     trail: [],
@@ -195,6 +197,38 @@ function updateLock(world, p) {
   if (best) p.lockTime = Math.min(p.lockTime + 1, 40);
 }
 
+/**
+ * Set the player alight, or refresh a fire already burning. Same rule as the
+ * enemy side: the fiercer source wins rather than the most recent one.
+ */
+export function ignitePlayer(world, burnSpec) {
+  const p = world.player;
+  if (!p.alive) return;
+  if (p.burn && p.burn.dps > burnSpec.dps) {
+    p.burn.ticksLeft = burnSpec.duration;
+    return;
+  }
+  p.burn = { ticksLeft: burnSpec.duration, dps: burnSpec.dps };
+}
+
+/** Ticks the fire the player is carrying, if any. */
+export function updatePlayerBurn(world) {
+  const p = world.player;
+  if (!p.alive || !p.burn) return;
+
+  if (--p.burn.ticksLeft <= 0) { p.burn = null; return; }
+  damagePlayer(world, p.burn.dps / 60);
+
+  if (world.time % 3 === 0) {
+    world.particles.push({
+      x: p.x + rand(-9, 9), y: p.y + rand(-9, 9),
+      vx: rand(-0.4, 0.4), vy: rand(-0.9, -0.3),
+      life: 24, maxLife: 24,
+      color: Math.random() < 0.6 ? "#ff8a3a" : "#ffd166", size: 5,
+    });
+  }
+}
+
 export function damagePlayer(world, amount) {
   const p = world.player;
   if (!p.alive || p.invuln > 0) return;
@@ -207,6 +241,7 @@ export function killPlayer(world) {
   const p = world.player;
   if (!p.alive) return;
   p.alive = false;
+  p.burn = null;
   p.hp = 0;
   explode(world, p.x, p.y, true);
   addShake(world, 30);

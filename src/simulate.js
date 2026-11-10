@@ -4,7 +4,7 @@
  * in what sequence.
  */
 
-import { updatePlayer, updateWreckage } from "./entities/player.js";
+import { updatePlayer, updateWreckage, updatePlayerBurn } from "./entities/player.js";
 import { updateEnemy, updateBurning } from "./entities/enemy.js";
 import { updateBullets, updateMissiles, updateFlames } from "./entities/projectiles.js";
 import { updateBombs } from "./entities/bombs.js";
@@ -24,6 +24,7 @@ export function simulate(world) {
   updateMissiles(world);
   updateBombs(world);
   updateBurning(world);
+  updatePlayerBurn(world);
   updatePickups(world);
   updateEffects(world);
   updateWaves(world);

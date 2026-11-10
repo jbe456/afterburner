@@ -348,6 +348,7 @@ function drawWarnings(ctx, world) {
   const warnings = [];
   // Standing in your own blast is the most urgent thing on screen.
   if (world.playerInBlast) warnings.push("IN BLAST RADIUS — GET CLEAR");
+  if (p.burn) warnings.push(`ON FIRE — ${Math.round(p.burn.dps)}/s`);
   if (p.hp < 30) warnings.push("HULL CRITICAL");
 
   const beyondWarn = Math.abs(p.x) > ARENA_WARN_EDGE || Math.abs(p.y) > ARENA_WARN_EDGE;

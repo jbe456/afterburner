@@ -15,13 +15,15 @@ import { createWorld } from "../src/world.js";
 import { updateBombs } from "../src/entities/bombs.js";
 import {
   fireGun, fireMissile, fireEnemyMissile, dropEnemyBomb, sprayFlame, fireLaser,
+  fireEnemyFlame, fireEnemyLaser,
 } from "../src/entities/weapons.js";
 import { updateBullets, updateFlames, updateMissiles } from "../src/entities/projectiles.js";
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
 import {
   WEAPONS, MISSILES, RADAR_RANGE, ENEMY_TYPES, ENEMY_TYPE_IDS,
-  DEFAULT_LOADOUT, resolveWeapons, CANNON,
+  DEFAULT_LOADOUT, resolveWeapons, CANNON, enemyWeapon,
 } from "../src/config.js";
+import { updatePlayerBurn } from "../src/entities/player.js";
 
 /** A loadout with the named weapon properties pushed to a given rung. */
 function fit(overrides = {}) {
@@ -258,12 +260,24 @@ for (const id of Object.keys(MISSILES)) {
 }
 
 // --- enemy guns ------------------------------------------------------------
-console.log("\nENEMY GUNS");
+console.log("\nENEMY FORWARD WEAPONS");
+
+{
+  // Exactly one forward weapon apiece. A type carrying two would be an
+  // accident, and nothing on screen would say so.
+  const doubled = ENEMY_TYPE_IDS.filter((id) => {
+    const t = ENEMY_TYPES[id];
+    return [t.flame, t.laser, t.damage !== undefined].filter(Boolean).length !== 1;
+  });
+  check("every type carries exactly one forward weapon", doubled.length === 0,
+    doubled.join(", "));
+}
 
 for (const id of ENEMY_TYPE_IDS) {
   const type = ENEMY_TYPES[id];
-  const barrels = type.barrels ?? 1;
+  if (enemyWeapon(type) !== "gun") continue;
 
+  const barrels = type.barrels ?? 1;
   const world = createWorld({});
   spawnEnemy(world, id);
   const enemy = world.enemies[0];
@@ -274,6 +288,45 @@ for (const id of ENEMY_TYPE_IDS) {
     world.bullets.length === barrels, `got ${world.bullets.length}`);
   check(`${type.name}'s rounds are hostile`,
     world.bullets.every((b) => !b.friendly));
+}
+
+for (const id of ENEMY_TYPE_IDS) {
+  const type = ENEMY_TYPES[id];
+  const kind = enemyWeapon(type);
+  if (kind === "gun") continue;
+
+  const world = createWorld({});
+  const p = world.player;
+  p.x = 0; p.y = 0; p.invuln = 0; p.hp = 100000;
+
+  spawnEnemy(world, id);
+  const enemy = world.enemies[0];
+  // Sat off the nose at half its reach, pointed straight at the player.
+  enemy.x = -type.range * 0.5; enemy.y = 0; enemy.angle = 0;
+
+  const spec = type.flame ?? type.laser;
+  const fire = () => (kind === "flame"
+    ? fireEnemyFlame(world, enemy, spec)
+    : fireEnemyLaser(world, enemy, spec));
+
+  fire();
+  updateFlames(world);
+  check(`${type.name}'s ${kind} sets the player alight`,
+    p.burn?.dps === spec.damage, `burn ${JSON.stringify(p.burn)}`);
+
+  const before = p.hp;
+  updatePlayerBurn(world);
+  check(`${type.name}'s fire then damages the player`, p.hp < before);
+
+  // And it must not touch its own side.
+  spawnEnemy(world, "fighter");
+  const friend = world.enemies[1];
+  friend.x = enemy.x + 40; friend.y = 0;
+  const friendHp = friend.hp;
+  fire();
+  updateFlames(world);
+  check(`${type.name} does not burn its own side`,
+    !friend.burn && friend.hp === friendHp);
 }
 
 // --- enemy ordnance --------------------------------------------------------

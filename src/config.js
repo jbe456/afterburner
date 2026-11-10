@@ -581,8 +581,18 @@ export const LOCK = {
  *   weight      how often it is drawn once unlocked
  *   maxPerWave  cap for the ones that would otherwise arrive in packs
  *   barrels     rounds per burst
+ *   flame       if present, it carries a flame cone instead of guns
+ *   laser       if present, it carries a beam instead of guns
  *   missile     if present, it launches homing missiles at the player
  *   bomb        if present, it leaves bombs behind it
+ *
+ * An aircraft carries exactly one forward weapon: guns, a flame, or a beam —
+ * never a combination. Missiles and mines are separate ordnance and may sit
+ * alongside any of them.
+ *
+ * Enemy flame and beam figures stay well under what the player can reach:
+ * the fiercest enemy fire is 120/s against a player ceiling of 250/s, and the
+ * longest enemy beam 2200 m against 4000 m.
  *
  * Enemy bombs are the same indiscriminate weapon the player carries: they do
  * not check sides, so a Sower will happily gut its own escort. Luring a wave
@@ -653,6 +663,97 @@ export const ENEMY_TYPES = {
     color: "#e8a33d", accent: "#ffe08a",
     range: 780, fireCd: 26, spread: 0.055, damage: 8, score: 300, scale: 1,
     fromWave: 3, weight: 3,
+  },
+
+  shrike: {
+    name: "Shrike", shape: "dart",
+    hp: 55, speed: 5.8, turn: 0.046, radius: 15,
+    color: "#d98a3d", accent: "#ffd9a0",
+    range: 800, fireCd: 20, spread: 0.06, damage: 9, barrels: 2, bulletSpeed: 14,
+    score: 320, scale: 1,
+    fromWave: 3, weight: 3,
+  },
+
+  cinder: {
+    name: "Cinder", shape: "claw",
+    hp: 70, speed: 5.4, turn: 0.050, radius: 15,
+    color: "#e2663a", accent: "#ffb08a",
+    range: 180, score: 380, scale: 0.95,
+    /** No guns at all: it has to get on top of you to do anything. */
+    flame: { damage: 40, range: 180 },
+    fromWave: 5, weight: 3,
+  },
+
+  glint: {
+    name: "Glint", shape: "dart",
+    hp: 95, speed: 4.6, turn: 0.034, radius: 16,
+    color: "#9b6ad6", accent: "#d9b8ff",
+    range: 900, score: 520, scale: 1.05,
+    laser: { damage: 35, range: 900 },
+    fromWave: 7, weight: 2,
+  },
+
+  culverin: {
+    name: "Culverin", shape: "gunship",
+    hp: 240, speed: 2.8, turn: 0.018, radius: 26,
+    color: "#5f6fa8", accent: "#aebbe8",
+    range: 1000, fireCd: 20, spread: 0.10, damage: 14, barrels: 3, bulletSpeed: 15,
+    score: 820, scale: 1.3,
+    fromWave: 8, weight: 2,
+  },
+
+  pyre: {
+    name: "Pyre", shape: "brick",
+    hp: 210, speed: 3.6, turn: 0.026, radius: 23,
+    color: "#c94f2a", accent: "#ffa06b",
+    range: 260, score: 880, scale: 1.2,
+    flame: { damage: 85, range: 260 },
+    fromWave: 10, weight: 2,
+  },
+
+  prism: {
+    name: "Prism", shape: "wraith",
+    hp: 250, speed: 3.2, turn: 0.022, radius: 26,
+    color: "#6a3fb0", accent: "#c4a0ff",
+    range: 1500, score: 1050, scale: 1.3,
+    laser: { damage: 70, range: 1500 },
+    fromWave: 11, weight: 2, maxPerWave: 3,
+  },
+
+  fusillade: {
+    name: "Fusillade", shape: "gunship",
+    hp: 300, speed: 2.7, turn: 0.016, radius: 28,
+    color: "#49588c", accent: "#9fb0e0",
+    range: 950, fireCd: 10, spread: 0.15, damage: 10, barrels: 4, bulletSpeed: 14,
+    score: 1300, scale: 1.4,
+    fromWave: 12, weight: 2, maxPerWave: 3,
+  },
+
+  censer: {
+    name: "Censer", shape: "claw",
+    hp: 430, speed: 3.0, turn: 0.021, radius: 31,
+    color: "#a83418", accent: "#ff8f5e",
+    range: 340, score: 1700, scale: 1.55,
+    flame: { damage: 120, range: 340 },
+    fromWave: 15, weight: 1, maxPerWave: 2,
+  },
+
+  cyclops: {
+    name: "Cyclops", shape: "wraith",
+    hp: 540, speed: 2.6, turn: 0.015, radius: 35,
+    color: "#3b1f6e", accent: "#b08aff",
+    range: 2200, score: 2400, scale: 1.65,
+    laser: { damage: 110, range: 2200 },
+    fromWave: 16, weight: 1, maxPerWave: 2,
+  },
+
+  bombarde: {
+    name: "Bombarde", shape: "leviathan",
+    hp: 560, speed: 2.5, turn: 0.014, radius: 40,
+    color: "#2f3a5c", accent: "#8fa4d6",
+    range: 1250, fireCd: 18, spread: 0.09, damage: 15, barrels: 4, bulletSpeed: 15,
+    score: 2600, scale: 1.7,
+    fromWave: 17, weight: 1, maxPerWave: 1,
   },
 
   interceptor: {
@@ -771,8 +872,19 @@ export const ENEMY_TYPES = {
 
 export const ENEMY_TYPE_IDS = Object.keys(ENEMY_TYPES);
 
-/** Peak gun damage per second a type can put out, if every round connects. */
-export const enemyDps = (t) => ((t.barrels ?? 1) * t.damage * (1000 / TICK_MS)) / t.fireCd;
+/**
+ * Peak damage per second a type can put out. For gunners that assumes every
+ * round connects; for flame and beam carriers it is the rate their fire
+ * burns at, which is what they actually do to you.
+ */
+export const enemyDps = (t) => {
+  if (t.flame) return t.flame.damage;
+  if (t.laser) return t.laser.damage;
+  return ((t.barrels ?? 1) * t.damage * (1000 / TICK_MS)) / t.fireCd;
+};
+
+/** Which of the three forward weapons a type carries. Exactly one, always. */
+export const enemyWeapon = (t) => (t.flame ? "flame" : t.laser ? "laser" : "gun");
 
 export const ENEMY = {
   bulletSpeed: 11,

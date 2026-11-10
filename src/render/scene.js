@@ -299,21 +299,31 @@ function drawBeam(ctx, world, emission) {
   const pulse = 0.88 + Math.sin(world.time * 0.9) * 0.12;
   const length = emission.range;
 
-  for (const [width, color] of [
-    [emission.halfWidth * 3.4, "rgba(120,60,255,0.22)"],
-    [emission.halfWidth * 1.7, "rgba(190,110,255,0.42)"],
-    [emission.halfWidth * 0.7, "rgba(245,230,255,0.95)"],
-  ]) {
+  // Yours is violet, theirs is red — you should never have to work out whose
+  // beam is crossing the screen.
+  const layers = emission.friendly
+    ? [
+        [emission.halfWidth * 3.4, "rgba(120,60,255,0.22)"],
+        [emission.halfWidth * 1.7, "rgba(190,110,255,0.42)"],
+        [emission.halfWidth * 0.7, "rgba(245,230,255,0.95)"],
+      ]
+    : [
+        [emission.halfWidth * 3.4, "rgba(255,40,40,0.20)"],
+        [emission.halfWidth * 1.7, "rgba(255,90,80,0.40)"],
+        [emission.halfWidth * 0.7, "rgba(255,225,215,0.92)"],
+      ];
+
+  for (const [width, color] of layers) {
     const grad = ctx.createLinearGradient(0, 0, length, 0);
     grad.addColorStop(0, color);
     grad.addColorStop(0.86, color);
-    grad.addColorStop(1, "rgba(190,110,255,0)");
+    grad.addColorStop(1, emission.friendly ? "rgba(190,110,255,0)" : "rgba(255,90,80,0)");
     ctx.fillStyle = grad;
     ctx.fillRect(0, -width * pulse, length, width * 2 * pulse);
   }
 
   // A brighter knot where it leaves the nose.
-  ctx.fillStyle = "rgba(245,230,255,0.9)";
+  ctx.fillStyle = emission.friendly ? "rgba(245,230,255,0.9)" : "rgba(255,225,215,0.9)";
   ctx.beginPath();
   ctx.ellipse(0, 0, emission.halfWidth * 1.6, emission.halfWidth * 2.2, 0, 0, TAU);
   ctx.fill();

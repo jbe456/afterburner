@@ -11,7 +11,7 @@ import { sfx } from "../core/audio.js";
 import { PLAYER } from "../config.js";
 import { burst, explode, addShake } from "./effects.js";
 import { damageEnemy, ignite } from "./enemy.js";
-import { damagePlayer } from "./player.js";
+import { damagePlayer, ignitePlayer } from "./player.js";
 
 export function updateBullets(world) {
   const { bullets, enemies, player } = world;
@@ -51,9 +51,15 @@ export function updateFlames(world) {
     // consumed between frames and never appear on screen.
     if (emission.spent) { world.flames.splice(i, 1); continue; }
 
-    for (let k = world.enemies.length - 1; k >= 0; k--) {
-      const e = world.enemies[k];
-      if (touches(emission, e)) ignite(world, e, emission.burn);
+    if (emission.friendly) {
+      for (let k = world.enemies.length - 1; k >= 0; k--) {
+        const e = world.enemies[k];
+        if (touches(emission, e)) ignite(world, e, emission.burn);
+      }
+    } else {
+      const p = world.player;
+      const target = { x: p.x, y: p.y, radius: PLAYER.radius };
+      if (p.alive && touches(emission, target)) ignitePlayer(world, emission.burn);
     }
 
     emission.spent = true;

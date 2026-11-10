@@ -11,8 +11,10 @@
  */
 
 import { rand, clamp, steer, angDiff, TAU } from "../core/math.js";
-import { ARENA_HALF, ENEMY, ENEMY_TYPES } from "../config.js";
-import { fireGun, fireEnemyMissile, dropEnemyBomb } from "./weapons.js";
+import { ARENA_HALF, ENEMY, ENEMY_TYPES, enemyWeapon } from "../config.js";
+import {
+  fireGun, fireEnemyMissile, dropEnemyBomb, fireEnemyFlame, fireEnemyLaser,
+} from "./weapons.js";
 import { burst, explode } from "./effects.js";
 import { maybeDropPickup } from "./pickups.js";
 import { sfx } from "../core/audio.js";
@@ -95,15 +97,36 @@ export function updateEnemy(world, e) {
   if (e.trail.length > (type.trail ?? 16)) e.trail.shift();
   if (e.flash > 0) e.flash--;
 
-  if (e.fireCooldown > 0) e.fireCooldown--;
-  const canShoot = player.alive && e.mode !== "evade" && range < type.range
-    && offBoresight < ENEMY.fireCone && e.fireCooldown <= 0;
-  if (canShoot) {
-    fireGun(world, e, false);
-    e.fireCooldown = type.fireCd + rand(0, 10);
-  }
-
+  fireForwardWeapon(world, e, type, player, range, offBoresight);
   updateOrdnance(world, e, type, player, range, offBoresight);
+}
+
+/**
+ * Whichever single forward weapon this type carries.
+ *
+ * Guns go off on a cooldown; a flame or a beam is continuous, emitting every
+ * tick the target is in front of it, exactly as the player's do.
+ */
+function fireForwardWeapon(world, e, type, player, range, offBoresight) {
+  if (e.fireCooldown > 0) e.fireCooldown--;
+
+  const lined = player.alive && e.mode !== "evade"
+    && range < type.range && offBoresight < ENEMY.fireCone;
+  if (!lined) return;
+
+  switch (enemyWeapon(type)) {
+    case "flame":
+      fireEnemyFlame(world, e, type.flame);
+      break;
+    case "laser":
+      fireEnemyLaser(world, e, type.laser);
+      break;
+    default:
+      if (e.fireCooldown <= 0) {
+        fireGun(world, e, false);
+        e.fireCooldown = type.fireCd + rand(0, 10);
+      }
+  }
 }
 
 /**

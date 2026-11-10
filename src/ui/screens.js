@@ -262,7 +262,10 @@ function airframeSummary() {
 
 /** What a type actually brings to the fight, in plain words. */
 function armament(type) {
-  const parts = [`${type.barrels ?? 1} gun${(type.barrels ?? 1) > 1 ? "s" : ""}`];
+  const parts = [];
+  if (type.flame) parts.push("flame");
+  else if (type.laser) parts.push("beam");
+  else parts.push(`${type.barrels ?? 1} gun${(type.barrels ?? 1) > 1 ? "s" : ""}`);
   if (type.missile) {
     parts.push(type.missile.salvo > 1 ? `${type.missile.salvo} missiles` : "missiles");
   }

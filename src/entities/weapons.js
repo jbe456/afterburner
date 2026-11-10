@@ -81,37 +81,63 @@ export function fireGun(world, shooter, isPlayer) {
  * tick and projectiles.js resolves what it touches, keeping the usual split
  * between creating a weapon effect and applying it.
  */
-export function sprayFlame(world, player) {
-  const spec = player.flame;
-
+/**
+ * One tick of a nose weapon, from whoever is firing it. The cone and the beam
+ * differ only in how `touches` measures them, so they share a shape.
+ */
+function pushEmission(world, source, kind, spec, friendly) {
   world.flames.push({
-    kind: "cone",
-    x: player.x + Math.cos(player.angle) * 16,
-    y: player.y + Math.sin(player.angle) * 16,
-    angle: player.angle,
+    kind,
+    friendly,
+    x: source.x + Math.cos(source.angle) * 16,
+    y: source.y + Math.sin(source.angle) * 16,
+    angle: source.angle,
     range: spec.range,
     halfAngle: CANNON.flameConeHalfAngle,
+    halfWidth: CANNON.laserHalfWidth,
     burn: { dps: spec.damage, duration: CANNON.burnDuration },
-    /** Set once its damage has landed; it then lives one frame to be drawn. */
+    /** Set once its effect has landed; it then lives one frame to be drawn. */
     spent: false,
   });
+}
 
-  // Burning fuel, thrown forward and spreading as it goes.
-  for (let i = 0; i < 3; i++) {
-    const a = player.angle + rand(-CANNON.flameConeHalfAngle, CANNON.flameConeHalfAngle);
+/** Burning fuel, thrown forward and spreading as it goes. */
+function flameParticles(world, source, spec, count) {
+  for (let i = 0; i < count; i++) {
+    const a = source.angle + rand(-CANNON.flameConeHalfAngle, CANNON.flameConeHalfAngle);
     const reach = rand(0.2, 1) * spec.range;
     const speed = reach / 18;
     world.particles.push({
-      x: player.x + Math.cos(player.angle) * 16,
-      y: player.y + Math.sin(player.angle) * 16,
-      vx: Math.cos(a) * speed + Math.cos(player.angle) * player.speed,
-      vy: Math.sin(a) * speed + Math.sin(player.angle) * player.speed,
+      x: source.x + Math.cos(source.angle) * 16,
+      y: source.y + Math.sin(source.angle) * 16,
+      vx: Math.cos(a) * speed + Math.cos(source.angle) * source.speed,
+      vy: Math.sin(a) * speed + Math.sin(source.angle) * source.speed,
       life: rand(10, 20),
       maxLife: 20,
       color: Math.random() < 0.45 ? "#fff0b8" : Math.random() < 0.6 ? "#ff9a30" : "#ff5a28",
       size: rand(5, 11),
     });
   }
+}
+
+/** An enemy's flame cone. Same weapon, pointed the other way. */
+export function fireEnemyFlame(world, enemy, spec) {
+  pushEmission(world, enemy, "cone", spec, false);
+  flameParticles(world, enemy, spec, 2);
+  if (world.time % 12 === 0) sfx.enemyFlame();
+}
+
+/** An enemy's beam. */
+export function fireEnemyLaser(world, enemy, spec) {
+  pushEmission(world, enemy, "beam", spec, false);
+  if (world.time % 12 === 0) sfx.enemyLaser();
+}
+
+export function sprayFlame(world, player) {
+  const spec = player.flame;
+  pushEmission(world, player, "cone", spec, true);
+
+  flameParticles(world, player, spec, 3);
 
   // Re-open the roar often enough that it never audibly gutters out.
   if (world.time % 4 === 0) sfx.flame();
@@ -122,19 +148,7 @@ export function sprayFlame(world, player) {
  * that sets light to anything it crosses, exactly as the flame does.
  */
 export function fireLaser(world, player) {
-  const spec = player.laser;
-
-  world.flames.push({
-    kind: "beam",
-    x: player.x + Math.cos(player.angle) * 16,
-    y: player.y + Math.sin(player.angle) * 16,
-    angle: player.angle,
-    range: spec.range,
-    halfWidth: CANNON.laserHalfWidth,
-    burn: { dps: spec.damage, duration: CANNON.burnDuration },
-    spent: false,
-  });
-
+  pushEmission(world, player, "beam", player.laser, true);
   if (world.time % 6 === 0) sfx.laser();
 }
 
