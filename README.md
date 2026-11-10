@@ -31,9 +31,28 @@ bundler); development does not.
 There is one airframe. Hull and engine are single fittings you **upgrade**
 rung by rung; the forward weapon is a **switch** between three systems, each
 with property ladders of its own; missile and bomb are **choices** between
-three or four alternatives. The hangar shows the aircraft above the rows with
-the figures your current fit adds up to, so the consequence of a change is
-visible as you make it.
+three or four alternatives.
+
+### The hangar
+
+The hangar opens on an overview rather than on every control at once: a
+readout strip of what this fit adds up to — hull, top speed, firepower,
+reach — and under it five **bays**, one per fitting, each showing what is
+installed there and its figures as bars.
+
+Clicking a bay opens its **bench** underneath, which is where a fitting
+actually changes: a ladder gets its card and an upgrade button, a choice gets
+a card per alternative, and the weapon gets its switch plus a card for every
+property of whichever is carried. Clicking the bay again, or pressing Escape,
+closes it. Everything above redraws on every change, so the consequence of a
+pick is visible at the moment it is made — upgrade the engine and the top
+speed in the readout moves with it.
+
+Every figure in the readout goes through `resolveWeapons` — the same function
+the simulation uses — rather than being computed for display, so the overview
+cannot promise something the aircraft will not do.
+
+### Hull and engine
 
 Both are ladders defined in `ARMOUR` and `ENGINES` in `src/config.js`, in
 order from weakest to strongest. Add or remove a rung and the hangar follows:
@@ -49,11 +68,11 @@ floors it, and `npm test` fails any engine that cannot turn 180 degrees in
 six seconds at full throttle — so a new top-end rung cannot quietly make the
 aircraft unflyable.
 
-**These two rows are ladders, not choices**, and the hangar presents them that
-way: one card showing what is fitted, a tier gauge, and a button that steps it
-up. Both start on their bottom rung, and **Reset fittings** at the foot of the
-hangar puts the whole loadout — ladders and weapons alike — back to stock,
-since upgrading only goes one way. Heavier armour is strictly better than light and a stronger engine
+**These two are ladders, not choices**, and the hangar presents them that
+way: a tier gauge on the bay, and a bench with one card and a button that
+steps it up. Both start on their bottom rung, and **Reset fittings** at the
+foot of the hangar puts the whole loadout — ladders and weapons alike — back
+to stock, since upgrading only goes one way. Heavier armour is strictly better than light and a stronger engine
 strictly better than a weak one, because nothing is traded against them yet.
 
 `npm test` checks that the order holds rather than pretending there is a

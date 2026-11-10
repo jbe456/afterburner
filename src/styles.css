@@ -162,27 +162,9 @@ h1 {
 .foe-stats { font-size: 9.5px; line-height: 1.65; color: #76899c; }
 .foe-stats span { color: #cfdcea; font-weight: 700; }
 
-/* --- loadout: the three weapon pickers --- */
+/* --- option cards, shared by the bench's three kinds of row --- */
 
-.loadout { margin-bottom: 24px; }
-
-.loadout-row {
-  display: grid;
-  grid-template-columns: 74px 1fr;
-  align-items: stretch;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.loadout-label {
-  font-size: 9.5px;
-  letter-spacing: .14em;
-  color: #6f8ba6;
-  text-align: right;
-  padding-top: 10px;
-}
-
-/* Rows hold three or four options depending on the slot, and wrap on a
+/* A row holds three or four options depending on the slot, and wraps on a
    narrow window rather than squeezing. */
 .options { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
 
@@ -258,31 +240,144 @@ h1 {
   margin-bottom: 18px;
 }
 
-/* --- the one airframe, and what the fittings make of it --- */
+/* --- the hangar: a readout, five bays, and a bench under the open one --- */
 
-/* The aircraft, what the fittings make of it, and the way out — one row. */
-.airframe {
+.hangar { margin-bottom: 22px; }
+
+/* The aircraft, what the fittings add up to, and the way out — one strip,
+   read like an instrument panel rather than a list. */
+.readout {
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 6px 0 20px;
+  gap: 18px;
+  padding: 12px 18px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(120, 160, 200, .22);
+  background: linear-gradient(180deg, rgba(20, 34, 50, .62), rgba(10, 18, 28, .5));
 }
 
-.airframe-summary { display: flex; align-items: center; gap: 22px; }
-
-/* Launch sits at the far end of the same row. */
-.airframe .btn { margin-left: auto; padding: 15px 42px; }
-
-.airframe-art { display: block; width: 76px; height: 76px; }
-
-.airframe-figures {
-  font-size: 13px;
-  letter-spacing: .05em;
-  color: #76899c;
+.readout-body {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1;
+  min-width: 0;
 }
 
-.airframe-figures span { color: #f4f8fc; font-weight: 700; font-size: 17px; }
-.airframe-figures i { font-style: normal; color: #44596e; margin: 0 8px; }
+.airframe-art { display: block; width: 72px; height: 72px; flex: none; }
+
+/* The figures share the strip evenly and wrap before they squeeze. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 10px 16px;
+  flex: 1;
+  text-align: left;
+}
+
+.figure i {
+  display: block;
+  font-style: normal;
+  font-size: 8.5px;
+  letter-spacing: .14em;
+  color: #6f8ba6;
+  margin-bottom: 4px;
+}
+
+.figure b {
+  font-size: 19px;
+  font-weight: 700;
+  color: #f4f8fc;
+  letter-spacing: .02em;
+}
+
+/* Units and qualifiers keep their own case, and their own line: a figure
+   like "4 × 250" is too wide to carry one beside it. */
+.figure em {
+  display: block;
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: .06em;
+  color: #56708a;
+  margin-top: 2px;
+}
+
+.readout .btn { flex: none; padding: 15px 34px; }
+
+/* Five bays across: the weapon carries the most bars, so it gets the most
+   room. They wrap into a grid of their own on a narrow window. */
+.bays {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.5fr 1.2fr 1.2fr;
+  gap: 8px;
+}
+
+.bay {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  padding: 9px 11px 10px;
+  border: 1px solid rgba(120, 160, 200, .2);
+  background: rgba(14, 24, 36, .5);
+  font-family: inherit;
+  cursor: pointer;
+  /* Bars and artwork inside a bay use the selection amber. */
+  --livery: #ffd166;
+  transition: border-color .15s, background .15s;
+}
+
+.bay:hover { border-color: rgba(150, 200, 245, .45); background: rgba(22, 38, 56, .66); }
+
+.bay.open {
+  border-color: #ffd166;
+  background: rgba(255, 209, 102, .09);
+  box-shadow: 0 0 16px -6px #ffd166;
+}
+
+.bay-label { font-size: 8px; letter-spacing: .18em; color: #6f8ba6; }
+
+.bay b {
+  display: block;
+  font-size: 10.5px;
+  line-height: 1.35;
+  letter-spacing: .06em;
+  color: #f4f8fc;
+  font-weight: 700;
+  margin: 4px 0 2px;
+}
+
+/* The artwork takes the slack between a one-bar bay and a five-bar one, so
+   every picture sits in the middle of whatever room its bay has left. */
+.bay-art { flex: 1; display: grid; place-items: center; min-height: 40px; }
+.bay .weapon-art { width: 54px; height: 34px; margin: 4px auto; }
+.bay .tier { margin: 8px 0; }
+
+.bay .stats-grid { margin-bottom: 8px; }
+.bay .stat { grid-template-columns: 40px 1fr auto; gap: 6px; }
+.bay .stat u { min-width: 40px; color: #c6d6e6; }
+
+.bay-more { font-size: 8.5px; letter-spacing: .1em; color: #56708a; }
+.bay:hover .bay-more, .bay.open .bay-more { color: #ffd166; }
+
+/* The bench: the open bay's own workspace, pulled out below the row. */
+.bench {
+  margin-top: 9px;
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(255, 209, 102, .3);
+  background: rgba(255, 209, 102, .045);
+}
+
+.bench-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 11px;
+  text-align: left;
+}
+
+.bench-head b { font-size: 10px; letter-spacing: .18em; color: #ffd166; }
+.bench-head i { font-style: normal; font-size: 8.5px; letter-spacing: .07em; color: #56708a; }
+.bench-head .linkish { margin-top: 0; margin-left: auto; white-space: nowrap; }
 
 /* --- the two upgradeable fittings --- */
 
@@ -381,20 +476,7 @@ h1 {
 
 /* --- property cards: one ladder each, inside a weapon track --- */
 
-.loadout-label i {
-  display: block;
-  font-style: normal;
-  font-size: 8.5px;
-  letter-spacing: .06em;
-  text-transform: none;
-  color: #44596e;
-  margin-top: 3px;
-}
-
 .opt.prop { --livery: #ffd166; }
-
-/* An unfitted weapon sits back until something is bolted to it. */
-.opt.prop:not(.selected) { opacity: .62; }
 
 .prop-value {
   font-size: 16px;
@@ -403,15 +485,7 @@ h1 {
   margin: 2px 0 4px;
 }
 
-.prop-value.unfitted {
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: .1em;
-  color: #56708a;
-  padding: 4px 0 5px;
-}
-
-/* --- option cards: shared by every loadout row --- */
+/* --- bars: shared by every card and every bay --- */
 
 .stats-grid { display: grid; gap: 4px; margin-bottom: 9px; }
 
@@ -512,4 +586,12 @@ h1 {
   background: rgba(40, 120, 200, .12);
   box-shadow: none;
   color: #cfe9ff;
+}
+
+/* A narrow window gets the bays as a wrapping grid instead of one row, and
+   lets the readout drop its Launch button onto a line of its own. */
+@media (max-width: 760px) {
+  .bays { grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); }
+  .readout { flex-wrap: wrap; }
+  .readout .btn { width: 100%; }
 }

@@ -38,18 +38,19 @@ export function createPlayer(loadout = {}) {
   const missile = pick(MISSILES, loadout.missile, DEFAULT_LOADOUT.missile);
   const bomb = pick(BOMBS, loadout.bomb, DEFAULT_LOADOUT.bomb);
 
-  // The three forward weapons come from ladder rungs rather than a named
-  // model, and any combination of them may be fitted at once.
-  const { cannon, flame, laser } = resolveWeapons({ ...DEFAULT_LOADOUT, ...loadout });
+  // The forward weapon comes from ladder rungs rather than a named model.
+  // Exactly one of the three resolves; the other two come back null.
+  const { weapon, cannon, flame, laser } = resolveWeapons({ ...DEFAULT_LOADOUT, ...loadout });
 
   return {
     /** How much the hull absorbs. */
     armour,
     /** Top speed, and nothing else. */
     engine,
-    /** Wing guns, always fitted. */
+    /** Which forward weapon is carried: "cannon", "flame" or "laser". */
+    weapon,
+    /** The one that is carried holds numbers; the other two are null. */
     cannon,
-    /** Nose weapons, null until fitted. */
     flame,
     laser,
     missile,

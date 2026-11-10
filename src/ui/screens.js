@@ -10,7 +10,7 @@
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, MISSILE_IDS,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
-  ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps,
+  ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, resolveWeapons,
 } from "../config.js";
 import { drawHull } from "../render/hulls.js";
 import { loadBest, saveBest, loadLoadout, saveLoadoutSlot } from "../core/storage.js";
@@ -101,14 +101,17 @@ function barsFor(slot, ids, table) {
       width = 18 + t * (unbounded ? 64 : 82);
     }
 
-    return `
-      <div class="stat">
-        <i>${label}</i>
-        <div class="track"><div class="fill" style="width:${width.toFixed(1)}%"></div></div>
-        <u>${format(value)}</u>
-      </div>`;
+    return statBar(label, width, format(value));
   }).join("");
 }
+
+/** One labelled bar: what it measures, how full it is, and what it reads. */
+const statBar = (label, width, text) => `
+  <div class="stat">
+    <i>${label}</i>
+    <div class="track"><div class="fill" style="width:${width.toFixed(1)}%"></div></div>
+    <u>${text}</u>
+  </div>`;
 
 const BARS = {
   armour: barsFor("armour", ARMOUR_IDS, ARMOUR),
@@ -117,11 +120,59 @@ const BARS = {
   bomb: barsFor("bomb", BOMB_IDS, BOMBS),
 };
 
+/**
+ * The same bars for a forward weapon, one per property. These measure how
+ * far up its own ladder each property has been taken rather than comparing
+ * weapons with each other — a full bar means maxed, on every one of them.
+ */
+function weaponPropBars(track) {
+  return Object.entries(WEAPONS[track].props).map(([prop, spec]) => {
+    const top = spec.tiers.length - 1;
+    const rung = Math.min(chosen[`${track}.${prop}`] ?? 0, top);
+    return statBar(spec.label, 18 + (top ? rung / top : 1) * 82,
+      spec.format(spec.tiers[rung]));
+  }).join("");
+}
+
+/** One segment per rung, filled up to where a ladder currently stands. */
+const tierPips = (rung, total) => `
+  <div class="tier">${Array.from({ length: total },
+    (_, i) => `<span class="${i <= rung ? "on" : ""}"></span>`).join("")}</div>`;
+
+/** The tables and their orders, by slot, so a slot name is enough to read one. */
+const TABLES = { armour: ARMOUR, engine: ENGINES, missile: MISSILES, bomb: BOMBS };
+const IDS = {
+  armour: ARMOUR_IDS, engine: ENGINE_IDS, missile: MISSILE_IDS, bomb: BOMB_IDS,
+};
+
+/**
+ * Hull and engine are climbed; missiles and bombs are picked between. The
+ * difference decides what a bay shows and what its bench offers, so it is
+ * asked for by name rather than re-derived in five places.
+ */
+const isLadder = (slot) => slot === "armour" || slot === "engine";
+
 /** Every slot the hangar knows how to store. */
 const ALL_SLOTS = Object.keys(DEFAULT_LOADOUT);
 
 /** The current selection, seeded from storage and repaired against config. */
 const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout(ALL_SLOTS)) };
+
+/**
+ * The five bays of the overview, in fitting order. `action` says what the
+ * bench under an open one offers, which differs: two of them are ladders,
+ * two are choices, and the weapon is both.
+ */
+const BAYS = [
+  { slot: "armour", label: "HULL", action: "Upgrade" },
+  { slot: "engine", label: "ENGINE", action: "Upgrade" },
+  { slot: "weapon", label: "WEAPON", action: "Switch" },
+  { slot: "missile", label: "MISSILE", action: "Change" },
+  { slot: "bomb", label: "BOMB", action: "Change" },
+];
+
+/** Which bay's bench is open, or null for the overview on its own. */
+let openBay = null;
 
 /** Kept so a reset can redraw the hangar without main.js handing them over again. */
 let menuHandlers = null;
@@ -133,10 +184,9 @@ let menuKeyHandler = null;
  * shortened since.
  */
 function validated(saved) {
-  const tables = { armour: ARMOUR, engine: ENGINES, missile: MISSILES, bomb: BOMBS };
   const out = {};
 
-  for (const [slot, table] of Object.entries(tables)) {
+  for (const [slot, table] of Object.entries(TABLES)) {
     if (saved[slot] && table[saved[slot]]) out[slot] = saved[slot];
   }
 
@@ -169,19 +219,16 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
       <button class="linkish" id="intel">Know your enemy &rsaquo;</button>
     </div>
 
-    <div class="airframe">
-      <!-- Only the summary is re-rendered on a pick. The Launch button is a
-           sibling rather than inside it, so it keeps its click handler. -->
-      <div class="airframe-summary" id="airframe">${airframeSummary()}</div>
-      <button class="btn" id="start">Launch</button>
-    </div>
+    <div class="hangar">
+      <div class="readout">
+        <!-- Only the figures are redrawn when something changes. Launch is a
+             sibling rather than inside them, so it keeps its click handler. -->
+        <div class="readout-body" id="figures">${readoutBody()}</div>
+        <button class="btn" id="start">Launch</button>
+      </div>
 
-    <div class="loadout">
-      ${upgradeRow("armour", "HULL", ARMOUR_IDS, ARMOUR)}
-      ${upgradeRow("engine", "ENGINE", ENGINE_IDS, ENGINES)}
-      ${weaponRowMarkup()}
-      ${weaponRow("missile", "MISSILE", MISSILE_IDS, MISSILES)}
-      ${weaponRow("bomb", "BOMB", BOMB_IDS, BOMBS)}
+      <div class="bays" id="bays">${BAYS.map(bayCard).join("")}</div>
+      <div id="bench">${benchMarkup()}</div>
     </div>
 
     <div class="footnote">
@@ -189,29 +236,186 @@ export function showMenu(onStart, onShowIntel, onShowHelp) {
       <button class="linkish" id="reset">Reset fittings</button>
     </div>`;
 
-  for (const opt of panel().querySelectorAll(".opt")) {
-    opt.addEventListener("click", () => select(opt.dataset.slot, opt.dataset.id));
-  }
-
-  // Delegated, because an upgrade re-renders the very button that was clicked.
-  //
-  // It hangs off .loadout rather than the panel: the panel outlives every
-  // render, so listeners added to it accumulate, and one click would fire the
-  // upgrade once per visit to the hangar — stepping several tiers at a time.
-  // This element is rebuilt with the markup, so its listener dies with it.
-  panel().querySelector(".loadout").addEventListener("click", (e) => {
-    const upgradeButton = e.target.closest("[data-upgrade]");
-    if (upgradeButton) { upgrade(upgradeButton.dataset.upgrade); return; }
-
-    const pick = e.target.closest("[data-weapon]");
-    if (pick) select("weapon", pick.dataset.weapon);
-  });
+  // Delegated, because every click in here redraws the element that was
+  // clicked. It hangs off .hangar rather than the panel: the panel outlives
+  // every render, so listeners added to it accumulate, and one click would
+  // fire once per visit to the hangar — stepping several tiers at a time.
+  // This element is rebuilt with the markup above, so its listener dies with it.
+  panel().querySelector(".hangar").addEventListener("click", onHangarClick);
 
   document.getElementById("intel").onclick = onShowIntel;
   document.getElementById("help").onclick = onShowHelp;
   document.getElementById("reset").onclick = resetLoadout;
 
+  attachMenuKeys();
   show(onStart);
+}
+
+function onHangarClick(e) {
+  if (e.target.closest("[data-close]")) { closeBench(); return; }
+
+  const bay = e.target.closest("[data-bay]");
+  if (bay) {
+    // Clicking the open bay again closes it, so the overview is one click away.
+    openBay = openBay === bay.dataset.bay ? null : bay.dataset.bay;
+    refresh();
+    return;
+  }
+
+  const upgradeButton = e.target.closest("[data-upgrade]");
+  if (upgradeButton) { upgrade(upgradeButton.dataset.upgrade); return; }
+
+  const pick = e.target.closest("[data-weapon]");
+  if (pick) { select("weapon", pick.dataset.weapon); return; }
+
+  // Choice cards carry the id they fit; property cards carry a rung instead
+  // and are changed by their own buttons.
+  const opt = e.target.closest(".opt[data-id]");
+  if (opt) select(opt.dataset.slot, opt.dataset.id);
+}
+
+/** Redraw everything a change can touch: the figures, the bays, the bench. */
+function refresh() {
+  const parts = {
+    figures: readoutBody(),
+    bays: BAYS.map(bayCard).join(""),
+    bench: benchMarkup(),
+  };
+
+  for (const [id, html] of Object.entries(parts)) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+}
+
+/**
+ * The instrument strip: what this fit adds up to, in the same figures the
+ * HUD shows in the air. Every one is read from config through the same
+ * resolver the simulation uses, so the readout cannot promise something the
+ * aircraft will not do.
+ */
+function readoutBody() {
+  const weapons = resolveWeapons(chosen);
+  const gun = weapons.cannon;
+  const nose = weapons.flame ?? weapons.laser;
+
+  // Wing guns state rounds and a rate; a nose weapon simply burns, so it
+  // states the rate alone. Running them into one number would compare a
+  // round that has to hit with a cone that cannot miss.
+  const figures = [
+    ["HULL", ARMOUR[chosen.armour].maxHp, "points"],
+    ["TOP SPEED", Math.round(ENGINES[chosen.engine].maxSpeed * KMH_PER_SPEED_UNIT), "km/h"],
+    gun
+      ? ["FIREPOWER", `${gun.slots} &times; ${gun.damage}`, `at ${gun.rate}/s`]
+      : ["FIREPOWER", nose.damage, "dps"],
+    ["REACH", gun ? gun.reach : nose.range, "metres"],
+  ];
+
+  return `
+    ${silhouette()}
+    <div class="figures">
+      ${figures.map(([label, value, caption]) => `
+        <div class="figure">
+          <i>${label}</i>
+          <b>${value}</b>
+          <em>${caption}</em>
+        </div>`).join("")}
+    </div>`;
+}
+
+// --- bays -------------------------------------------------------------------
+
+/**
+ * One bay in the overview: what is fitted there, and how it measures up as
+ * bars. Clicking opens the bench below it with the ways to change it.
+ */
+function bayCard({ slot, label, action }) {
+  const open = openBay === slot;
+  // A ladder with nothing left to buy says so rather than offering again.
+  const invite = atTop(slot) ? "Maxed" : action;
+
+  return `
+    <button class="bay${open ? " open" : ""}" data-bay="${slot}" aria-expanded="${open}">
+      <div class="bay-label">${label}</div>
+      <b>${fittedName(slot)}</b>
+      <div class="bay-art">${bayArt(slot)}</div>
+      ${bayPips(slot)}
+      <div class="stats-grid">${bayBars(slot)}</div>
+      <span class="bay-more">${open ? "Close &times;" : `${invite} &rsaquo;`}</span>
+    </button>`;
+}
+
+/** True once a ladder has no rung left to step to. A choice has no top. */
+const atTop = (slot) =>
+  isLadder(slot) && IDS[slot].indexOf(chosen[slot]) === IDS[slot].length - 1;
+
+const fittedName = (slot) =>
+  (slot === "weapon" ? WEAPONS[chosen.weapon].label : TABLES[slot][chosen[slot]].name);
+
+function bayArt(slot) {
+  if (!isLadder(slot)) return weaponArt(slot === "weapon" ? chosen.weapon : chosen[slot]);
+  return ladderArt(slot, IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
+}
+
+/** A ladder shows how far up it stands. A choice has no rungs to show. */
+function bayPips(slot) {
+  if (!isLadder(slot)) return "";
+  return tierPips(IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
+}
+
+function bayBars(slot) {
+  if (slot === "weapon") return weaponPropBars(chosen.weapon);
+  return BARS[slot](TABLES[slot][chosen[slot]]);
+}
+
+// --- the bench under the open bay -------------------------------------------
+
+/**
+ * Where a fitting is actually changed. A ladder gets its one card and an
+ * upgrade button, a choice gets a card per alternative, and the weapon gets
+ * its switch plus a card for every property of whichever is carried.
+ */
+function benchMarkup() {
+  if (!openBay) return "";
+  const bay = BAYS.find((b) => b.slot === openBay);
+
+  return `
+    <div class="bench">
+      <div class="bench-head">
+        <b>${bay.label}</b>
+        <i>${benchHint(openBay)}</i>
+        <button class="linkish" data-close>Done &times;</button>
+      </div>
+      ${benchBody(openBay)}
+    </div>`;
+}
+
+function benchHint(slot) {
+  if (slot === "weapon") return "one at a time — the others keep their rungs";
+  if (isLadder(slot)) return `${IDS[slot].length} rungs, and only one way up`;
+  return `${IDS[slot].length} to choose from`;
+}
+
+function benchBody(slot) {
+  if (slot === "weapon") return weaponColumn();
+  if (isLadder(slot)) return `<div class="options single">${upgradeCard(slot)}</div>`;
+  return `<div class="options">${choiceCards(slot)}</div>`;
+}
+
+function closeBench() {
+  if (!openBay) return;
+  openBay = null;
+  refresh();
+}
+
+/**
+ * Escape closes an open bench. The hangar is the first screen, so there is
+ * nothing further back for it to mean here.
+ */
+function attachMenuKeys() {
+  detachMenuKeys();
+  menuKeyHandler = (e) => { if (e.code === "Escape") closeBench(); };
+  addEventListener("keydown", menuKeyHandler);
 }
 
 /**
@@ -246,21 +450,6 @@ export function showHelp(onBack) {
     </div>`;
 
   show(onBack);
-}
-
-/**
- * What the current fittings add up to, shown above the rows so the
- * consequence of a choice is visible at the moment it is made — pick a bigger
- * engine and the speed here changes.
- */
-function airframeSummary() {
-  return `
-    ${silhouette()}
-    <div class="airframe-figures">
-      <span>${ARMOUR[chosen.armour].maxHp}</span> hull
-      <i>·</i>
-      <span>${kmh(ENGINES[chosen.engine].maxSpeed)}</span> top speed
-    </div>`;
 }
 
 // --- enemy roster -----------------------------------------------------------
@@ -335,20 +524,7 @@ function foeCard(id) {
     </div>`;
 }
 
-// --- upgrade rows -----------------------------------------------------------
-
-/**
- * Hull and engine are one fitting apiece, not a choice between three. The row
- * shows what is currently bolted on and a button that steps it up a tier, so
- * the ladder reads as a ladder rather than as three alternatives.
- */
-function upgradeRow(slot, label, ids, table) {
-  return `
-    <div class="loadout-row">
-      <div class="loadout-label">${label}</div>
-      <div class="options single" id="row-${slot}">${upgradeCard(slot, ids, table)}</div>
-    </div>`;
-}
+// --- upgrade cards ----------------------------------------------------------
 
 /**
  * Art for a rung of a ladder, built from where it sits rather than from its
@@ -384,15 +560,18 @@ function ladderArt(slot, tier, total) {
     </svg>`;
 }
 
-function upgradeCard(slot, ids, table) {
+/**
+ * Hull and engine are one fitting apiece, not a choice between several: the
+ * card shows what is bolted on and a button that steps it up a rung, so the
+ * ladder reads as a ladder.
+ */
+function upgradeCard(slot) {
+  const ids = IDS[slot];
+  const table = TABLES[slot];
   const tier = ids.indexOf(chosen[slot]);
   const spec = table[ids[tier]];
   const next = ids[tier + 1] ? table[ids[tier + 1]] : null;
   const [, read, format] = AXES[slot][0];
-
-  const pips = ids
-    .map((_, i) => `<span class="${i <= tier ? "on" : ""}"></span>`)
-    .join("");
 
   // The current figure is already on the bar above, so the button only needs
   // to say what it buys.
@@ -403,9 +582,9 @@ function upgradeCard(slot, ids, table) {
     : `<button class="upgrade" disabled>Fully upgraded</button>`;
 
   return `
-    <div class="opt selected" data-slot="${slot}" data-id="${spec.id}">
+    <div class="opt selected" data-slot="${slot}">
       <b>${spec.name}</b>
-      <div class="tier">${pips}</div>
+      ${tierPips(tier, ids.length)}
       ${ladderArt(slot, tier, ids.length)}
       <div class="stats-grid">${BARS[slot](spec)}</div>
       ${button}
@@ -422,6 +601,7 @@ function resetLoadout() {
     chosen[slot] = id;
     saveLoadoutSlot(slot, id);
   }
+  openBay = null;
   const { onStart, onShowIntel, onShowHelp } = menuHandlers;
   showMenu(onStart, onShowIntel, onShowHelp);
 }
@@ -437,7 +617,7 @@ function upgrade(slot) {
     return;
   }
 
-  const ids = slot === "armour" ? ARMOUR_IDS : ENGINE_IDS;
+  const ids = IDS[slot];
   const next = ids[ids.indexOf(chosen[slot]) + 1];
   if (next) select(slot, next);
 }
@@ -449,14 +629,6 @@ function upgrade(slot) {
  * whichever is picked. The others keep their rungs while they are put away,
  * so coming back to one finds it where you left it.
  */
-function weaponRowMarkup() {
-  return `
-    <div class="loadout-row">
-      <div class="loadout-label">WEAPON<i>one at a time</i></div>
-      <div class="weapon-column" id="weapon-row">${weaponColumn()}</div>
-    </div>`;
-}
-
 function weaponColumn() {
   const picks = WEAPON_IDS.map((id) => `
     <button class="pick${id === chosen.weapon ? " selected" : ""}" data-weapon="${id}">
@@ -468,8 +640,10 @@ function weaponColumn() {
     .join("");
 
   return `
-    <div class="weapon-pick">${picks}</div>
-    <div class="options">${cards}</div>`;
+    <div class="weapon-column">
+      <div class="weapon-pick">${picks}</div>
+      <div class="options">${cards}</div>
+    </div>`;
 }
 
 function propCard(track, prop) {
@@ -477,10 +651,6 @@ function propCard(track, prop) {
   const key = `${track}.${prop}`;
   const rung = chosen[key] ?? 0;
   const top = spec.tiers.length - 1;
-
-  const pips = spec.tiers
-    .map((_, i) => `<span class="${i <= rung ? "on" : ""}"></span>`)
-    .join("");
 
   const button = rung < top
     ? `<button class="upgrade" data-upgrade="${key}">
@@ -491,17 +661,18 @@ function propCard(track, prop) {
   return `
     <div class="opt prop selected" data-slot="${key}">
       <b>${spec.label}</b>
-      <div class="tier">${pips}</div>
+      ${tierPips(rung, spec.tiers.length)}
       <div class="prop-value">${spec.format(spec.tiers[rung])}</div>
       ${button}
     </div>`;
 }
 
-// --- weapon rows ------------------------------------------------------------
+// --- choice cards -----------------------------------------------------------
 
-function weaponRow(slot, label, ids, table) {
-  const options = ids.map((id) => {
-    const spec = table[id];
+/** Missiles and bombs are picked, not climbed: one card per alternative. */
+function choiceCards(slot) {
+  return IDS[slot].map((id) => {
+    const spec = TABLES[slot][id];
     return `
       <div class="opt${id === chosen[slot] ? " selected" : ""}" data-slot="${slot}" data-id="${id}">
         <b>${spec.name}</b>
@@ -509,12 +680,6 @@ function weaponRow(slot, label, ids, table) {
         <div class="stats-grid">${BARS[slot](spec)}</div>
       </div>`;
   }).join("");
-
-  return `
-    <div class="loadout-row">
-      <div class="loadout-label">${label}</div>
-      <div class="options">${options}</div>
-    </div>`;
 }
 
 /**
@@ -525,22 +690,24 @@ function weaponRow(slot, label, ids, table) {
  * `main` is the body, `dim` the secondary detail.
  */
 const WEAPON_ART = {
-  // --- cannons: breech on the left, business end on the right ---
-  vulcan: `
+  // --- the three forward weapons: breech left, business end right ---
+  cannon: `
     <rect class="dim" x="-18" y="-7" width="10" height="14" rx="2"/>
     <rect class="main" x="-9" y="-5.6" width="23" height="2.6"/>
     <rect class="main" x="-9" y="-1.3" width="27" height="2.6"/>
     <rect class="main" x="-9" y="3" width="23" height="2.6"/>`,
 
-  avenger: `
-    <rect class="dim" x="-19" y="-8" width="11" height="16" rx="2"/>
-    <rect class="main" x="-9" y="-3.2" width="23" height="6.4"/>
-    <rect class="dim" x="13" y="-5.4" width="6" height="10.8" rx="1.5"/>`,
-
-  firebelt: `
+  flame: `
     <rect class="dim" x="-19" y="-5" width="11" height="10" rx="3"/>
     <path class="main" d="M -8,-3.4 L 3,-7 L 7,-2.6 L 14,-4 L 12,0 L 14,4
                           L 7,2.6 L 3,7 L -8,3.4 Z"/>`,
+
+  // An emitter and the beam itself, which is the whole weapon.
+  laser: `
+    <rect class="dim" x="-19" y="-7.5" width="10" height="15" rx="2"/>
+    <polygon class="main" points="-9,-5.6 -1,-3 -1,3 -9,5.6"/>
+    <rect class="main" x="-1" y="-1.5" width="21" height="3"/>
+    <path class="arc" d="M 4,-6.5 L 13,-6.5 M 4,6.5 L 13,6.5"/>`,
 
   // --- missiles: a pod of many, one slim seeker, one big radar shot ---
   hydra: `
@@ -624,30 +791,7 @@ function silhouette() {
 function select(slot, id) {
   chosen[slot] = id;
   saveLoadoutSlot(slot, id);
-
-  // Switching weapon or upgrading one redraws the whole weapon block: the
-  // switch, and the cards for whichever is now carried.
-  if (slot === "weapon" || slot.includes(".")) {
-    const row = document.getElementById("weapon-row");
-    if (row) row.innerHTML = weaponColumn();
-    return;
-  }
-
-  // Hull and engine own their whole row, and also feed the summary above.
-  if (slot === "armour" || slot === "engine") {
-    const ids = slot === "armour" ? ARMOUR_IDS : ENGINE_IDS;
-    const table = slot === "armour" ? ARMOUR : ENGINES;
-    const row = document.getElementById(`row-${slot}`);
-    if (row) row.innerHTML = upgradeCard(slot, ids, table);
-
-    const summary = document.getElementById("airframe");
-    if (summary) summary.innerHTML = airframeSummary();
-    return;
-  }
-
-  for (const el of panel().querySelectorAll(`.opt[data-slot="${slot}"]`)) {
-    el.classList.toggle("selected", el.dataset.id === id);
-  }
+  refresh();
 }
 
 // --- game over --------------------------------------------------------------
@@ -667,7 +811,7 @@ export function showGameOver(world, onFlyAgain, onChangePlane) {
       BEST <span>${best}</span>
     </div>
     <div class="loadout-recap">
-      ${p.cannon.short} · ${p.missile.short} · ${p.bomb.short}
+      ${WEAPONS[p.weapon].label} · ${p.missile.short} · ${p.bomb.short}
     </div>
     <button class="btn" id="start">Fly Again</button>
     <button class="btn ghost" id="hangar">Change Loadout</button>
