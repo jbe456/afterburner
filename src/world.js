@@ -36,6 +36,12 @@ export function createWorld(loadout) {
     spawnQueue: [],
     /** Ticks since the run began; drives all cosmetic animation. */
     time: 0,
+    /**
+     * Set when the run was started partway through with `?wave=`. Nothing in
+     * the simulation reads it — it exists so the score cannot be recorded as
+     * a best.
+     */
+    practice: false,
     /** Counts down from the player's death to the game-over screen. */
     deathTimer: -1,
 

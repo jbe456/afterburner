@@ -187,6 +187,47 @@ const HULLS = {
     eye(ctx, ink, 22, 4.4);
     eye(ctx, ink, 11, 2.6);
   },
+
+  /**
+   * Not an aircraft at all: a flat-topped ship, bow at +X, with a full-length
+   * flight deck, an angled landing strip to port, an island to starboard and
+   * SAM launchers fore and aft.
+   *
+   * Authored longer than anything else — roughly 96 units bow to stern against
+   * the 48 the aircraft keep to — because the one thing it has to read as from
+   * across the arena is *big*. It carries no exhaust: it is under way, not
+   * under thrust.
+   */
+  carrier(ctx, ink) {
+    // Hull: a long wedge, blunt at the stern.
+    ctx.fillStyle = ink.main;
+    poly(ctx, [48, 0, 36, -13, -40, -15, -46, -11, -46, 11, -40, 15, 36, 13]);
+
+    // The flight deck, inset and a shade lighter than the hull.
+    ctx.fillStyle = tint(ink.accent, 0.22);
+    poly(ctx, [42, 0, 33, -11, -38, -12.5, -42, -9, -42, 9, -38, 12.5, 33, 11]);
+
+    // Angled landing strip to port, running out over the quarter.
+    ctx.fillStyle = tint(ink.accent, 0.3);
+    poly(ctx, [26, -4, 34, -9, -40, -15.5, -40, -9.5]);
+
+    // Deck markings: centreline for the catapult, bars across the landing run.
+    ctx.fillStyle = "rgba(255,255,255,.34)";
+    ctx.fillRect(4, -0.9, 36, 1.8);
+    for (let i = 0; i < 5; i++) ctx.fillRect(-34 + i * 9, -12.5, 2, 4);
+
+    // The island, starboard side, with its mast.
+    ctx.fillStyle = ink.accent;
+    ctx.fillRect(-10, 9, 15, 6.5);
+    ctx.fillRect(-3, 11, 2.5, 5);
+
+    // SAM launchers: a box fore and a box aft, lit like the heavy hulls' eyes.
+    ctx.fillStyle = tint(ink.accent, 0.8);
+    pair(ctx, [30, 6, 36, 6, 36, 10, 30, 10]);
+    pair(ctx, [-34, 4, -28, 4, -28, 8, -34, 8]);
+    eye(ctx, ink, 33, 2.4);
+    eye(ctx, ink, -31, 2.4);
+  },
 };
 
 export const HULL_NAMES = Object.keys(HULLS);

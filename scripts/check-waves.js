@@ -15,7 +15,7 @@
 import { composeWave, waveSize, startWave } from "../src/waves.js";
 import { createWorld } from "../src/world.js";
 import { angDiff } from "../src/core/math.js";
-import { ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps } from "../src/config.js";
+import { ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, GROUP_CAPS } from "../src/config.js";
 import { HULL_NAMES } from "../src/render/hulls.js";
 
 import { WAVES } from "../src/config.js";
@@ -37,6 +37,7 @@ let tooEarly = [];
 let overCap = [];
 let undersized = 0;
 let brokenSwarm = [];
+let overGroupCap = [];
 
 for (let wave = 1; wave <= WAVES_CHECKED; wave++) {
   for (let s = 0; s < SAMPLES; s++) {
@@ -53,6 +54,19 @@ for (let wave = 1; wave <= WAVES_CHECKED; wave++) {
       if (wave < ENEMY_TYPES[id].fromWave) tooEarly.push(`${id} in wave ${wave}`);
       if (seenAt[id] === undefined || wave < seenAt[id]) seenAt[id] = wave;
     }
+    // Caps that span a family: four carrier tiers are one each, but a late
+    // wave could still field one of every tier without this.
+    const byGroup = Object.create(null);
+    for (const id of picks) {
+      const group = ENEMY_TYPES[id].group;
+      if (group) byGroup[group] = (byGroup[group] ?? 0) + 1;
+    }
+    for (const [group, n] of Object.entries(byGroup)) {
+      if (GROUP_CAPS[group] && n > GROUP_CAPS[group]) {
+        overGroupCap.push(`${n} ${group}s in wave ${wave} (cap ${GROUP_CAPS[group]})`);
+      }
+    }
+
     for (const [id, n] of Object.entries(counts)) {
       const type = ENEMY_TYPES[id];
       // Caps count draws, not aircraft: a swarm of 7 capped at 2 means 14.
@@ -73,6 +87,7 @@ check("no wave is smaller than its slot count", undersized === 0, `${undersized}
 check("swarms always arrive whole", brokenSwarm.length === 0, brokenSwarm[0] ?? "");
 check("nothing appears before its fromWave", tooEarly.length === 0, tooEarly[0] ?? "");
 check("per-wave caps are respected", overCap.length === 0, overCap[0] ?? "");
+check("group caps are respected", overGroupCap.length === 0, overGroupCap[0] ?? "");
 
 // Dead content check: a type nothing can ever draw is a bug, not a design.
 console.log("\nROSTER REACHABILITY");

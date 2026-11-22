@@ -21,7 +21,7 @@ import { updateBullets, updateFlames, updateMissiles } from "../src/entities/pro
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
 import {
   WEAPONS, MISSILES, RADAR_RANGE, ENEMY_TYPES, ENEMY_TYPE_IDS,
-  DEFAULT_LOADOUT, resolveWeapons, CANNON, enemyWeapon,
+  DEFAULT_LOADOUT, resolveWeapons, CANNON, enemyWeapon, enemyDps,
 } from "../src/config.js";
 import { updatePlayerBurn } from "../src/entities/player.js";
 
@@ -261,12 +261,66 @@ console.log("\nENEMY FORWARD WEAPONS");
 {
   // Exactly one forward weapon apiece. A type carrying two would be an
   // accident, and nothing on screen would say so.
+  //
+  // Carriers are the stated exception: they are ships, they carry none of the
+  // three, and their armament is the SAM battery checked below.
   const doubled = ENEMY_TYPE_IDS.filter((id) => {
     const t = ENEMY_TYPES[id];
+    if (t.carrier) return false;
     return [t.flame, t.laser, t.damage !== undefined].filter(Boolean).length !== 1;
   });
-  check("every type carries exactly one forward weapon", doubled.length === 0,
+  check("every aircraft carries exactly one forward weapon", doubled.length === 0,
     doubled.join(", "));
+
+  // ...and the exception has to be exactly that, or a ship with a cannon
+  // bolted on would slip through the check above unnoticed.
+  const armedShips = ENEMY_TYPE_IDS.filter((id) => {
+    const t = ENEMY_TYPES[id];
+    return t.carrier && (t.flame || t.laser || t.damage !== undefined);
+  });
+  check("a carrier carries no forward weapon at all", armedShips.length === 0,
+    armedShips.join(", "));
+
+  const unarmedShips = ENEMY_TYPE_IDS.filter(
+    (id) => ENEMY_TYPES[id].carrier && !ENEMY_TYPES[id].sam);
+  check("every carrier carries a SAM battery", unarmedShips.length === 0,
+    unarmedShips.join(", "));
+
+  // enemyDps falls through to the gun formula, which needs `damage` and
+  // `fireCd`. A type with neither returns NaN, and NaN silently poisons the
+  // escalation check in check-waves.js rather than failing it.
+  const notANumber = ENEMY_TYPE_IDS.filter((id) => !Number.isFinite(enemyDps(ENEMY_TYPES[id])));
+  check("every type reports a finite dps", notANumber.length === 0,
+    notANumber.join(", "));
+}
+
+{
+  // The SAM is the one enemy weapon with no equivalent on your aircraft, so
+  // it is measured against the nearest thing you carry: a missile, and the
+  // reach of a fully upgraded beam. A battery that out-ranged everything you
+  // own would make closing with a carrier impossible rather than costly.
+  const ships = ENEMY_TYPE_IDS
+    .map((id) => ENEMY_TYPES[id])
+    .filter((t) => enemyWeapon(t) === "sam");
+
+  check("at least one type carries a SAM", ships.length > 0);
+
+  const bestMissile = Math.max(...Object.values(MISSILES).map((m) => m.damage));
+  const hardest = Math.max(...ships.map((t) => t.sam.damage));
+  check(`no SAM out-damages your best missile's ${bestMissile}`,
+    hardest < bestMissile, `hardest ${hardest}`);
+
+  const beamReach = resolveWeapons(
+    fit("laser", { "laser.reach": "max" }),
+  ).laser.range;
+  const furthest = Math.max(...ships.map((t) => t.sam.range));
+  check(`no SAM envelope out-ranges your maxed beam's ${beamReach} m`,
+    furthest < beamReach, `furthest ${furthest} m`);
+
+  // The envelope has to be a decision, not an ambush: it must be visible on
+  // the radar well before you are inside it.
+  check(`every SAM envelope sits inside radar range (${RADAR_RANGE} m)`,
+    furthest < RADAR_RANGE, `furthest ${furthest} m`);
 }
 
 {
@@ -312,7 +366,7 @@ for (const id of ENEMY_TYPE_IDS) {
 for (const id of ENEMY_TYPE_IDS) {
   const type = ENEMY_TYPES[id];
   const kind = enemyWeapon(type);
-  if (kind === "gun") continue;
+  if (kind === "gun" || kind === "sam") continue;
 
   const world = createWorld({});
   const p = world.player;

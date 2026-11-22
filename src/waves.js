@@ -3,7 +3,7 @@
  * stay in lockstep with the simulation and stop cleanly when paused.
  */
 
-import { WAVES, ENEMY_TYPES, ENEMY_TYPE_IDS } from "./config.js";
+import { WAVES, ENEMY_TYPES, ENEMY_TYPE_IDS, GROUP_CAPS } from "./config.js";
 import { TAU } from "./core/math.js";
 import { spawnEnemy } from "./entities/enemy.js";
 import { showBanner } from "./world.js";
@@ -48,23 +48,32 @@ export const waveSize = (wave) =>
  * late wave is mostly ordinary aircraft with a couple of serious ones in it
  * rather than a wall of Dreadnoughts.
  *
+ * Some types also share a cap across the whole family: the four carrier tiers
+ * are one each, but `GROUP_CAPS` holds the total down so a late wave cannot
+ * field one of every tier at once.
+ *
  * Exported for the wave checks, which care that every wave is non-empty, that
  * nothing arrives before its time, and that the caps hold.
  */
 export function composeWave(wave) {
   const taken = Object.create(null);
+  const takenByGroup = Object.create(null);
   const picks = [];
 
   for (let i = 0; i < waveSize(wave); i++) {
     const pool = ENEMY_TYPE_IDS.filter((id) => {
       const type = ENEMY_TYPES[id];
       if (wave < type.fromWave) return false;
-      return !type.maxPerWave || (taken[id] ?? 0) < type.maxPerWave;
+      if (type.maxPerWave && (taken[id] ?? 0) >= type.maxPerWave) return false;
+      const cap = GROUP_CAPS[type.group];
+      return !cap || (takenByGroup[type.group] ?? 0) < cap;
     });
     if (!pool.length) break; // every unlocked type is capped out
 
     const id = weightedPick(pool);
     taken[id] = (taken[id] ?? 0) + 1;
+    const group = ENEMY_TYPES[id].group;
+    if (group) takenByGroup[group] = (takenByGroup[group] ?? 0) + 1;
 
     // One slot can put a whole swarm in the air. The cap counts draws, not
     // aircraft, so `maxPerWave: 2` on a swarm of seven means fourteen at most.

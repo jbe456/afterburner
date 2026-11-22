@@ -29,6 +29,7 @@ export function drawScene(world) {
   ctx.translate(w / 2 - world.camX + rand(-s, s), h / 2 - world.camY + rand(-s, s));
 
   drawBoundary(ctx);
+  drawSamEnvelopes(ctx, world);
   drawBombs(ctx, world);
   drawPickups(ctx, world);
   drawTrails(ctx, world);
@@ -343,11 +344,62 @@ function drawBurning(ctx, e, time) {
 }
 
 function drawHealthPip(ctx, e) {
+  if (e.carrier) return drawCarrierHealth(ctx, e);
   const w = Math.max(34, e.radius * 1.9), h = 3.5, y = e.y - e.radius - 16;
   ctx.fillStyle = "rgba(0,0,0,.55)";
   ctx.fillRect(e.x - w / 2, y, w, h);
   ctx.fillStyle = "#ff6b6b";
   ctx.fillRect(e.x - w / 2, y, w * (e.hp / e.maxHp), h);
+}
+
+/**
+ * A hull that takes a sustained minute needs more than a pip. The bar is as
+ * wide as the ship and carries the number, because a bar creeping a tenth of
+ * a percent a second is indistinguishable from a bar that is not moving.
+ */
+function drawCarrierHealth(ctx, e) {
+  const frac = Math.max(0, e.hp / e.maxHp);
+  const w = e.radius * 2.2, h = 7, y = e.y - e.radius - 30;
+
+  ctx.fillStyle = "rgba(0,0,0,.6)";
+  ctx.fillRect(e.x - w / 2, y, w, h);
+  ctx.fillStyle = frac > 0.5 ? "#ff8a5c" : frac > 0.25 ? "#ff6b6b" : "#ff4040";
+  ctx.fillRect(e.x - w / 2, y, w * frac, h);
+  ctx.strokeStyle = "rgba(255,255,255,.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(e.x - w / 2, y, w, h);
+
+  ctx.fillStyle = "rgba(255,255,255,.85)";
+  ctx.font = "600 15px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(
+    `${ENEMY_TYPES[e.type].name.toUpperCase()}  ${Math.max(0, Math.ceil(e.hp))}`,
+    e.x, y - 7,
+  );
+  ctx.textAlign = "left";
+}
+
+/**
+ * The SAM envelope, drawn on the ground the same way a bomb's blast radius is:
+ * the circle means exactly what it looks like. Cross it and the battery opens
+ * up, so "if you get too close" is something you can see rather than learn.
+ */
+function drawSamEnvelopes(ctx, world) {
+  for (const e of world.enemies) {
+    if (!e.carrier) continue;
+    const spec = ENEMY_TYPES[e.type].sam;
+    const inside = world.player.alive
+      && Math.hypot(world.player.x - e.x, world.player.y - e.y) < spec.range;
+    const pulse = inside ? 0.34 + Math.sin(world.time * 0.14) * 0.12 : 0.13;
+
+    ctx.strokeStyle = `rgba(255,90,70,${pulse.toFixed(3)})`;
+    ctx.lineWidth = inside ? 3 : 2;
+    ctx.setLineDash([16, 14]);
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, spec.range, 0, TAU);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 }
 
 /** Corner brackets that converge and turn red as the lock goes solid. */

@@ -52,11 +52,35 @@ initInput(canvas, {
   onGesture: initAudio,
 });
 
+/**
+ * Which wave a run opens on. `?wave=18` in the address bar starts there
+ * instead of at the first, which is the only practical way to reach the late
+ * roster — wave 20 is otherwise twenty cleared waves away, and the things
+ * worth looking at are all at the top of it.
+ *
+ * Deliberately a URL parameter rather than a control in the hangar: it costs
+ * the game no interface, it survives a reload, and `dist/index.html` honours
+ * it straight off the filesystem.
+ */
+function startingWave() {
+  const asked = Number(new URLSearchParams(location.search).get("wave"));
+  return Number.isInteger(asked) && asked > 1 ? asked : 1;
+}
+
 /** Launch with whatever the hangar currently has selected. */
 function startRun() {
   initAudio();
   resumeAudio();
   world = createWorld(getLoadout());
+
+  const from = startingWave();
+  // startWave increments before it composes, so it wants the wave before.
+  world.wave = from - 1;
+  // Skipping the first seventeen waves is not a score. Marking the run keeps
+  // it out of the persisted best rather than letting a practice run stand as
+  // one you flew.
+  world.practice = from > 1;
+
   screen = "playing";
   paused = false;
   hideOverlay();

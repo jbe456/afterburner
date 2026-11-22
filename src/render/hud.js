@@ -275,6 +275,18 @@ function drawRadar(ctx, world) {
       dy = (dy / m) * (RADAR_RADIUS - 3);
     }
     ctx.fillStyle = offScope ? "rgba(255,110,110,.5)" : ENEMY_TYPES[e.type].color;
+
+    // A carrier is a different kind of contact, not merely a bigger one, so
+    // it gets a different mark rather than a fourth size of dot: a hollow
+    // square you can pick out of a sky full of blips at a glance.
+    if (e.carrier) {
+      ctx.strokeStyle = offScope ? "rgba(255,110,110,.6)" : ENEMY_TYPES[e.type].accent;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cx + dx - 5, cy + dy - 5, 10, 10);
+      ctx.fillRect(cx + dx - 2, cy + dy - 2, 4, 4);
+      continue;
+    }
+
     ctx.beginPath();
     // Bigger aircraft read as bigger contacts.
     ctx.arc(cx + dx, cy + dy, e.radius >= 28 ? 5 : e.radius >= 20 ? 4 : 3, 0, TAU);

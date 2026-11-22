@@ -254,6 +254,40 @@ export function fireEnemyMissile(world, enemy, spec) {
   sfx.enemyMissile();
 }
 
+/**
+ * A carrier's surface-to-air battery.
+ *
+ * The difference from an aircraft's missiles is that there is no cone: a ship
+ * has no nose to point, so the launch bearing is simply wherever you are. The
+ * only thing that decides whether it shoots is whether you came inside the
+ * envelope — which is what makes closing with a carrier a decision rather
+ * than a manoeuvre.
+ */
+export function fireSam(world, ship, spec) {
+  const player = world.player;
+  const bearing = Math.atan2(player.y - ship.y, player.x - ship.x);
+  const perpendicular = bearing + Math.PI / 2;
+
+  for (let i = 0; i < spec.salvo; i++) {
+    // Alternate sides, so a salvo visibly leaves two different launchers.
+    const side = i % 2 === 0 ? 1 : -1;
+    const across = ship.radius * 0.45 * side;
+    world.missiles.push({
+      spec,
+      friendly: false,
+      x: ship.x + Math.cos(perpendicular) * across,
+      y: ship.y + Math.sin(perpendicular) * across,
+      angle: bearing + rand(-0.1, 0.1),
+      speed: spec.speed,
+      target: player,
+      life: spec.life,
+      arming: MISSILE.armingDelay,
+    });
+  }
+
+  sfx.enemyMissile();
+}
+
 /** An enemy seeding a mine along its track. */
 export function dropEnemyBomb(world, enemy, spec) {
   world.bombs.push({

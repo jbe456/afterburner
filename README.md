@@ -19,12 +19,29 @@ because ES modules can't be loaded over `file://`. It runs on Node and Bun alike
 
 ```bash
 bun run build    # bundles everything into dist/index.html
-npm test         # roster invariants + weapon and bomb behaviour
+npm test         # roster invariants + weapon, bomb and carrier behaviour
 ```
 
 The build inlines the JS and CSS into a single self-contained HTML file you can
 open straight from disk or drop on any static host. It needs Bun (for its
 bundler); development does not.
+
+### Starting partway through
+
+```
+http://localhost:8765/?wave=18
+```
+
+`?wave=n` opens a run on wave *n* instead of the first, which is the only
+practical way to reach the late roster — the Supercarrier is twenty cleared
+waves away otherwise. It is a URL parameter rather than a control in the
+hangar so the game carries no interface for it, it survives a reload, and
+`dist/index.html` honours it straight off the filesystem.
+
+Runs started this way are marked as practice: the game-over screen says so,
+and the score can read the persisted best but never set it. Loadout is
+whatever the hangar has fitted, and fittings are free, so pair it with a
+weapon built for what you are testing.
 
 ## Your aircraft
 
@@ -166,9 +183,11 @@ get it back.
 
 ## Enemies
 
-Twenty-six types, escalating on their own rather than on a schedule. Each
+Thirty types, escalating on their own rather than on a schedule. Each
 declares the earliest wave it can appear in and how often it is drawn once
-unlocked; the heaviest also cap how many can show up at once.
+unlocked; the heaviest also cap how many can show up at once. Twenty-six of
+them are aircraft; the other four are **carriers**, which are ships and are
+described on their own below.
 
 | | Hull | Gun dps | Armament | From wave |
 | --- | --- | --- | --- | --- |
@@ -198,6 +217,10 @@ unlocked; the heaviest also cap how many can show up at once.
 | **Dreadnought** | 420 | 112 | three barrels, 1200 m · max 1 | 11 |
 | **Basilisk** | 340 | 66 | twin guns + **missile pairs** · max 2 | 12 |
 | **Leviathan** | 700 | 132 | three barrels + **missiles** + **mines** · max 1 | 15 |
+| **Escort Carrier** | 5,000 | 23 | **SAM**, 1000 m · launches · max 1 | 5 |
+| **Fleet Carrier** | 10,000 | 36 | **SAM**, 1100 m · launches · max 1 | 10 |
+| **Battle Carrier** | 15,000 | 50 | **SAM**, 1200 m · launches · max 1 | 15 |
+| **Supercarrier** | 20,000 | 72 | **SAM**, 1300 m · launches · max 1 | 20 |
 
 Gun dps assumes every round connects, which against a moving target it does
 not — but the bottom of that table will still erase you if you fly straight at
@@ -214,8 +237,9 @@ thirty are the ceilings.
 A worst case of 43 aircraft on screen measured 1 ms a frame against a 16.7 ms
 budget, so the swarms cost far less than they look like they should.
 
-**Every type carries exactly one forward weapon** — guns, a flame, or a beam,
-never a combination. A flame or beam carrier has no guns at all, so it has to
+**Every aircraft carries exactly one forward weapon** — guns, a flame, or a
+beam, never a combination. The carriers are the stated exception: they are
+ships, they carry none of the three, and their armament is a SAM battery. A flame or beam carrier has no guns at all, so it has to
 get its nose on you to do anything: the Cinder has to be within 180 m, and
 the Censer's 120/s is the fiercest fire in the game but only out to 340 m.
 The beam carriers trade that reach back, up to the Cyclops at 1700 m.
@@ -243,24 +267,113 @@ type in the game outright except the Leviathan, which staggers out of it with
 50 hull. That is what keeps the heavy end from becoming a damage race the guns
 cannot win, without making the boss a formality.
 
-Each type wears one of seven silhouettes from `render/hulls.js`, and the
+Each type wears one of eight silhouettes from `render/hulls.js`, and the
 roster gets visibly nastier as it goes: an ordinary swept-wing `jet`, the
 needle-nosed `dart`, the twin-boom `brick`, the pod-hung `gunship`, the
 forward-swept `claw` that reaches past its own nose, the bat-winged `wraith`,
-and the spined slab of the `leviathan`. The heavier hulls carry a lit eye, so
-a dangerous contact reads as dangerous before you have parsed its size.
+the spined slab of the `leviathan`, and the flat-topped `carrier` with its
+angled deck and its island. The heavier hulls carry a lit eye, so a dangerous
+contact reads as dangerous before you have parsed its size.
 
-**Know your enemy**, beside **How to fly** under the title, lists all sixteen with their hulls,
-guns, reach, armament and bounty, in the order you meet them, each drawn with
-the renderer's own code so the silhouettes cannot drift from the ones in the
-air.
+**Know your enemy**, beside **How to fly** under the title, lists them all with
+their hulls, guns, reach, armament and bounty, in the order you meet them, each
+drawn with the renderer's own code so the silhouettes cannot drift from the
+ones in the air. The aircraft all share one scale there, so the list doubles as
+a size comparison; a carrier is several times longer than the longest of them
+and is fitted to its own card instead, which says so.
+
+### Carriers
+
+Four of them, and they are not aircraft. A carrier ignores you completely: it
+enters off the edge of the arena, crosses on the heading it arrived on, turns
+away from the wall, and does two things the whole time it is alive. It launches
+aircraft, and it takes damaged ones back aboard and repairs them.
+
+It launches **without limit** — there is no magazine to empty and no timer that
+sends it away. The wave it belongs to ends when the sky is clear, and the sky
+cannot be clear while the ship is in it, so the hull is the objective rather
+than a prize. What it launches is whatever the wave composer could legally draw
+by then, carriers excepted: swarms and the capped heavyweights included, since
+those caps govern what a *wave* contains rather than what a ship carries.
+
+| | Hull | Launches | SAM | From wave | Bounty |
+| --- | --- | --- | --- | --- | --- |
+| **Escort Carrier** | 5,000 | every 5.0 s | 2 × 35 / 3.0 s, 1000 m | 5 | 3,000 |
+| **Fleet Carrier** | 10,000 | every 3.5 s | 2 × 45 / 2.5 s, 1100 m | 10 | 7,000 |
+| **Battle Carrier** | 15,000 | every 2.5 s | 2 × 55 / 2.2 s, 1200 m | 15 | 12,000 |
+| **Supercarrier** | 20,000 | every 1.8 s | 2 × 65 / 1.8 s, 1300 m | 20 | 20,000 |
+
+Each tier is capped at one per wave, and `GROUP_CAPS` holds the whole family to
+**two at once**, so a late wave cannot field one of every tier.
+
+#### The deck
+
+Everything a carrier does goes through a deck of **three slots**, and takeoffs,
+landing approaches and repairs all compete for them. That is the whole balance
+of the thing: a full deck cannot launch, so keeping a carrier's aircraft hurt
+is itself an attack on its ability to put more of them up.
+
+An aircraft under **40%** of its hull, within 2200 m of a living carrier, is
+claimed by it and flies itself home. It parks on the after deck, moving with
+the ship, and four seconds later relaunches at **full health** — repeatably,
+with no cooldown and no suppression while the carrier is under fire.
+
+A parked aircraft is not safe. It stays in `world.enemies`: it does not fly, it
+does not shoot, it is a legal target, and it still counts for wave clearance.
+Strafing a full deck is the counterplay to the repair mechanic, and **sinking
+the ship kills everything on it** — which is the payoff for going through
+20,000 points of hull rather than picking off what comes out of it.
+
+Launches leave bow-first on a catapult run, during which the aircraft neither
+steers nor fires. A swarm draw is not thirty simultaneous catapult shots: it
+fills a queue that streams off the deck at the same stagger `startWave` uses,
+with a short takeoff run, so three are rolling at once rather than thirty and
+the whole swarm clears in about a second and a half.
+
+#### The battery
+
+A carrier carries no forward weapon. Its armament is a surface-to-air battery
+with no firing cone at all — a ship has no nose to point, so the only thing
+that decides whether it shoots is whether you came inside the envelope. The
+envelope is drawn on the ground the way a bomb's blast radius is, and brightens
+when you cross it, so "if you get too close" is something you can see rather
+than something you learn.
+
+SAMs cannot be shot down and ignore your ordnance. `npm test` holds every
+envelope inside both a fully upgraded beam's 2000 m reach and the radar's
+2600 m, and every warhead under your best missile's 150, so standing off and
+whittling stays a legitimate — if slow — answer to any carrier.
+
+#### What this costs you
+
+Upgrades are free, and the cannon spans 20 dps stock to 15,000 dps maxed, so
+these hulls are not a difficulty curve so much as a **loadout check**. A stock
+cannon needs four unbroken minutes on the wave-5 Escort Carrier while it puts
+an aircraft up every five seconds; a mid-ladder cannon needs five seconds. Fly
+one of the nose weapons and you are capped at 150 dps against all four, which
+makes a Supercarrier a two-minute beam.
+
+Left alone, a carrier fills the sky. A headless run that kept an invincible
+player circling two late carriers for a minute apiece peaked at **309 aircraft
+airborne** at 1 ms a frame against a 16.7 ms budget — survivable by the
+renderer, which is not the same as survivable by you. The lever on that is
+`launchInterval` in `config.js`, not the bounty.
+
+`check-carrier.js` pins the rules that are invisible when they break: that a
+deck never oversubscribes, that nothing is left stuck in a deck state (waves
+advance only when the sky empties, so an aircraft that never finishes its
+takeoff run is a run that never ends), that a parked aircraft can be killed and
+frees its slot, that sinking a ship takes its deck with it and leaves no wreck
+holding a reference, that a carrier can never launch another carrier, that the
+battery fires inside its envelope and holds fire outside it, and that a carrier
+holds its heading with the player square off the beam.
 
 `check-waves.js` samples the composer across forty waves and fails if any wave
 comes out empty — invisible in code, but it would soft-lock the game, since
 waves advance when the sky is cleared — as well as if anything appears before
-its time, a cap is exceeded, a type is unreachable, the waves stop escalating,
-or a type names a hull that does not exist (which would silently fall back to
-the plain fighter shape).
+its time, a per-type or group cap is exceeded, a type is unreachable, the waves
+stop escalating, or a type names a hull that does not exist (which would
+silently fall back to the plain fighter shape).
 
 ## Controls
 
@@ -317,6 +430,7 @@ src/
 │   ├── enemy.js        Spawning, AI state machine, damage resolution
 │   ├── weapons.js      Firing: trigger pull to projectile
 │   ├── projectiles.js  Flight and impact of bullets and missiles
+│   ├── carrier.js      Carriers: transit, launching, the deck, the SAM battery
 │   ├── bombs.js        Dropped bombs: fuse, blast, indiscriminate kills
 │   ├── pickups.js      Repair and ammo crates
 │   └── effects.js      Particles, shockwaves, screen shake (cosmetic only)
@@ -331,7 +445,9 @@ scripts/
 ├── build.js            Single-file bundler
 ├── check-balance.js    Asserts nothing dominates in any category
 ├── check-weapons.js    Asserts pierce, ignition, salvos and lock behave
-└── check-bomb.js       Asserts each bomb's fuse and its friendly fire
+├── check-bomb.js       Asserts each bomb's fuse and its friendly fire
+├── check-waves.js      Asserts every wave is populated, capped and escalating
+└── check-carrier.js    Asserts decks, launching, repair and sinking behave
 ```
 
 ## How a frame works
@@ -340,7 +456,7 @@ scripts/
 requestAnimationFrame
         │
         ├─ simulate(world) × N     fixed 60 Hz steps, N depends on elapsed time
-        │     player → enemies → projectiles → bombs → pickups → effects → waves
+        │     player → carriers → enemies → projectiles → bombs → pickups → effects → waves
         │
         ├─ drawScene(world)        world-space pass, behind the HUD
         └─ drawHud(world)          screen-space instruments
@@ -367,3 +483,9 @@ slow motion, and the physics behave identically on a 60 Hz and a 144 Hz display.
   knows nothing about the hangar.
 - **Angles are radians**, `0` points along +X, and `steer()` in `core/math.js`
   is how anything rotates toward a heading the short way round.
+- **Carriers are flagged, not subclassed.** `entities/carrier.js` and
+  `entities/enemy.js` talk to each other through two plain fields on the
+  entity — `carrier` marks a ship, `onDeck` marks an aircraft that belongs to
+  one — and `updateEnemy` simply returns early on either. Neither file imports
+  the other, so there is no cycle and no inheritance; a carrier is an ordinary
+  member of `world.enemies` that a different pass happens to drive.

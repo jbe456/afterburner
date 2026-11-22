@@ -6,6 +6,7 @@
 
 import { updatePlayer, updateWreckage, updatePlayerBurn } from "./entities/player.js";
 import { updateEnemy, updateBurning } from "./entities/enemy.js";
+import { updateCarriers } from "./entities/carrier.js";
 import { updateBullets, updateMissiles, updateFlames } from "./entities/projectiles.js";
 import { updateBombs } from "./entities/bombs.js";
 import { updatePickups } from "./entities/pickups.js";
@@ -17,6 +18,9 @@ export function simulate(world) {
   world.time++;
 
   updatePlayer(world);
+  // Ships first: they launch into world.enemies, and what they launch should
+  // find its deck already in its new position rather than a tick behind.
+  updateCarriers(world);
   for (const enemy of world.enemies) updateEnemy(world, enemy);
 
   updateBullets(world);

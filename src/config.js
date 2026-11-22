@@ -873,6 +873,64 @@ export const ENEMY_TYPES = {
     bomb: { cooldown: 220, blastRadius: 420, damage: 180, fuse: 300 },
     fromWave: 15, weight: 1, maxPerWave: 1,
   },
+
+  // --- carriers -------------------------------------------------------------
+  // Not aircraft. Each is a ship: it ignores you entirely, crosses the map on
+  // the heading it arrived on, and keeps putting aircraft into the sky until
+  // its hull is gone. See CARRIER below for the deck rules they share.
+
+  escortCarrier: {
+    name: "Escort Carrier", shape: "carrier",
+    hp: 5000, speed: 1.1, turn: 0.004, radius: 95,
+    color: "#3c4a52", accent: "#8fb6c9",
+    range: 1000, score: 3000, scale: 3.0,
+    /** No contrail: it is a ship, not something leaving vapour at altitude. */
+    trail: 0,
+    carrier: { launchInterval: 300 },
+    sam: { cooldown: 180, range: 1000, damage: 35, turnRate: 0.075,
+           speed: 5, accel: 0.24, maxSpeed: 12, life: 240, hitRadius: 18, salvo: 2 },
+    group: "carrier",
+    fromWave: 5, weight: 1, maxPerWave: 1,
+  },
+
+  fleetCarrier: {
+    name: "Fleet Carrier", shape: "carrier",
+    hp: 10000, speed: 1.0, turn: 0.0035, radius: 110,
+    color: "#36424f", accent: "#9fd0e8",
+    range: 1100, score: 7000, scale: 3.5,
+    trail: 0,
+    carrier: { launchInterval: 210 },
+    sam: { cooldown: 150, range: 1100, damage: 45, turnRate: 0.080,
+           speed: 5, accel: 0.25, maxSpeed: 12.5, life: 260, hitRadius: 18, salvo: 2 },
+    group: "carrier",
+    fromWave: 10, weight: 1, maxPerWave: 1,
+  },
+
+  battleCarrier: {
+    name: "Battle Carrier", shape: "carrier",
+    hp: 15000, speed: 0.9, turn: 0.003, radius: 125,
+    color: "#2e3a4a", accent: "#c9a84f",
+    range: 1200, score: 12000, scale: 4.0,
+    trail: 0,
+    carrier: { launchInterval: 150 },
+    sam: { cooldown: 132, range: 1200, damage: 55, turnRate: 0.085,
+           speed: 5, accel: 0.26, maxSpeed: 13, life: 280, hitRadius: 20, salvo: 2 },
+    group: "carrier",
+    fromWave: 15, weight: 1, maxPerWave: 1,
+  },
+
+  superCarrier: {
+    name: "Supercarrier", shape: "carrier",
+    hp: 20000, speed: 0.8, turn: 0.0025, radius: 140,
+    color: "#242c3a", accent: "#ff7a6b",
+    range: 1300, score: 20000, scale: 4.5,
+    trail: 0,
+    carrier: { launchInterval: 108 },
+    sam: { cooldown: 108, range: 1300, damage: 65, turnRate: 0.090,
+           speed: 5, accel: 0.27, maxSpeed: 13.5, life: 300, hitRadius: 20, salvo: 2 },
+    group: "carrier",
+    fromWave: 20, weight: 1, maxPerWave: 1,
+  },
 };
 
 export const ENEMY_TYPE_IDS = Object.keys(ENEMY_TYPES);
@@ -883,13 +941,53 @@ export const ENEMY_TYPE_IDS = Object.keys(ENEMY_TYPES);
  * burns at, which is what they actually do to you.
  */
 export const enemyDps = (t) => {
+  if (t.sam) return (t.sam.salvo * t.sam.damage * (1000 / TICK_MS)) / t.sam.cooldown;
   if (t.flame) return t.flame.damage;
   if (t.laser) return t.laser.damage;
   return ((t.barrels ?? 1) * t.damage * (1000 / TICK_MS)) / t.fireCd;
 };
 
-/** Which of the three forward weapons a type carries. Exactly one, always. */
-export const enemyWeapon = (t) => (t.flame ? "flame" : t.laser ? "laser" : "gun");
+/**
+ * Which weapon a type carries. Every *aircraft* carries exactly one of the
+ * three forward weapons; a carrier carries none of them and answers "sam".
+ */
+export const enemyWeapon = (t) =>
+  t.sam ? "sam" : t.flame ? "flame" : t.laser ? "laser" : "gun";
+
+/**
+ * How many of a group may appear in one wave, over and above each type's own
+ * `maxPerWave`. Four carrier tiers each capped at one would still let a late
+ * wave field four of them at once, which is not a fight — it is a slideshow.
+ */
+export const GROUP_CAPS = { carrier: 2 };
+
+/**
+ * Deck rules, shared by every carrier tier. What differs between tiers is the
+ * hull, the SAM and how often the catapult fires — everything here is the
+ * same ship.
+ */
+export const CARRIER = {
+  /** Takeoffs, landing approaches and repairs all compete for these. */
+  deckSlots: 3,
+  /** An aircraft under this fraction of its hull looks for a deck. */
+  landThreshold: 0.4,
+  /** ...and only bothers if a carrier is this close. */
+  landRange: 2200,
+  /** Ticks parked before it relaunches at full health. */
+  repairTicks: 240,
+  /** Ticks of takeoff run, during which it neither steers nor shoots. */
+  takeoffTicks: 90,
+  /**
+   * A swarm draw streams off the deck at WAVES.swarmStagger, so a full takeoff
+   * run each would need thirty slots. A short one keeps three rolling at once
+   * and still clears thirty aircraft in about a second and a half.
+   */
+  swarmTakeoffTicks: 9,
+  /** Where aircraft leave from, as a fraction of the hull radius, bow-first. */
+  bowOffset: 0.8,
+  /** Carriers enter this far inside the arena wall rather than on the ring. */
+  edgeInset: 500,
+};
 
 export const ENEMY = {
   bulletSpeed: 11,

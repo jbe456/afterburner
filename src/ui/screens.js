@@ -457,7 +457,10 @@ export function showHelp(onBack) {
 /** What a type actually brings to the fight, in plain words. */
 function armament(type) {
   const parts = [];
-  if (type.flame) parts.push("flame");
+  // A carrier carries none of the three forward weapons: its armament is the
+  // battery, and its real weapon is everything it puts in the air.
+  if (type.sam) parts.push(`SAM · ${type.sam.salvo} per salvo`);
+  else if (type.flame) parts.push("flame");
   else if (type.laser) parts.push("beam");
   else parts.push(`${type.barrels ?? 1} gun${(type.barrels ?? 1) > 1 ? "s" : ""}`);
   if (type.missile) {
@@ -497,9 +500,13 @@ export function showIntel(onBack) {
     canvas.width = canvas.clientWidth * dpr;
     canvas.height = canvas.clientHeight * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    // Fit the biggest hull in the box and draw everything at that same scale,
-    // so the roster reads as a size comparison as well as a list.
-    const fit = (canvas.clientHeight * 0.42) / 48;
+    // Aircraft share one scale, so the roster reads as a size comparison as
+    // well as a list. A carrier is several times longer than the longest of
+    // them and would either burst its card or shrink every jet to a speck, so
+    // it is fitted to its own box instead and its card says so.
+    const fit = type.carrier
+      ? (canvas.clientHeight * 0.86) / (96 * type.scale)
+      : (canvas.clientHeight * 0.42) / 48;
     drawHull(ctx, type.shape, canvas.clientWidth / 2, canvas.clientHeight / 2,
       -Math.PI / 2, type.scale * fit, type.color, type.accent, false, 0.45, 0);
   }
@@ -515,6 +522,7 @@ function foeCard(id) {
       <div class="foe-name">${type.name}</div>
       <div class="foe-wave">wave ${type.fromWave}+${type.maxPerWave ? ` · max ${type.maxPerWave}` : ""}</div>
       ${type.swarm ? `<div class="foe-swarm">swarms of ${type.swarm}</div>` : ""}
+      ${type.carrier ? `<div class="foe-swarm">launches · repairs · not to scale</div>` : ""}
       <div class="foe-stats">
         <span>${type.hp}</span> hull<br>
         <span>${Math.round(enemyDps(type))}</span> dps · <span>${type.range}</span> m<br>
@@ -797,8 +805,10 @@ function select(slot, id) {
 // --- game over --------------------------------------------------------------
 
 export function showGameOver(world, onFlyAgain, onChangePlane) {
-  const best = Math.max(loadBest(), world.score);
-  saveBest(best);
+  // A run that skipped the early waves is not comparable to one that flew
+  // them, so it can read the best but never set it.
+  const best = world.practice ? loadBest() : Math.max(loadBest(), world.score);
+  if (!world.practice) saveBest(best);
 
   const p = world.player;
   panel().className = "panel dead";
@@ -810,6 +820,7 @@ export function showGameOver(world, onFlyAgain, onChangePlane) {
       KILLS <span>${world.kills}</span> &nbsp;·&nbsp; WAVE <span>${world.wave}</span><br>
       BEST <span>${best}</span>
     </div>
+    ${world.practice ? `<div class="hint">practice run — not recorded</div>` : ""}
     <div class="loadout-recap">
       ${WEAPONS[p.weapon].label} · ${p.missile.short} · ${p.bomb.short}
     </div>

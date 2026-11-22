@@ -11,7 +11,7 @@
  */
 
 import { rand, clamp, steer, angDiff, TAU } from "../core/math.js";
-import { ARENA_HALF, ENEMY, ENEMY_TYPES, enemyWeapon } from "../config.js";
+import { ARENA_HALF, CARRIER, ENEMY, ENEMY_TYPES, enemyWeapon } from "../config.js";
 import {
   fireGun, fireEnemyMissile, dropEnemyBomb, fireEnemyFlame, fireEnemyLaser,
 } from "./weapons.js";
@@ -30,6 +30,22 @@ const WALL_MARGIN = 500;
  */
 export function spawnEnemy(world, typeName, groupBearing = null) {
   const type = ENEMY_TYPES[typeName];
+
+  // A ship does not arrive on a ring around you. It comes in off the edge of
+  // the arena and crosses, which is the whole shape of the encounter: it is
+  // somewhere else, and closing with it is your decision rather than its.
+  if (type.carrier) {
+    const edge = ARENA_HALF - CARRIER.edgeInset;
+    const bearing = Math.random() * TAU;
+    return spawnEnemyAt(
+      world,
+      typeName,
+      Math.cos(bearing) * edge,
+      Math.sin(bearing) * edge,
+      bearing + Math.PI + rand(-0.5, 0.5), // across the map, not along the rim
+    );
+  }
+
   const bearing = groupBearing === null
     ? Math.random() * TAU
     : groupBearing + rand(-0.3, 0.3);
@@ -39,10 +55,25 @@ export function spawnEnemy(world, typeName, groupBearing = null) {
   const x = clamp(world.player.x + Math.cos(bearing) * range, -limit, limit);
   const y = clamp(world.player.y + Math.sin(bearing) * range, -limit, limit);
 
-  world.enemies.push({
+  return spawnEnemyAt(
+    world, typeName, x, y,
+    Math.atan2(world.player.y - y, world.player.x - x),
+  );
+}
+
+/**
+ * Put an aircraft or a ship into the world at an exact place and heading.
+ * The single door everything enters by, as `damageEnemy` is the single door
+ * everything leaves by — carriers launch through here too.
+ *
+ * @returns the new entity, so a caller can go on to claim it.
+ */
+export function spawnEnemyAt(world, typeName, x, y, angle) {
+  const type = ENEMY_TYPES[typeName];
+
+  const e = {
     type: typeName,
-    x, y,
-    angle: Math.atan2(world.player.y - y, world.player.x - x),
+    x, y, angle,
     speed: type.speed,
     hp: type.hp,
     maxHp: type.hp,
@@ -58,10 +89,32 @@ export function spawnEnemy(world, typeName, groupBearing = null) {
     flash: 0,
     /** Set by incendiary rounds: {ticksLeft, dps}. */
     burn: null,
-  });
+    /** Set while this aircraft belongs to a carrier's deck; see carrier.js. */
+    onDeck: null,
+  };
+
+  if (type.carrier) {
+    /** Marks this as a ship: carrier.js flies it, and updateEnemy leaves it. */
+    e.carrier = true;
+    /** Aircraft occupying a deck slot — landing, parked, or rolling. */
+    e.deck = [];
+    e.launchCooldown = rand(30, type.carrier.launchInterval);
+    e.samCooldown = rand(30, type.sam.cooldown);
+    /** A swarm draw, streaming off the deck one at a time. */
+    e.swarmQueue = [];
+    e.swarmTimer = 0;
+  }
+
+  world.enemies.push(e);
+  return e;
 }
 
 export function updateEnemy(world, e) {
+  // Carriers and anything on one of their decks are flown by carrier.js, in
+  // its own pass. Two plain fields rather than an import, so neither file
+  // depends on the other.
+  if (e.carrier || e.onDeck) return;
+
   const type = ENEMY_TYPES[e.type];
   const player = world.player;
 
@@ -266,6 +319,35 @@ export function damageEnemy(world, e, amount, hitX, hitY, { quiet = false } = {}
   const i = world.enemies.indexOf(e);
   if (i !== -1) world.enemies.splice(i, 1);
 
+  // Anything leaving the world has to let go of the deck it was on, or the
+  // ship would go on servicing a wreck and hold the slot forever.
+  if (e.onDeck) {
+    const deck = e.onDeck.ship.deck;
+    const k = deck.indexOf(e);
+    if (k !== -1) deck.splice(k, 1);
+    e.onDeck = null;
+  }
+  if (e.carrier) sinkDeck(world, e);
+
   maybeDropPickup(world, e.x, e.y);
   return true;
+}
+
+/**
+ * A carrier takes its deck down with it: everything landing, parked or still
+ * rolling dies with the ship. That is the payoff for going through the hull
+ * rather than picking off what comes out of it, and it is why the deck is
+ * worth watching before you commit to the kill.
+ *
+ * Quietly, because this lands on the same tick as the ship's own explosion
+ * and three more hit sounds on top of it is just noise.
+ */
+function sinkDeck(world, ship) {
+  const aboard = ship.deck.slice();
+  ship.deck.length = 0;
+
+  for (const plane of aboard) {
+    plane.onDeck = null;
+    damageEnemy(world, plane, Infinity, plane.x, plane.y, { quiet: true });
+  }
 }
