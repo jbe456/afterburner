@@ -97,24 +97,28 @@ console.log("\nCANNON");
 
 {
   // Regular rounds stop at the first aircraft; piercing go through three.
+  // Counted as aircraft *touched* rather than aircraft killed: a single round
+  // no longer out-damages a Fighter's hull, and whether one shot happens to be
+  // lethal is a balance figure, not the mechanic under test.
   const line = [200, 400, 600];
 
-  const plain = setup(fit("cannon", { "cannon.type": 0, "cannon.damage": "max", "cannon.reach": "max" }), line);
-  // One barrel, or two rounds would kill two aircraft without piercing at all
-  // and the test would pass for the wrong reason.
-  plain.world.player.cannon.slots = 1;
-  fireGun(plain.world, plain.player, true);
-  for (let t = 0; t < 200 && plain.world.bullets.length; t++) updateBullets(plain.world);
-  const plainKills = plain.enemies.filter((e) => !plain.world.enemies.includes(e)).length;
-  check("a regular round stops at the first aircraft", plainKills === 1, `killed ${plainKills}`);
+  /** Aircraft in the line that the single round took hull off. */
+  function struck(type) {
+    const { world, player, enemies } = setup(
+      fit("cannon", { "cannon.type": type, "cannon.damage": "max", "cannon.reach": "max" }), line);
+    // One barrel, or a second round would hit a second aircraft on its own and
+    // the test would pass without anything having pierced at all.
+    player.cannon.slots = 1;
+    fireGun(world, player, true);
+    for (let t = 0; t < 200 && world.bullets.length; t++) updateBullets(world);
+    return enemies.filter((e) => e.hp < ENEMY_TYPES.fighter.hp).length;
+  }
 
-  const pierce = setup(fit("cannon", { "cannon.type": 1, "cannon.damage": "max", "cannon.reach": "max" }), line);
-  // One barrel again, so three kills can only mean one round went through three.
-  pierce.world.player.cannon.slots = 1;
-  fireGun(pierce.world, pierce.player, true);
-  for (let t = 0; t < 200 && pierce.world.bullets.length; t++) updateBullets(pierce.world);
-  const pierceKills = pierce.enemies.filter((e) => !pierce.world.enemies.includes(e)).length;
-  check("a piercing round goes through three", pierceKills === 3, `killed ${pierceKills}`);
+  const plain = struck(0);
+  check("a regular round stops at the first aircraft", plain === 1, `hit ${plain}`);
+
+  const pierce = struck(1);
+  check("a piercing round goes through three", pierce === 3, `hit ${pierce}`);
 }
 
 console.log("\nFLAME");

@@ -254,22 +254,22 @@ export const WEAPONS = {
       },
       slots: {
         label: "SLOTS",
-        tiers: [2, 4],
+        tiers: [2, 3, 4],
         format: (v) => `${v}`,
       },
       damage: {
         label: "DAMAGE",
-        tiers: steps(10, 250, 5, 5),
+        tiers: [4, 6, 8, 10],
         format: (v) => `${v}`,
       },
       reach: {
         label: "REACH",
-        tiers: steps(200, 2000, 5, 50),
+        tiers: steps(250, 1500, 5, 50),
         format: (v) => `${v} m`,
       },
       rate: {
         label: "RATE",
-        tiers: steps(1, 15, 5),
+        tiers: steps(2, 5, 5, 0.5),
         format: (v) => `${v}/s`,
       },
     },
@@ -281,12 +281,12 @@ export const WEAPONS = {
     props: {
       damage: {
         label: "DAMAGE",
-        tiers: steps(10, 150, 5, 5),
+        tiers: steps(20, 240, 5, 5),
         format: (v) => `${v}/s`,
       },
       reach: {
         label: "REACH",
-        tiers: steps(100, 500, 5, 10),
+        tiers: steps(120, 450, 5, 10),
         format: (v) => `${v} m`,
       },
     },
@@ -298,12 +298,12 @@ export const WEAPONS = {
     props: {
       damage: {
         label: "DAMAGE",
-        tiers: steps(10, 150, 5, 5),
+        tiers: steps(15, 170, 5, 5),
         format: (v) => `${v}/s`,
       },
       reach: {
         label: "REACH",
-        tiers: steps(500, 2000, 5, 25),
+        tiers: steps(600, 2400, 5, 50),
         format: (v) => `${v} m`,
       },
     },
@@ -363,8 +363,9 @@ export const CANNON = {
   /** Piercing rounds are heavier and hotter, and have to read that way. */
   pierceTracer: "#ffd98a",
   pierceTracerWidth: 5.4,
-  /** Half-angle of the flame cone, in radians. */
-  flameConeHalfAngle: 0.30,
+  /** Half-angle of the flame cone, in radians: 48 degrees across. Wide is
+      the flame's half of the bargain for having to fight at 450 m. */
+  flameConeHalfAngle: 0.42,
   /** How wide a target counts as touching the laser beam. */
   laserHalfWidth: 7,
   /** Ticks a target keeps burning after leaving flame or beam. */
@@ -881,7 +882,7 @@ export const ENEMY_TYPES = {
 
   escortCarrier: {
     name: "Escort Carrier", shape: "carrier",
-    hp: 5000, speed: 1.1, turn: 0.004, radius: 95,
+    hp: 1800, speed: 1.1, turn: 0.004, radius: 95,
     color: "#3c4a52", accent: "#8fb6c9",
     range: 1000, score: 3000, scale: 3.0,
     /** No contrail: it is a ship, not something leaving vapour at altitude. */
@@ -895,7 +896,7 @@ export const ENEMY_TYPES = {
 
   fleetCarrier: {
     name: "Fleet Carrier", shape: "carrier",
-    hp: 10000, speed: 1.0, turn: 0.0035, radius: 110,
+    hp: 3000, speed: 1.0, turn: 0.0035, radius: 110,
     color: "#36424f", accent: "#9fd0e8",
     range: 1100, score: 7000, scale: 3.5,
     trail: 0,
@@ -908,7 +909,7 @@ export const ENEMY_TYPES = {
 
   battleCarrier: {
     name: "Battle Carrier", shape: "carrier",
-    hp: 15000, speed: 0.9, turn: 0.003, radius: 125,
+    hp: 4200, speed: 0.9, turn: 0.003, radius: 125,
     color: "#2e3a4a", accent: "#c9a84f",
     range: 1200, score: 12000, scale: 4.0,
     trail: 0,
@@ -921,7 +922,7 @@ export const ENEMY_TYPES = {
 
   superCarrier: {
     name: "Supercarrier", shape: "carrier",
-    hp: 20000, speed: 0.8, turn: 0.0025, radius: 140,
+    hp: 6000, speed: 0.8, turn: 0.0025, radius: 140,
     color: "#242c3a", accent: "#ff7a6b",
     range: 1300, score: 20000, scale: 4.5,
     trail: 0,

@@ -299,15 +299,17 @@ function readoutBody() {
   const gun = weapons.cannon;
   const nose = weapons.flame ?? weapons.laser;
 
-  // Wing guns state rounds and a rate; a nose weapon simply burns, so it
-  // states the rate alone. Running them into one number would compare a
-  // round that has to hit with a cone that cannot miss.
+  // Every weapon states one number, so a fit can be compared across the three
+  // of them: damage to a hull per second. The guns multiply out from the
+  // cadence the simulation actually fires at rather than the rung's nominal
+  // rate, which a cooldown of whole ticks cannot always hit exactly; what
+  // they are made of stays on the CANNON bay, a ladder to a bar.
+  const dps = gun ? gun.slots * gun.damage * (TPS / gun.cooldown) : nose.damage;
+
   const figures = [
     ["HULL", ARMOUR[chosen.armour].maxHp, "points"],
     ["TOP SPEED", Math.round(ENGINES[chosen.engine].maxSpeed * KMH_PER_SPEED_UNIT), "km/h"],
-    gun
-      ? ["FIREPOWER", `${gun.slots} &times; ${gun.damage}`, `at ${gun.rate}/s`]
-      : ["FIREPOWER", nose.damage, "dps"],
+    ["FIREPOWER", Math.round(dps), "dps"],
     ["REACH", gun ? gun.reach : nose.range, "metres"],
   ];
 

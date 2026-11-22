@@ -113,14 +113,26 @@ one.
 
 | | | |
 | --- | --- | --- |
-| **Cannon** | bullets, from the wings | type (regular / pierces 3), slots (2 or 4), damage (10–250), reach (200–2000 m), rate (1–15/s) |
-| **Flame** | a cone from the nose | damage (10–150/s), reach (100–500 m) |
-| **Laser** | a beam from the nose | damage (10–150/s), reach (500–2000 m) |
+| **Cannon** | bullets, from the wings | type (regular / pierces 3), slots (2–4), damage (4–10), reach (250–1500 m), rate (2–5/s) |
+| **Flame** | a 48° cone from the nose | damage (20–240/s), reach (120–450 m) |
+| **Laser** | a beam from the nose | damage (15–170/s), reach (600–2400 m) |
+
+Maxed, the three come out at **200**, **240** and **170 dps**, and that is the
+point of the numbers above rather than any one of them. The cannon's three
+ladders *multiply* — `slots × damage × rate` — so its ceiling is the product
+of its top rungs, and each rung has to be modest for the product not to be
+absurd. The hangar's FIREPOWER readout states that product, in dps, for
+whichever weapon is fitted, so the three can be compared at a glance.
+
+The trade is reach against damage. The flame hits hardest and sweeps 48°
+across, but 450 m means fighting inside everything the enemy has; the laser
+reaches 2400 m — as far as radar sees — and pays for it in rate of damage;
+the cannon sits between them on both, and is the only one that can pierce.
 
 Each property is its own ladder of five rungs with its own card and upgrade
 button, defined in `WEAPONS` in `src/config.js` — add a property and the
-hangar grows a card for it. Cannon slots are barrels, fitted in pairs across
-the wings, and reach is a real distance: a round expires exactly at it.
+hangar grows a card for it. Cannon slots are barrels, laid out across the
+wings, and reach is a real distance: a round expires exactly at it.
 Piercing rounds carry on through what they kill, and fly as heavy amber slugs
 instead of the thin cyan of a regular belt, so the belt you are firing reads
 off the tracers rather than the HUD.
@@ -217,10 +229,10 @@ described on their own below.
 | **Dreadnought** | 420 | 112 | three barrels, 1200 m · max 1 | 11 |
 | **Basilisk** | 340 | 66 | twin guns + **missile pairs** · max 2 | 12 |
 | **Leviathan** | 700 | 132 | three barrels + **missiles** + **mines** · max 1 | 15 |
-| **Escort Carrier** | 5,000 | 23 | **SAM**, 1000 m · launches · max 1 | 5 |
-| **Fleet Carrier** | 10,000 | 36 | **SAM**, 1100 m · launches · max 1 | 10 |
-| **Battle Carrier** | 15,000 | 50 | **SAM**, 1200 m · launches · max 1 | 15 |
-| **Supercarrier** | 20,000 | 72 | **SAM**, 1300 m · launches · max 1 | 20 |
+| **Escort Carrier** | 1,800 | 23 | **SAM**, 1000 m · launches · max 1 | 5 |
+| **Fleet Carrier** | 3,000 | 36 | **SAM**, 1100 m · launches · max 1 | 10 |
+| **Battle Carrier** | 4,200 | 50 | **SAM**, 1200 m · launches · max 1 | 15 |
+| **Supercarrier** | 6,000 | 72 | **SAM**, 1300 m · launches · max 1 | 20 |
 
 Gun dps assumes every round connects, which against a moving target it does
 not — but the bottom of that table will still erase you if you fly straight at
@@ -250,8 +262,8 @@ after you break away. Enemy beams are drawn red against your violet, and none
 of it touches their own side.
 
 Enemy figures stay under what you can reach — the fiercest enemy fire is
-120/s against your ceiling of 150/s, and the longest enemy beam 1700 m against
-2000 m. `npm test` holds that gap, so a new specialist cannot quietly
+120/s against your ceiling of 240/s, and the longest enemy beam 1700 m against
+2400 m. `npm test` holds that gap, so a new specialist cannot quietly
 out-range a fully upgraded player.
 
 Enemy missiles home on you and will not stop on their own side.
@@ -298,10 +310,10 @@ those caps govern what a *wave* contains rather than what a ship carries.
 
 | | Hull | Launches | SAM | From wave | Bounty |
 | --- | --- | --- | --- | --- | --- |
-| **Escort Carrier** | 5,000 | every 5.0 s | 2 × 35 / 3.0 s, 1000 m | 5 | 3,000 |
-| **Fleet Carrier** | 10,000 | every 3.5 s | 2 × 45 / 2.5 s, 1100 m | 10 | 7,000 |
-| **Battle Carrier** | 15,000 | every 2.5 s | 2 × 55 / 2.2 s, 1200 m | 15 | 12,000 |
-| **Supercarrier** | 20,000 | every 1.8 s | 2 × 65 / 1.8 s, 1300 m | 20 | 20,000 |
+| **Escort Carrier** | 1,800 | every 5.0 s | 2 × 35 / 3.0 s, 1000 m | 5 | 3,000 |
+| **Fleet Carrier** | 3,000 | every 3.5 s | 2 × 45 / 2.5 s, 1100 m | 10 | 7,000 |
+| **Battle Carrier** | 4,200 | every 2.5 s | 2 × 55 / 2.2 s, 1200 m | 15 | 12,000 |
+| **Supercarrier** | 6,000 | every 1.8 s | 2 × 65 / 1.8 s, 1300 m | 20 | 20,000 |
 
 Each tier is capped at one per wave, and `GROUP_CAPS` holds the whole family to
 **two at once**, so a late wave cannot field one of every tier.
@@ -340,18 +352,20 @@ when you cross it, so "if you get too close" is something you can see rather
 than something you learn.
 
 SAMs cannot be shot down and ignore your ordnance. `npm test` holds every
-envelope inside both a fully upgraded beam's 2000 m reach and the radar's
+envelope inside both a fully upgraded beam's 2400 m reach and the radar's
 2600 m, and every warhead under your best missile's 150, so standing off and
 whittling stays a legitimate — if slow — answer to any carrier.
 
 #### What this costs you
 
-Upgrades are free, and the cannon spans 20 dps stock to 15,000 dps maxed, so
+Upgrades are free, and the cannon spans 16 dps stock to 200 dps maxed, so
 these hulls are not a difficulty curve so much as a **loadout check**. A stock
-cannon needs four unbroken minutes on the wave-5 Escort Carrier while it puts
-an aircraft up every five seconds; a mid-ladder cannon needs five seconds. Fly
-one of the nose weapons and you are capped at 150 dps against all four, which
-makes a Supercarrier a two-minute beam.
+cannon needs nearly two unbroken minutes on the wave-5 Escort Carrier while it
+puts an aircraft up every five seconds; a maxed one needs nine. The
+Supercarrier is thirty seconds of perfect fire from a maxed cannon, thirty-five
+from the beam, twenty-five from the flame — and the flame has to spend them
+inside a 1300 m SAM envelope, at 450 m. None of those are achievable
+uninterrupted, so a real kill runs two to three times longer.
 
 Left alone, a carrier fills the sky. A headless run that kept an invincible
 player circling two late carriers for a minute apiece peaked at **309 aircraft
