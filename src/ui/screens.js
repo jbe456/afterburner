@@ -10,6 +10,7 @@
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, GUIDANCE,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
+  BOMB, fuseRungLocked, maxFuseRung,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, resolveWeapons,
 } from "../config.js";
 import { drawHull } from "../render/hulls.js";
@@ -32,9 +33,7 @@ const TPS = 1000 / TICK_MS;
 
 /** Formatters, so each bar can state its own value in its own unit. */
 const count = (v) => String(Math.round(v));
-const metres = (v) => `${Math.round(v)} m`;
 const perSecond = (v) => `${Math.round(v)} dps`;
-const seconds = (v) => `${(v / TPS).toFixed(1)} s`;
 /** Shots per second, or the infinity sign for a weapon that simply stays on. */
 const perSecondShots = (v) => {
   if (!Number.isFinite(v)) return "\u221e";
@@ -53,12 +52,9 @@ const kmh = (v) => `${Math.round(v * KMH_PER_SPEED_UNIT)} km/h`;
  */
 const AXES = {
   armour: [["HULL", (a) => a.maxHp, count]],
-  engine: [["SPEED", (e) => e.maxSpeed, kmh]],
-  bomb: [
-    ["AMMO", (b) => b.carried, count],
-    ["BLAST", (b) => b.blastRadius, metres],
-    // A mine has no fuse at all — it waits, which the unbounded bar says too.
-    ["FUSE", (b) => b.fuse, (v) => (Number.isFinite(v) ? seconds(v) : "on touch")],
+  engine: [
+    ["SPEED", (e) => e.maxSpeed, kmh],
+    ["CRUISE", (e) => e.cruiseSpeed, kmh],
   ],
 };
 
@@ -111,7 +107,6 @@ const statBar = (label, width, text) => `
 const BARS = {
   armour: barsFor("armour", ARMOUR_IDS, ARMOUR),
   engine: barsFor("engine", ENGINE_IDS, ENGINES),
-  bomb: barsFor("bomb", BOMB_IDS, BOMBS),
 };
 
 /**
@@ -128,10 +123,15 @@ function trackPropBars(track) {
   }).join("");
 }
 
-/** One segment per rung, filled up to where a ladder currently stands. */
-const tierPips = (rung, total) => `
+/**
+ * One segment per rung, filled up to where a ladder currently stands. Rungs
+ * past `reachable` are drawn as locked — a bomb's FUSE ladder is gated by the
+ * fitted engine, so part of it can be visible without being buyable.
+ */
+const tierPips = (rung, total, reachable = total - 1) => `
   <div class="tier">${Array.from({ length: total },
-    (_, i) => `<span class="${i <= rung ? "on" : ""}"></span>`).join("")}</div>`;
+    (_, i) => `<span class="${i <= rung ? "on" : i > reachable ? "locked" : ""}"></span>`)
+    .join("")}</div>`;
 
 /** The tables and their orders, by slot, so a slot name is enough to read one. */
 const TABLES = { armour: ARMOUR, engine: ENGINES, bomb: BOMBS };
@@ -143,24 +143,30 @@ const IDS = { armour: ARMOUR_IDS, engine: ENGINE_IDS, bomb: BOMB_IDS };
  * drawn identically, so one lookup serves the cards, the save file and the
  * upgrade button.
  */
-const PROP_TRACKS = { ...WEAPONS, ...MISSILES };
+const PROP_TRACKS = { ...WEAPONS, ...MISSILES, ...BOMBS };
 
 /**
- * Hull and engine are climbed; missiles and bombs are picked between. The
- * difference decides what a bay shows and what its bench offers, so it is
- * asked for by name rather than re-derived in five places.
+ * Hull and engine are climbed as single fittings. The difference decides what
+ * a bay shows and what its bench offers, so it is asked for by name rather
+ * than re-derived in five places.
  */
 const isLadder = (slot) => slot === "armour" || slot === "engine";
 
 /**
  * A slot whose bay holds property ladders instead of one fitting: the forward
- * weapon, which also carries a switch, and the missile, which does not — there
- * is only one missile to carry.
+ * weapon and the bomb, which both carry a switch over several systems, and the
+ * missile, which does not — there is only one missile to carry.
  */
-const isTrack = (slot) => slot === "weapon" || slot === "missile";
+const isTrack = (slot) => slot === "weapon" || slot === "missile" || slot === "bomb";
+
+/** A track whose bench opens with a switch over several systems. */
+const SWITCHES = {
+  weapon: { ids: WEAPON_IDS, table: WEAPONS, name: (spec) => spec.label },
+  bomb: { ids: BOMB_IDS, table: BOMBS, name: (spec) => spec.name },
+};
 
 /** The track a slot's property cards belong to. */
-const trackOf = (slot) => (slot === "weapon" ? chosen.weapon : slot);
+const trackOf = (slot) => (SWITCHES[slot] ? chosen[slot] : slot);
 
 /** Every slot the hangar knows how to store. */
 const ALL_SLOTS = Object.keys(DEFAULT_LOADOUT);
@@ -178,7 +184,7 @@ const BAYS = [
   { slot: "engine", label: "ENGINE", action: "Upgrade" },
   { slot: "weapon", label: "WEAPON", action: "Switch" },
   { slot: "missile", label: "MISSILE", action: "Upgrade" },
-  { slot: "bomb", label: "BOMB", action: "Change" },
+  { slot: "bomb", label: "BOMB", action: "Switch" },
 ];
 
 /** Which bay's bench is open, or null for the overview on its own. */
@@ -275,13 +281,8 @@ function onHangarClick(e) {
   const upgradeButton = e.target.closest("[data-upgrade]");
   if (upgradeButton) { upgrade(upgradeButton.dataset.upgrade); return; }
 
-  const pick = e.target.closest("[data-weapon]");
-  if (pick) { select("weapon", pick.dataset.weapon); return; }
-
-  // Choice cards carry the id they fit; property cards carry a rung instead
-  // and are changed by their own buttons.
-  const opt = e.target.closest(".opt[data-id]");
-  if (opt) select(opt.dataset.slot, opt.dataset.id);
+  const pick = e.target.closest("[data-pick]");
+  if (pick) select(pick.dataset.pickSlot, pick.dataset.pick);
 }
 
 /** Redraw everything a change can touch: the figures, the bays, the bench. */
@@ -372,7 +373,8 @@ function atTop(slot) {
 }
 
 function fittedName(slot) {
-  if (slot === "weapon") return WEAPONS[chosen.weapon].label;
+  const sw = SWITCHES[slot];
+  if (sw) return sw.name(sw.table[chosen[slot]]);
   // The missile has no model name any more: what it is called is how it is
   // guided, which is the one property that is not a quantity.
   if (slot === "missile") return GUIDANCE[missileRung("type")].name;
@@ -385,7 +387,7 @@ const missileRung = (prop) => Math.min(
 
 function bayArt(slot) {
   if (slot === "missile") return missileArt(missileRung("type"));
-  if (!isLadder(slot)) return weaponArt(slot === "weapon" ? chosen.weapon : chosen[slot]);
+  if (!isLadder(slot)) return weaponArt(chosen[slot]);
   return ladderArt(slot, IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
 }
 
@@ -427,19 +429,20 @@ function benchMarkup() {
 
 function benchHint(slot) {
   if (slot === "weapon") return "one at a time — the others keep their rungs";
+  if (slot === "bomb") {
+    return `${BOMB_IDS.length} systems — the others keep their rungs`;
+  }
   if (slot === "missile") {
     return `${Object.keys(MISSILES.missile.props).length} ladders, and only one way up`;
   }
-  if (isLadder(slot)) return `${IDS[slot].length} rungs, and only one way up`;
-  return `${IDS[slot].length} to choose from`;
+  return `${IDS[slot].length} rungs, and only one way up`;
 }
 
 function benchBody(slot) {
-  if (slot === "weapon") return weaponColumn();
+  if (SWITCHES[slot]) return switchColumn(slot);
   // No switch: there is one missile, so the bench is its properties alone.
   if (slot === "missile") return `<div class="options">${propCards("missile")}</div>`;
-  if (isLadder(slot)) return `<div class="options single">${upgradeCard(slot)}</div>`;
-  return `<div class="options">${choiceCards(slot)}</div>`;
+  return `<div class="options single">${upgradeCard(slot)}</div>`;
 }
 
 function closeBench() {
@@ -659,8 +662,9 @@ function upgrade(slot) {
   // Forward weapons store a rung index under a "track.property" key.
   if (slot.includes(".")) {
     const [track, prop] = slot.split(".");
-    const top = PROP_TRACKS[track].props[prop].tiers.length - 1;
-    const next = Math.min((chosen[slot] ?? 0) + 1, top);
+    // Capped at what the fit can reach, not at the end of the ladder: a gated
+    // FUSE rung has a card and pips but nothing to press.
+    const next = Math.min((chosen[slot] ?? 0) + 1, reachableRung(track, prop));
     if (next !== chosen[slot]) select(slot, next);
     return;
   }
@@ -673,22 +677,26 @@ function upgrade(slot) {
 // --- forward weapon tracks --------------------------------------------------
 
 /**
- * One forward weapon at a time: a switch to pick which, and the properties of
- * whichever is picked. The others keep their rungs while they are put away,
- * so coming back to one finds it where you left it.
+ * One system at a time: a switch to pick which, and the properties of whichever
+ * is picked. The others keep their rungs while they are put away, so coming
+ * back to one finds it where you left it.
+ *
+ * Both the forward weapon and the bomb work this way — the only difference is
+ * how many systems hang off the switch, which the grid handles on its own.
  */
-function weaponColumn() {
-  const picks = WEAPON_IDS.map((id) => `
-    <button class="pick${id === chosen.weapon ? " selected" : ""}" data-weapon="${id}">
-      ${WEAPONS[id].label}<i>${WEAPONS[id].blurb}</i>
-    </button>`).join("");
+function switchColumn(slot) {
+  const { ids, table, name } = SWITCHES[slot];
 
-  const cards = propCards(chosen.weapon);
+  const picks = ids.map((id) => `
+    <button class="pick${id === chosen[slot] ? " selected" : ""}"
+            data-pick="${id}" data-pick-slot="${slot}">
+      ${name(table[id])}<i>${table[id].blurb}</i>
+    </button>`).join("");
 
   return `
     <div class="weapon-column">
       <div class="weapon-pick">${picks}</div>
-      <div class="options">${cards}</div>
+      <div class="options">${propCards(chosen[slot])}</div>
     </div>`;
 }
 
@@ -704,35 +712,47 @@ function propCard(track, prop) {
   const key = `${track}.${prop}`;
   const rung = chosen[key] ?? 0;
   const top = spec.tiers.length - 1;
+  const reachable = reachableRung(track, prop);
 
-  const button = rung < top
-    ? `<button class="upgrade" data-upgrade="${key}">
-         Upgrade <i>${spec.format(spec.tiers[rung + 1])}</i>
-       </button>`
-    : `<button class="upgrade" disabled>Maxed</button>`;
+  const button = rung >= top
+    ? `<button class="upgrade" disabled>Maxed</button>`
+    : rung >= reachable
+      ? `<button class="upgrade" disabled>Needs ${nextEngineFor(rung + 1)}</button>`
+      : `<button class="upgrade" data-upgrade="${key}">
+           Upgrade <i>${spec.format(spec.tiers[rung + 1])}</i>
+         </button>`;
+
+  // A descending ladder — only FUSE, so far — would otherwise read as a bar
+  // that shrinks when you buy something, so it says which way up is.
+  const hint = spec.down ? `<em class="prop-dir">shorter is better</em>` : "";
 
   return `
     <div class="opt prop selected" data-slot="${key}">
       <b>${spec.label}</b>
-      ${tierPips(rung, spec.tiers.length)}
+      ${tierPips(rung, spec.tiers.length, reachable)}
       <div class="prop-value">${spec.format(spec.tiers[rung])}</div>
+      ${hint}
       ${button}
     </div>`;
 }
 
-// --- choice cards -----------------------------------------------------------
+/**
+ * The highest rung of a ladder the current fit can actually buy. Everything
+ * is reachable except a bomb's FUSE, which the engine bay gates: a shorter
+ * fuse is only safe because a stronger engine carries you out of the blast
+ * sooner, so the two bays are deliberately connected.
+ */
+function reachableRung(track, prop) {
+  const top = PROP_TRACKS[track].props[prop].tiers.length - 1;
+  if (!BOMBS[track] || prop !== "fuse") return top;
+  return Math.min(top, maxFuseRung(chosen.engine));
+}
 
-/** Missiles and bombs are picked, not climbed: one card per alternative. */
-function choiceCards(slot) {
-  return IDS[slot].map((id) => {
-    const spec = TABLES[slot][id];
-    return `
-      <div class="opt${id === chosen[slot] ? " selected" : ""}" data-slot="${slot}" data-id="${id}">
-        <b>${spec.name}</b>
-        ${weaponArt(id)}
-        <div class="stats-grid">${BARS[slot](spec)}</div>
-      </div>`;
-  }).join("");
+/** The engine a given FUSE rung wants, named so the lock says what to go buy. */
+function nextEngineFor(rung) {
+  const id = ENGINE_IDS[Math.min(
+    rung * BOMB.fuseRungsPerEngineRung, ENGINE_IDS.length - 1)];
+  return ENGINES[id].short;
 }
 
 /**
@@ -762,7 +782,44 @@ const WEAPON_ART = {
     <rect class="main" x="-1" y="-1.5" width="21" height="3"/>
     <path class="arc" d="M 4,-6.5 L 13,-6.5 M 4,6.5 L 13,6.5"/>`,
 
-  // --- bombs: sticks, a shaped case, and the obvious ---
+  // --- bombs: the three circles, then the three mechanics ---
+  // Fin-and-case silhouettes, growing with the radius they clear.
+  frag: `
+    <path class="main" d="M 11,0 C 8,-4.5 1,-5.5 -5,-5 L -8,-5 L -8,5 L -5,5
+                          C 1,5.5 8,4.5 11,0 Z"/>
+    <polygon class="dim" points="-8,-5 -14,-7.5 -14,7.5 -8,5"/>`,
+
+  he: `
+    <path class="main" d="M 17,0 C 13,-6 4,-7.5 -5,-7 L -10,-7 L -10,7 L -5,7
+                          C 4,7.5 13,6 17,0 Z"/>
+    <polygon class="dim" points="-10,-7 -18,-10.5 -18,10.5 -10,7"/>
+    <rect class="dim" x="3" y="-6.5" width="3.5" height="13"/>`,
+
+  // A fuel-air case: fatter, blunter, and ringed where it vents.
+  thermobaric: `
+    <path class="main" d="M 18,0 C 16,-8 6,-10.5 -4,-10 L -10,-10 L -10,10
+                          L -4,10 C 6,10.5 16,8 18,0 Z"/>
+    <polygon class="dim" points="-10,-10 -19,-13 -19,13 -10,10"/>
+    <rect class="dim" x="0" y="-9.5" width="3" height="19"/>
+    <rect class="dim" x="8" y="-7.5" width="3" height="15"/>`,
+
+  // A thickened tank and the fire coming off it.
+  incendiary: `
+    <path class="main" d="M 12,0 C 10,-6 2,-8 -6,-7.5 L -11,-7.5 L -11,7.5
+                          L -6,7.5 C 2,8 10,6 12,0 Z"/>
+    <polygon class="dim" points="-11,-7.5 -18,-10.5 -18,10.5 -11,7.5"/>
+    <path class="arc" d="M 13,-5 q 7,2 4,5 M 14,1 q 8,2 5,6"/>`,
+
+  // A canister that has already opened, with its bomblets fanning out.
+  cluster: `
+    <path class="main" d="M 2,0 C 0,-6 -4,-7.5 -9,-7 L -13,-7 L -13,7 L -9,7
+                          C -4,7.5 0,6 2,0 Z"/>
+    <polygon class="dim" points="-13,-7 -19,-10 -19,10 -13,7"/>
+    <circle class="dim" cx="8" cy="-8" r="3"/>
+    <circle class="dim" cx="14" cy="-2" r="3"/>
+    <circle class="dim" cx="8" cy="5" r="3"/>
+    <circle class="dim" cx="16" cy="8" r="3"/>`,
+
   mine: `
     <polygon class="dim" points="15.0,0.0 8.0,3.2 8.0,-3.2"/>
     <polygon class="dim" points="10.6,10.6 3.4,7.9 7.9,3.4"/>
@@ -775,24 +832,8 @@ const WEAPON_ART = {
     <circle class="main" cx="0" cy="0" r="8.5"/>
     <circle class="dim" cx="-2.5" cy="-2.5" r="2.6"/>`,
 
-  dynamite: `
-    <rect class="main" x="-13" y="-8" width="7.5" height="16" rx="2"/>
-    <rect class="main" x="-4" y="-8" width="7.5" height="16" rx="2"/>
-    <rect class="main" x="5" y="-8" width="7.5" height="16" rx="2"/>
-    <rect class="dim" x="-13" y="-2.4" width="25.5" height="4.8"/>
-    <path class="arc" d="M 9,-8 q 6,-5 10,-1"/>`,
 
-  mk82: `
-    <path class="main" d="M 19,0 C 14,-6.5 4,-8 -6,-7.5 L -11,-7.5 L -11,7.5
-                          L -6,7.5 C 4,8 14,6.5 19,0 Z"/>
-    <polygon class="dim" points="-11,-7.5 -19,-11 -19,11 -11,7.5"/>
-    <rect class="dim" x="4" y="-7" width="3.5" height="14"/>`,
 
-  b61: `
-    <ellipse class="main" cx="0" cy="-7" rx="15" ry="5.5"/>
-    <path class="main" d="M -4.5,-5 L 4.5,-5 L 3,7 L -3,7 Z"/>
-    <ellipse class="dim" cx="0" cy="9" rx="12" ry="3.2"/>
-    <ellipse class="dim" cx="0" cy="-11.5" rx="8" ry="2.6"/>`,
 };
 
 function weaponArt(id) {
@@ -902,4 +943,20 @@ function detachMenuKeys() {
 function show(onStart) {
   overlay().classList.remove("hidden");
   document.getElementById("start").onclick = onStart;
+}
+
+// --- test seams -------------------------------------------------------------
+/**
+ * Render a bay's overview card and its open bench as a string, without a DOM.
+ * Only `scripts/` and the smoke test use these; the game goes through
+ * `showMenu`, which is what wires the handlers.
+ */
+export function __test_renderHangar(slot) {
+  openBay = slot;
+  return bayCard(BAYS.find((b) => b.slot === slot)) + benchMarkup() + readoutBody();
+}
+
+/** Point the hangar at a specific fit, so every combination can be rendered. */
+export function __test_setLoadout(loadout) {
+  Object.assign(chosen, DEFAULT_LOADOUT, loadout);
 }

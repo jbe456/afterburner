@@ -15,7 +15,8 @@ import { input, isDown } from "../core/input.js";
 import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
-  PLAYER, ARMOUR, ENGINES, BOMBS, DEFAULT_LOADOUT, LOCK, resolveWeapons, resolveMissile,
+  PLAYER, ARMOUR, ENGINES, DEFAULT_LOADOUT, LOCK,
+  resolveWeapons, resolveMissile, resolveBomb,
   ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
 import { fireGun, fireMissile, dropBomb, sprayFlame, fireLaser } from "./weapons.js";
@@ -35,7 +36,6 @@ export function createPlayer(loadout = {}) {
 
   const armour = pick(ARMOUR, loadout.armour, DEFAULT_LOADOUT.armour);
   const engine = pick(ENGINES, loadout.engine, DEFAULT_LOADOUT.engine);
-  const bomb = pick(BOMBS, loadout.bomb, DEFAULT_LOADOUT.bomb);
 
   // The forward weapon comes from ladder rungs rather than a named model.
   // Exactly one of the three resolves; the other two come back null.
@@ -45,10 +45,16 @@ export function createPlayer(loadout = {}) {
   // burn distance are all rungs rather than a model picked off a shelf.
   const missile = resolveMissile({ ...DEFAULT_LOADOUT, ...loadout });
 
+  // And so does the bomb, with one extra input: the fitted engine, which
+  // gates how short a fuse the system is allowed to run. Resolved against the
+  // engine actually picked above, so an unrecognised engine id cannot unlock
+  // a fuse the airframe has no business carrying.
+  const bomb = resolveBomb({ ...DEFAULT_LOADOUT, ...loadout, engine: engine.id });
+
   return {
     /** How much the hull absorbs. */
     armour,
-    /** Top speed, and nothing else. */
+    /** Top speed and cruise; nothing about the armament but the fuse gate. */
     engine,
     /** Which forward weapon is carried: "cannon", "flame" or "laser". */
     weapon,
@@ -61,7 +67,7 @@ export function createPlayer(loadout = {}) {
     x: 0,
     y: 0,
     angle: -Math.PI / 2, // nose north
-    speed: PLAYER.cruiseSpeed,
+    speed: engine.cruiseSpeed ?? PLAYER.cruiseSpeed,
     hp: armour.maxHp,
     alive: true,
     gunCooldown: 0,
@@ -161,10 +167,12 @@ function applyThrottle(p) {
   const burning = isDown("KeyW", "ArrowUp", "ShiftLeft", "ShiftRight");
   const braking = isDown("KeyS", "ArrowDown");
 
-  // Top speed is the airframe's; everything else about the throttle is shared.
+  // Top speed and cruise are both the engine's; the stall is shared, so a
+  // strong engine widens the band the throttle moves through rather than
+  // sliding it bodily upward.
   const target = burning ? p.engine.maxSpeed
     : braking ? PLAYER.minSpeed
-    : PLAYER.cruiseSpeed;
+    : (p.engine.cruiseSpeed ?? PLAYER.cruiseSpeed);
   p.speed += clamp(target - p.speed, -PLAYER.brake, PLAYER.accel);
   p.boost = burning ? Math.min(p.boost + 0.12, 1) : Math.max(p.boost - 0.08, 0);
 }

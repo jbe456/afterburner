@@ -1,20 +1,23 @@
 /**
  * Guards what the hangar promises about each row of fittings.
  *
- *   1. Weapons are choices. Within cannon, missile and bomb, no option is
- *      better than another at everything — each must lose to each sibling on
- *      at least one axis. Easy to break while tuning: bump one number and an
- *      option quietly becomes strictly better, collapsing a real choice into
- *      a single correct answer.
+ *   1. Everything is a ladder now. Hull, engine, the three forward weapons,
+ *      the missile and all six bombs are climbed rather than chosen between,
+ *      so what has to hold is that each ladder's order is real — a typo that
+ *      made the middle rung the best would otherwise be silent. Most rise;
+ *      a ladder marked `down` (only a bomb's FUSE, so far) must fall.
  *
- *   2. Hull and engine are ladders. They are deliberately ordered weakest to
- *      strongest with nothing traded against them, so the check here is the
- *      opposite one — that the order actually holds. Until a cost is attached
- *      (weight against agility, or a budget across the rows) these are not
- *      choices and should not be tested as though they were.
+ *   2. Hull and engine must not touch what the aircraft shoots, with one
+ *      declared exception: the engine gates how short a bomb fuse may be.
+ *      That coupling is deliberate — a shorter fuse is only safe because a
+ *      faster aircraft clears the blast sooner — so it is asserted to exist
+ *      rather than asserted away, and `check-bomb.js` holds it honest.
  *
- *   3. The fittings that decide how the aircraft flies must not touch what it
- *      shoots. Armour and engine change hull and speed, nothing else.
+ * There is no longer a no-dominance check. The bomb bay used to be its last
+ * caller, and bombs are now progression: six systems whose AMMO, DAMAGE and
+ * FUSE endpoints are typed by hand, with nothing claiming that one cannot be
+ * better than another at everything. What is left is the table below, printed
+ * without assertions, so a tuning mistake is visible in test output.
  *
  * Run after touching ARMOUR, ENGINES, WEAPONS, MISSILES, BOMBS or PLAYER.
  *
@@ -25,8 +28,8 @@
 
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
-  MISSILES, BOMBS, BOMB_IDS, PLAYER, DEFAULT_LOADOUT,
-  WEAPON_PROP_KEYS, resolveWeapons, KMH_PER_SPEED_UNIT,
+  MISSILES, BOMBS, BOMB_IDS, BOMB, PLAYER, DEFAULT_LOADOUT,
+  resolveWeapons, resolveBomb, maxFuseRung, KMH_PER_SPEED_UNIT,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
 import { fireGun, fireMissile } from "../src/entities/weapons.js";
@@ -35,52 +38,18 @@ import { agility } from "../src/entities/player.js";
 let failures = 0;
 
 /**
- * Asserts that no option in `ids` beats another on every axis.
- * Axes are phrased so higher is always better.
- */
-function assertNoDominance(category, ids, table, axes) {
-  const axisNames = Object.keys(axes);
-
-  console.log(`\n${category}`);
-  console.table(ids.map((id) => {
-    const row = { option: table[id].name };
-    for (const a of axisNames) row[a] = Number(axes[a](table[id]).toFixed(3));
-    return row;
-  }));
-
-  for (const a of ids) {
-    for (const b of ids) {
-      if (a === b) continue;
-      const A = table[a], B = table[b];
-      const wins = axisNames.filter((n) => axes[n](A) > axes[n](B));
-      const losses = axisNames.filter((n) => axes[n](A) < axes[n](B));
-
-      if (losses.length === 0) {
-        console.error(`  FAIL  ${A.name} is never worse than ${B.name} — dominates on ${wins.join(", ")}`);
-        failures++;
-      } else if (wins.length === 0) {
-        console.error(`  FAIL  ${A.name} beats ${B.name} at nothing — strictly worse`);
-        failures++;
-      } else {
-        console.log(`  ${A.name} > ${B.name} at: ${wins.join(", ")}`);
-      }
-    }
-  }
-}
-
-/**
  * Asserts a row is ordered weakest to strongest as declared. A ladder has no
  * tradeoff by design, so the only thing worth checking is that its order is
  * real — a typo that made the middle rung the best would otherwise be silent.
  */
-function assertLadder(category, ids, table, label, read) {
-  console.log(`\n${category} (a ladder, not a choice)`);
+function assertLadder(category, ids, table, label, read, { down = false } = {}) {
+  console.log(`\n${category} (a ladder, not a choice${down ? ", counting down" : ""})`);
   console.table(ids.map((id) => ({ option: table[id].name, [label]: read(table[id]) })));
 
   for (let i = 1; i < ids.length; i++) {
     const below = table[ids[i - 1]];
     const rung = table[ids[i]];
-    const ok = read(rung) > read(below);
+    const ok = down ? read(rung) < read(below) : read(rung) > read(below);
     if (!ok) failures++;
     console.log(`  ${ok ? "pass" : "FAIL"}  ${rung.name} beats ${below.name}`
       + (ok ? "" : `  ${read(below)} -> ${read(rung)}`));
@@ -97,12 +66,18 @@ assertLadder("ENGINE", ENGINE_IDS, ENGINES, "km/h",
 // There is nothing to rank the missile against any more: it is one fitting
 // whose four properties are climbed, so what has to hold is that each ladder
 // rises, exactly as for the guns.
-for (const spec of [...WEAPON_IDS.map((id) => WEAPONS[id]), MISSILES.missile]) {
-  for (const [prop, ladder] of Object.entries(spec.props)) {
+const TRACKS = [
+  ...WEAPON_IDS.map((id) => ({ label: WEAPONS[id].label, props: WEAPONS[id].props })),
+  { label: MISSILES.missile.label, props: MISSILES.missile.props },
+  ...BOMB_IDS.map((id) => ({ label: BOMBS[id].name, props: BOMBS[id].props })),
+];
+
+for (const spec of TRACKS) {
+  for (const ladder of Object.values(spec.props)) {
     assertLadder(`${spec.label} ${ladder.label}`,
       ladder.tiers.map((_, i) => i),
       Object.fromEntries(ladder.tiers.map((v, i) => [i, { name: ladder.format(v), value: v }])),
-      "value", (rung) => rung.value);
+      "value", (rung) => rung.value, { down: ladder.down === true });
   }
 }
 
@@ -125,16 +100,99 @@ console.log("\nSTOCK FORWARD WEAPONS");
 
 
 // --- bombs -----------------------------------------------------------------
-assertNoDominance("BOMBS", BOMB_IDS, BOMBS, {
-  carried: (b) => b.carried,
-  blastRadius: (b) => b.blastRadius,
-  damage: (b) => b.damage,
-  /** A shorter fuse pays off sooner, which is its own kind of better. */
-  fuseSpeed: (b) => -b.fuse,
-  readyAgain: (b) => -b.dropCooldown,
-  /** Waiting to be touched means never having to time anything. */
-  contact: (b) => (b.trigger === "contact" ? 1 : 0),
-});
+/**
+ * No assertions here. Bombs are six systems whose every endpoint is typed by
+ * hand, and nothing claims that one cannot beat another at everything — so
+ * what this prints is the whole set at both ends of its ladders, which is the
+ * only way a tuning mistake becomes visible.
+ *
+ * The column worth watching is CLUSTER's: BOMBLETS and DAMAGE multiply, which
+ * is how the cannon once reached 15,000 dps, so `maxed yield` states the
+ * product rather than leaving it to be worked out.
+ */
+console.log("\nBOMBS (progression, not a choice — printed, not asserted)");
+
+/**
+ * Total damage one drop delivers at a rung set. A cluster's parent costs a
+ * DAMAGE figure of its own on top of every submunition it throws, so its
+ * yield is (1 + bomblets) x damage.
+ */
+function yieldOf(spec) {
+  return spec.bomblets ? (1 + spec.bomblets) * spec.damage : spec.damage;
+}
+
+/** Resolve a system with every ladder at its bottom rung, or every one at top. */
+function atRung(id, which) {
+  const loadout = { ...DEFAULT_LOADOUT, bomb: id };
+  // The strongest engine, so the FUSE gate is never what caps the top row.
+  if (which === "top") loadout.engine = ENGINE_IDS[ENGINE_IDS.length - 1];
+  for (const [prop, ladder] of Object.entries(BOMBS[id].props)) {
+    loadout[`${id}.${prop}`] = which === "top" ? ladder.tiers.length - 1 : 0;
+  }
+  return resolveBomb(loadout);
+}
+
+const fuseText = (spec) =>
+  (Number.isFinite(spec.fuse) ? `${(spec.fuse / 60).toFixed(1)}s` : "on touch");
+
+console.table(BOMB_IDS.map((id) => {
+  const stock = atRung(id, "stock");
+  const top = atRung(id, "top");
+  return {
+    system: BOMBS[id].name,
+    mechanic: BOMBS[id].trigger,
+    blast: BOMBS[id].scatterRange
+      ? `${BOMBS[id].blastRadius} m (+${BOMBS[id].scatterRange} spray)`
+      : `${BOMBS[id].blastRadius} m`,
+    ammo: `${stock.carried} -> ${top.carried}`,
+    damage: `${stock.damage} -> ${top.damage}`,
+    fuse: `${fuseText(stock)} -> ${fuseText(top)}`,
+    "maxed yield": yieldOf(top),
+    cooldown: `${BOMBS[id].dropCooldown}t`,
+  };
+}));
+
+// --- the one place a flying fitting reaches into the armament -------------
+/**
+ * The engine gates how short a bomb fuse may be. That is a deliberate break
+ * of the separation asserted further down, so it is checked to *work* rather
+ * than checked not to happen: the gate must actually open as the ladder is
+ * climbed, and must never reach past the end of a FUSE ladder.
+ */
+console.log("\nTHE FUSE GATE (the engine bay's one reach into the armament)");
+
+const GATED = BOMB_IDS.filter((id) => BOMBS[id].props.fuse);
+console.table(ENGINE_IDS.map((id) => {
+  const row = { engine: ENGINES[id].short, cruise: ENGINES[id].cruiseSpeed,
+    "fuse rung": maxFuseRung(id) };
+  for (const bombId of GATED) {
+    const ladder = BOMBS[bombId].props.fuse;
+    const rung = Math.min(maxFuseRung(id), ladder.tiers.length - 1);
+    row[BOMBS[bombId].short] = ladder.format(ladder.tiers[rung]);
+  }
+  return row;
+}));
+
+{
+  const bottom = maxFuseRung(ENGINE_IDS[0]);
+  const top = maxFuseRung(ENGINE_IDS[ENGINE_IDS.length - 1]);
+  const longest = Math.max(...GATED.map((id) => BOMBS[id].props.fuse.tiers.length - 1));
+
+  const checks = [
+    ["the stock engine unlocks the bottom rung and no more", bottom === 0],
+    ["the top engine unlocks every rung there is", top >= longest],
+    [`the gate needs ${BOMB.fuseRungsPerEngineRung} engine rungs per fuse rung`,
+      maxFuseRung(ENGINE_IDS[BOMB.fuseRungsPerEngineRung]) === 1],
+    ["a gated fuse really is shorter than a stock one",
+      GATED.every((id) => atRung(id, "top").fuse < atRung(id, "stock").fuse)],
+    [`no fuse falls below the ${(BOMB.minFuse / 60).toFixed(1)}s floor`,
+      GATED.every((id) => atRung(id, "top").fuse >= BOMB.minFuse)],
+  ];
+  for (const [name, ok] of checks) {
+    if (!ok) failures++;
+    console.log(`  ${ok ? "pass" : "FAIL"}  ${name}`);
+  }
+}
 
 // --- every engine must still be flyable -----------------------------------
 /**
@@ -175,7 +233,13 @@ for (const id of ENGINE_IDS) {
 }
 
 // --- hull and engine must not touch the guns ------------------------------
-/** Fires one of everything and reports what actually came out. */
+/**
+ * Fires one of everything and reports what actually came out.
+ *
+ * The bomb's FUSE is deliberately left out of the observation: it is the one
+ * armament figure the engine is allowed to move, and the gate above proves it
+ * moves. Everything else here must be identical across all 100 combinations.
+ */
 function observeLoadout(armourId, engineId) {
   const world = createWorld({ ...DEFAULT_LOADOUT, armour: armourId, engine: engineId });
   const p = world.player;
@@ -192,6 +256,8 @@ function observeLoadout(armourId, engineId) {
     missileLoad: p.missiles + 1, // one was just fired
     missileCooldown: p.missileCooldown,
     bombs: p.bombs,
+    bombDamage: p.bomb.damage,
+    bombBlast: p.bomb.blastRadius,
     barrels: world.bullets.length,
     bulletDamage: round.damage,
     bulletSpeed: Number(Math.hypot(round.vx, round.vy).toFixed(3)),
@@ -204,6 +270,7 @@ function observeLoadout(armourId, engineId) {
 }
 
 console.log("\nSHARED LOADOUT (hull and engine must not change the guns)");
+console.log("  (a bomb's FUSE is the one exception, and is checked above)");
 const loadouts = ARMOUR_IDS.flatMap((a) => ENGINE_IDS.map((e) => observeLoadout(a, e)));
 console.table(loadouts);
 
@@ -218,4 +285,5 @@ if (failures) {
   console.error(`\nFAIL — ${failures} problem(s)`);
   process.exit(1);
 }
-console.log("\nPASS — weapons are real choices, the ladders hold, and fittings do not touch the guns");
+console.log("\nPASS — every ladder holds, the fuse gate opens, and nothing else"
+  + " about the armament moves with hull or engine");

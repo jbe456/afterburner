@@ -19,7 +19,7 @@ because ES modules can't be loaded over `file://`. It runs on Node and Bun alike
 
 ```bash
 bun run build    # bundles everything into dist/index.html
-npm test         # roster invariants + weapon, bomb and carrier behaviour
+npm test         # roster invariants + weapon, bomb, hangar and carrier behaviour
 ```
 
 The build inlines the JS and CSS into a single self-contained HTML file you can
@@ -45,11 +45,12 @@ weapon built for what you are testing.
 
 ## Your aircraft
 
-There is one airframe. Hull and engine are single fittings you **upgrade**
-rung by rung; the forward weapon is a **switch** between three systems, each
-with property ladders of its own; the missile is a set of ladders with no
-switch, because there is only one missile; the bomb is a **choice** between
-four alternatives.
+There is one airframe, and every fitting on it is now climbed. Hull and engine
+are single ladders you **upgrade** rung by rung; the forward weapon is a
+**switch** between three systems, each with property ladders of its own; the
+missile is a set of ladders with no switch, because there is only one missile;
+and the bomb is a second switch, over **six systems**, each with ladders of its
+own.
 
 ### The hangar
 
@@ -77,8 +78,20 @@ order from weakest to strongest. Add or remove a rung and the hangar follows:
 the tier gauge, the card artwork and the upgrade button are all derived from
 a rung's position rather than written per rung.
 
-The engine sets top speed and nothing else — cruise, stall, turn rate and
-acceleration are shared — so it is purely how fast you can run.
+The engine sets two speeds. **Top speed** climbs 5.0 to 20.0 across the ten
+rungs; **cruise** — what you fly at with the throttle centred — climbs only 4.6
+to 8.0. The stall, the turn rate and the acceleration are shared.
+
+Cruise rising *sub-proportionally* is what keeps the flight model honest. The
+turn-rate penalty is measured against one shared `agilityReferenceSpeed`, so if
+cruise rose in step with top speed a Singularity at cruise would corner worse
+than a Spark at full throttle. At 8.0 it corners a little worse than a Spark
+does at 4.6, and no worse than that — the penalty stays real without becoming
+the reason not to upgrade.
+
+Cruise is also the one thing in the engine bay that reaches into the armament:
+it is what the bomb bay's **FUSE** gate is measured against. See **Bombs**
+below.
 
 Turn rate falls as speed rises, which means a powerful enough engine would
 drive it to zero and then through it, reversing the controls. `PLAYER.minAgilityFactor`
@@ -95,15 +108,15 @@ strictly better than a weak one, because nothing is traded against them yet.
 
 `npm test` checks that the order holds rather than pretending there is a
 tradeoff to protect. Give them a cost — mass against turn rate, or a budget
-shared across the rows — and the no-dominance check that guards the weapons
-applies to them too.
+shared across the rows — and it would be worth testing as a choice.
 
 ## Loadout
 
-Bombs are a real choice: the no-dominance rule applies inside the category,
-so no bomb is better than its siblings at everything. The forward weapon and
-the missile are climbed instead, and what holds there is that every rung beats
-the one below it.
+Everything is climbed. There is no no-dominance rule left anywhere in the
+game: it used to guard the bomb row, and bombs are now progression too. What
+holds across all of it is only that each ladder's order is real — every rung
+beats the one below, except a bomb's **FUSE**, which is the one ladder that
+counts *down*.
 
 ### Forward weapons
 
@@ -180,26 +193,6 @@ at the bottom of the AMMO ladder, a tenth of one at the top.
 Note that missile reach **fell**. The AMRAAM used to fly 4,338 m and the
 Sidewinder 2,871; nothing now exceeds 2,500. The cap was not always there.
 
-| Bomb | | |
-| --- | --- | --- |
-| **Dynamite** | 10 carried, 200 m, 90 dmg, 1.0s | Usable while someone is on you |
-| **Proximity mine** | 5 carried, 260 m, 260 dmg, no fuse | Waits where you left it until something touches it |
-| **Mk 82 heavy bomb** | 3 carried, 500 m, 220 dmg, 5.0s | The middle ground |
-| **B61 nuclear** | 1 carried, 1000 m, 650 dmg, 8.0s | Erases almost anything |
-
-Damage scales with the size of the blast and is flat inside the radius, so the
-circle drawn on the ground means exactly what it looks like. Nothing is immune,
-including you — but nothing is guaranteed dead either. An armoured hull walks
-away from its own dynamite; a light one does not.
-
-The **proximity mine** is the odd one. It has no fuse at all: it sits where you
-dropped it indefinitely, and goes off when any aircraft comes within 46 m of
-it — yours or theirs, it does not look. It draws a bright ring at that trigger
-distance as well as its blast circle, greyed out until it arms 40 ticks after
-the drop, which is what stops it killing you on release. Laying a line of them
-across a wave's approach is the point; forgetting where you put one is the
-cost.
-
 The TYPE rungs differ in how far and how wide the seeker looks, and the
 figures are the retired models' guidance unchanged. **UNGUIDED** has no seeker
 at all and goes where the nose was pointing. **IR SEEKER** searches a forward
@@ -216,20 +209,110 @@ it can never reach does nothing but empty the rack.
 `check-weapons.js` pins the mechanics that are invisible when they break —
 pierce depth, ignition and its damage-over-time, each TYPE rung guiding as
 advertised, burn-out landing on REACH, acquisition never outrunning it, and a
-full rack staying under a Supercarrier's hull. `check-bomb.js` proves each bomb kills friend and foe at its own
-radius on its own fuse, and that each is escapable at cruise speed.
+full rack staying under a Supercarrier's hull.
 
-Every card in the hangar is a name, a drawing
-and a set of bars. Each bar states its own value and unit inline, and is
-normalised against the other options in its own category. Nothing is
-hand-authored, so a card cannot advertise something the simulation does not
-do. The prose descriptions that used to sit on each card live here in the
+### Bombs
+
+Six systems, carried one at a time, and the bomb row is a switch exactly like
+the weapon row: fitting one puts the others away, and each remembers the rungs
+you bought for it. What separates one system from another is never a rung —
+three of them differ only in the **radius** of the circle they clear, and the
+other three each do something a circle cannot.
+
+| | Mechanic | AMMO | DAMAGE | FUSE |
+| --- | --- | --- | --- | --- |
+| **FRAG** | 200 m circle | 6–14 | 40–180 | 2.5 – 1.5 s |
+| **HIGH EXPLOSIVE** | 500 m circle | 3–8 | 70–310 | 3.0 – 1.5 s |
+| **THERMOBARIC** | 1000 m circle | 1–5 | 130–650 | 5.0 – 2.7 s |
+| **INCENDIARY** | 420 m of burning ground, for 4.0 s | 2–6 | 25–90/s | 4.0 – 2.0 s |
+| **CLUSTER** | 300 m, then throws 4–12 bomblets out to 700 m | 2–6 | 10–50 ea | 3.3 – 1.5 s |
+| **PROXIMITY MINE** | 260 m, triggered by touch | 4–12 | 60–320 | — |
+
+Damage is flat inside the radius and nothing outside it, so the circle drawn on
+the ground means exactly what it looks like. Nothing is immune, including you —
+but nothing is guaranteed dead either. An armoured hull walks away from its own
+frag charge; a light one does not.
+
+**Bombs are progression, not a choice.** There is no rule anywhere saying one
+system cannot be better than another at everything: every endpoint in the table
+is typed by hand. A maxed Thermobaric is simply the best bomb in the game once
+your engine will carry its fuse, and the three mechanic-defined systems are the
+only ones that stay situational. `check-balance.js` prints the whole set as a
+table on every run so a tuning mistake is visible, but it asserts nothing about
+the relationships between them.
+
+#### The fuse counts down
+
+**FUSE is the one ladder in the game that falls as you climb it**, and the one
+place a fitting in another bay reaches into the armament: fuse rung *n* needs
+engine rung *2n*, so the ten engine rungs unlock the five fuse rungs two at a
+time. A locked rung is still drawn, greyed, with the engine it wants written on
+its button — a bay that silently changed shape when you upgraded something else
+would read as a bug.
+
+The reason is the escape. A shorter fuse is only safe because a faster aircraft
+clears the blast sooner, which is why the engine's **cruise** speed climbs at
+all. `check-bomb.js` holds the promise honest: for every system, every unlocked
+rung, and the engine that unlocked it, leaving at that engine's cruise the
+instant you drop must clear the radius. A hard **1.5 s floor** sits under every
+ladder regardless, so no engine can ever hand you a warhead that goes off
+before you have visibly left.
+
+#### The three that are not circles
+
+The **proximity mine** has no fuse at all: it sits where you dropped it
+indefinitely and goes off when any aircraft comes within its trigger ring —
+yours or theirs, it does not look. That ring is **derived from DAMAGE** rather
+than being its own ladder, so the one thing you climb makes the mine deadlier
+and twitchier at once: a stock mine's 11 m ring is smaller than your own
+hitbox and has to be almost collided with, while a maxed 58 m ring catches
+whatever crosses the lane, including a 2-hull Moucheron spending the whole
+warhead. It draws that ring brightly as well as its blast circle, greyed until
+it arms 40 ticks after the drop, which is what stops it killing you on release.
+
+The **incendiary** deals no blast damage whatsoever. It leaves the ground
+burning for four seconds, and anything inside — or that flies in afterwards —
+is set alight by the same ignition the flame and the beam use, so the fire
+follows it out of the field and keeps killing after it has left. Its DAMAGE is
+a burn rate, which means it cannot clear a wave in one drop the way the heavy
+bombs can; it kills the wave over the next few seconds instead. It is the only
+system that denies *ground* rather than what is standing on it, and the only
+one whose danger outlives its own detonation — which is why its fuse ladder
+bottoms out higher than any smaller system's. Fire does not stack: a second
+field laid over the first buys area, never intensity.
+
+The **cluster** goes off as an ordinary bomb and then throws its submunitions
+outward like a firework. The parent clears 300 m on its fuse; the bomblets fly
+for about two thirds of a second and go off where they land, scattered on
+random bearings anywhere from 315 to 700 m out. It is the only system whose
+footprint is bigger than the circle drawn under it, so a faint outer ring marks
+the full 820 m reach on the ground and on the radar — standing just outside the
+red circle is not safe. One DAMAGE figure serves the parent and every
+submunition alike, so a maxed drop delivers `(1 + 12) x 50 = 650`, exactly a
+Thermobaric's worth, spread across a far wider area in much smaller circles.
+BOMBLETS and DAMAGE multiply, which is the shape the cannon already lives with,
+so both ladders are deliberately modest.
+
+`check-bomb.js` pins all of it: that every system damages friend and foe alike
+at its own radius, that a mine waits and arms and is set off by either side,
+that an incendiary deals burn rather than a lump and its field expires, that a
+cluster's spray lands inside the range it is thrown and nowhere beyond its
+footprint, and that every unlocked fuse rung can be flown away from.
+
+Every card in the hangar is a name, a drawing and a set of bars. A hull or
+engine card's bars are normalised against the other rungs in its own ladder; a
+weapon, missile or bomb property card instead shows how far up its own ladder
+it has been taken, so a full bar means maxed. Nothing is hand-authored, so a
+card cannot advertise something the simulation does not do. The prose descriptions that used to sit on each card live here in the
 README instead.
 
 Because the turn-rate penalty is measured against a shared reference speed
-rather than any particular top speed, going fast costs turn: flat out on a
-ramjet is the worst-turning you will ever be, and throttling back is how you
-get it back.
+rather than any particular top speed, going fast costs turn: flat out on the
+best engine is the worst-turning you will ever be, and throttling back is how
+you get it back. Cruise rising with the engine does not undo that — it rises
+4.6 to 8.0 against a top speed of 5 to 20, so a Singularity at cruise still
+corners within a hair of a Spark at cruise, and nothing like as well as either
+does throttled back.
 
 ## Enemies
 
@@ -312,9 +395,9 @@ instead, carpeting ground it is about to leave. Both are indiscriminate, so a
 Sower will gut its own escort, and leading a wave across its own minefield is
 a real tactic.
 
-Bombs hit hard enough to clear a late wave in one drop — a B61 kills every
-type in the game outright except the Leviathan, which staggers out of it with
-50 hull. That is what keeps the heavy end from becoming a damage race the guns
+Bombs hit hard enough to clear a late wave in one drop — a maxed Thermobaric
+kills every type in the game outright except the Leviathan, which staggers out
+of it with 50 hull. That is what keeps the heavy end from becoming a damage race the guns
 cannot win, without making the boss a formality.
 
 Each type wears one of eight silhouettes from `render/hulls.js`, and the
@@ -450,16 +533,19 @@ a turning fight — and it does not depend on which engine you fitted.
 ### The bomb
 
 `B` leaves a bomb where you are. It does not move, it cannot be shot down, and
-five seconds later it kills **every aircraft within 500 units — including
-yours**. The blast radius is drawn on the ground and on the radar while the
-fuse burns, and the HUD warns you while you are standing in it.
+when its fuse runs out it does something indiscriminate to **every aircraft
+inside its radius, including yours**. The radius is drawn on the ground and on
+the radar while the fuse burns, and the HUD warns you while you are standing
+in it — or in burning ground, or under a submunition about to land.
 
-Five seconds buys well over a thousand units of separation if you leave
-immediately, so escaping is easy. Dropping one mid-turn, or to shake something
-already on your tail, is how it takes you with it. That tension is the weapon.
+Every fuse buys well over enough separation to clear its own blast if you
+leave immediately, and `npm test` proves it for every rung on every engine. So
+escaping is easy; dropping one mid-turn, or to shake something already on your
+tail, is how it takes you with it. That tension is the weapon.
 
-Which bomb you carry is chosen in the hangar (see **Loadout** above); crates
-resupply whatever you picked.
+Which system you carry, and how far up its ladders you have taken it, is set in
+the hangar (see **Bombs** above). Crates put **one** back on the rails whatever
+the rack holds — a sixth of a stock Frag load, a whole Thermobaric.
 
 ## Layout
 
@@ -483,7 +569,7 @@ src/
 │   ├── weapons.js      Firing: trigger pull to projectile
 │   ├── projectiles.js  Flight and impact of bullets and missiles
 │   ├── carrier.js      Carriers: transit, launching, the deck, the SAM battery
-│   ├── bombs.js        Dropped bombs: fuse, blast, indiscriminate kills
+│   ├── bombs.js        Dropped bombs: fuses, blasts, sprays, burning ground
 │   ├── pickups.js      Repair and ammo crates
 │   └── effects.js      Particles, shockwaves, screen shake (cosmetic only)
 ├── render/             Drawing only; never mutates game state
@@ -495,9 +581,10 @@ src/
 scripts/
 ├── serve.js            Dev server
 ├── build.js            Single-file bundler
-├── check-balance.js    Asserts nothing dominates in any category
+├── check-balance.js    Asserts every ladder's order holds, and the fuse gate opens
 ├── check-weapons.js    Asserts pierce, ignition, guidance and reach behave
-├── check-bomb.js       Asserts each bomb's fuse and its friendly fire
+├── check-bomb.js       Asserts each bomb's mechanic, fuse gate and friendly fire
+├── check-hangar.js     Asserts every bay renders and the fuse gate is visible
 ├── check-waves.js      Asserts every wave is populated, capped and escalating
 └── check-carrier.js    Asserts decks, launching, repair and sinking behave
 ```
@@ -533,6 +620,11 @@ slow motion, and the physics behave identically on a 60 Hz and a 144 Hz display.
 - **Chosen fittings hang off the player** as `armour`, `engine`, `cannon`,
   `missile` and `bomb` specs, so the simulation reads whatever was picked and
   knows nothing about the hangar.
+- **One bay reaches into another, on purpose.** The engine gates how short a
+  bomb fuse may be, which is the only exception to fittings-that-fly not
+  touching fittings-that-shoot. It lives in `resolveBomb`, is the only thing
+  there that reads `loadout.engine`, and is asserted to *work* rather than
+  asserted away — see `BOMB.fuseRungsPerEngineRung`.
 - **Angles are radians**, `0` points along +X, and `steer()` in `core/math.js`
   is how anything rotates toward a heading the short way round.
 - **Carriers are flagged, not subclassed.** `entities/carrier.js` and

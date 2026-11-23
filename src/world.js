@@ -19,6 +19,10 @@ export function createWorld(loadout) {
     bullets: [],
     missiles: [],
     bombs: [],
+    /** Submunitions thrown by a cluster, in flight between the parent blast and their own. */
+    bomblets: [],
+    /** Burning ground left by an incendiary; ignites anything standing in it. */
+    fields: [],
     /** Short-lived flamethrower cones, one per tick while the trigger is held. */
     flames: [],
     pickups: [],
@@ -50,7 +54,9 @@ export function createWorld(loadout) {
     hitFlash: 0,
     /** 0..1 white-out from a bomb detonation. */
     blastFlash: 0,
-    /** True while the player sits inside a live bomb's radius; drives the HUD warning. */
+    /** Set on any tick a submunition landed, so a spray reports once, not a dozen times. */
+    bombletsLandedThisTick: false,
+    /** True while the player sits in a live blast radius or burning ground; drives the HUD warning. */
     playerInBlast: false,
     camX: 0,
     camY: 0,

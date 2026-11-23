@@ -136,8 +136,13 @@ function drawPickups(ctx, world) {
  * whether you are out of it rather than having to guess.
  */
 function drawBombs(ctx, world) {
+  drawFields(ctx, world);
+  drawBomblets(ctx, world);
+
   for (const bomb of world.bombs) {
     const contact = bomb.spec.trigger === "contact";
+    const field = bomb.spec.trigger === "field";
+    const cluster = bomb.spec.trigger === "cluster";
     // A fused bomb grows more urgent as it counts down; a mine just waits.
     const urgency = contact ? 0.3 : 1 - bomb.fuse / bomb.spec.fuse;
     // Blink faster as the fuse runs down.
@@ -150,12 +155,12 @@ function drawBombs(ctx, world) {
     // sky in red.
     ctx.save();
     ctx.globalAlpha = contact ? 0.055 : 0.1 + urgency * 0.3;
-    ctx.fillStyle = "#ff3b2f";
+    ctx.fillStyle = field ? "#ff8a3a" : "#ff3b2f";
     ctx.beginPath();
     ctx.arc(bomb.x, bomb.y, bomb.spec.blastRadius, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = contact ? 0.3 : 0.35 + urgency * 0.55;
-    ctx.strokeStyle = lit ? "#ff6b5c" : "#ff3b2f";
+    ctx.strokeStyle = field ? (lit ? "#ffb03a" : "#ff8a3a") : lit ? "#ff6b5c" : "#ff3b2f";
     ctx.lineWidth = 3;
     ctx.setLineDash([22, 16]);
     ctx.lineDashOffset = -world.time * 0.6;
@@ -163,6 +168,21 @@ function drawBombs(ctx, world) {
     ctx.arc(bomb.x, bomb.y, bomb.spec.blastRadius, 0, TAU);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // A cluster's solid circle is only the parent blast. The submunitions
+    // reach much further, so the edge of what the drop can touch is drawn as
+    // a faint outer ring — otherwise standing just outside the red circle
+    // would look safe when it is not.
+    if (cluster) {
+      ctx.globalAlpha = 0.18 + urgency * 0.22;
+      ctx.strokeStyle = "#ff8c42";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 14]);
+      ctx.beginPath();
+      ctx.arc(bomb.x, bomb.y, bomb.spec.footprint, 0, TAU);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     ctx.restore();
 
     // Casing
@@ -202,6 +222,56 @@ function drawBombs(ctx, world) {
       ctx.fillText(String(Math.ceil(bomb.fuse / 60)), bomb.x, bomb.y - 24);
       ctx.textBaseline = "alphabetic";
     }
+  }
+}
+
+/**
+ * Submunitions thrown by a cluster, mid-flight. Each is drawn with the blast
+ * it is about to make, faintly, so a spray coming at you can be read before it
+ * lands rather than after.
+ */
+function drawBomblets(ctx, world) {
+  for (const b of world.bomblets) {
+    ctx.save();
+    ctx.globalAlpha = 0.1;
+    ctx.fillStyle = "#ff3b2f";
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.radius, 0, TAU);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#ffd166";
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 3.5, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+/**
+ * Burning ground left by an incendiary. Drawn as fire rather than as a danger
+ * circle, because it is already doing its damage — there is nothing to count
+ * down to, only ground to be off.
+ */
+function drawFields(ctx, world) {
+  for (const field of world.fields) {
+    const t = field.life / field.maxLife;
+    const flicker = 0.85 + 0.15 * Math.sin(world.time * 0.3 + field.x);
+
+    ctx.save();
+    ctx.globalAlpha = (0.1 + t * 0.22) * flicker;
+    ctx.fillStyle = "#ff6b2a";
+    ctx.beginPath();
+    ctx.arc(field.x, field.y, field.radius, 0, TAU);
+    ctx.fill();
+
+    ctx.globalAlpha = (0.35 + t * 0.4) * flicker;
+    ctx.strokeStyle = "#ffb03a";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(field.x, field.y, field.radius, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

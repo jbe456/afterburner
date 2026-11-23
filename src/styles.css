@@ -398,6 +398,13 @@ h1 {
 
 .tier span.on { background: #ffd166; }
 
+/* A rung that exists but is gated by another bay — a bomb fuse the fitted
+   engine cannot yet carry. Visible so the hangar can say what unlocks it. */
+.tier span.locked {
+  background: none;
+  box-shadow: inset 0 0 0 1px rgba(120, 160, 200, .3);
+}
+
 .upgrade {
   display: block;
   width: 100%;
@@ -477,6 +484,16 @@ h1 {
 /* --- property cards: one ladder each, inside a weapon track --- */
 
 .opt.prop { --livery: #ffd166; }
+
+/* Only FUSE so far: a ladder where buying a rung lowers the number. */
+.prop-dir {
+  display: block;
+  font-style: normal;
+  font-size: 8.5px;
+  letter-spacing: .06em;
+  color: #56708a;
+  margin-bottom: 2px;
+}
 
 .prop-value {
   font-size: 16px;

@@ -303,12 +303,32 @@ function drawRadar(ctx, world) {
     ctx.beginPath();
     ctx.arc(cx + dx, cy + dy, (bomb.spec.blastRadius / RADAR_RANGE) * RADAR_RADIUS, 0, TAU);
     ctx.stroke();
+    // A cluster reaches well past its own blast, so the radar shows the whole
+    // footprint too — the inner ring alone would read as the safe distance.
+    if (bomb.spec.footprint) {
+      ctx.strokeStyle = "rgba(255,140,66,.4)";
+      ctx.beginPath();
+      ctx.arc(cx + dx, cy + dy, (bomb.spec.footprint / RADAR_RANGE) * RADAR_RADIUS, 0, TAU);
+      ctx.stroke();
+    }
     if (Math.floor(world.time / 8) % 2 === 0) {
       ctx.fillStyle = "#ff5544";
       ctx.beginPath();
       ctx.arc(cx + dx, cy + dy, 3, 0, TAU);
       ctx.fill();
     }
+  }
+
+  // Burning ground, which is a hazard you can fly into from off screen.
+  for (const field of world.fields) {
+    const dx = ((field.x - world.player.x) / RADAR_RANGE) * RADAR_RADIUS;
+    const dy = ((field.y - world.player.y) / RADAR_RANGE) * RADAR_RADIUS;
+    if (Math.hypot(dx, dy) > RADAR_RADIUS - 3) continue;
+    ctx.strokeStyle = "rgba(255,160,60,.6)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(cx + dx, cy + dy, (field.radius / RADAR_RANGE) * RADAR_RADIUS, 0, TAU);
+    ctx.stroke();
   }
 
   for (const p of world.pickups) {

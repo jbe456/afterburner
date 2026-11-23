@@ -108,66 +108,92 @@ export const ARMOUR = {
   },
 };
 
+/**
+ * The engine ladder. Two figures, and they climb at different rates on
+ * purpose.
+ *
+ *   maxSpeed     4.6 -> 20.0   what the afterburner reaches
+ *   cruiseSpeed  4.6 ->  8.0   what you fly at with the throttle centred
+ *
+ * Cruise rises sub-proportionally so that the shared `agilityReferenceSpeed`
+ * stays honest: a top engine still corners a little worse at its own cruise
+ * than a Spark does at its own, which is what keeps "throttle back to turn
+ * tighter" an absolute rule rather than one relative to what is fitted.
+ *
+ * Cruise is also what the bomb bay's FUSE gate is measured against — a
+ * shorter fuse is only safe because a better engine carries you out of the
+ * blast sooner. See BOMB.fuseRungsPerEngineRung.
+ */
 export const ENGINES = {
   spark: {
     id: "spark",
     name: "SPARK DRIVE",
     short: "SPARK",
     maxSpeed: 5.0,
+    cruiseSpeed: 4.6,
   },
   kestrel: {
     id: "kestrel",
     name: "KESTREL TURBOFAN",
     short: "KESTREL",
     maxSpeed: 6.5,
+    cruiseSpeed: 5.0,
   },
   falcon: {
     id: "falcon",
     name: "FALCON TURBOJET",
     short: "FALCON",
     maxSpeed: 8.0,
+    cruiseSpeed: 5.4,
   },
   viper: {
     id: "viper",
     name: "VIPER RAMJET",
     short: "VIPER",
     maxSpeed: 9.5,
+    cruiseSpeed: 5.8,
   },
   tempest: {
     id: "tempest",
     name: "TEMPEST SCRAMJET",
     short: "TEMPEST",
     maxSpeed: 11.0,
+    cruiseSpeed: 6.1,
   },
   inferno: {
     id: "inferno",
     name: "INFERNO PLASMA DRIVE",
     short: "INFERNO",
     maxSpeed: 12.5,
+    cruiseSpeed: 6.5,
   },
   nova: {
     id: "nova",
     name: "NOVA FUSION DRIVE",
     short: "NOVA",
     maxSpeed: 14.0,
+    cruiseSpeed: 6.9,
   },
   phantom: {
     id: "phantom",
     name: "PHANTOM ION DRIVE",
     short: "PHANTOM",
     maxSpeed: 16.0,
+    cruiseSpeed: 7.3,
   },
   pulsar: {
     id: "pulsar",
     name: "PULSAR ANTIMATTER DRIVE",
     short: "PULSAR",
     maxSpeed: 18.0,
+    cruiseSpeed: 7.6,
   },
   singularity: {
     id: "singularity",
     name: "SINGULARITY DRIVE",
     short: "SINGULARITY",
     maxSpeed: 20.0,
+    cruiseSpeed: 8.0,
   },
 };
 
@@ -185,6 +211,12 @@ export const PLAYER = {
   // Handling, identical on every airframe. Weapons live in CANNONS /
   // MISSILES / BOMBS above, because they are chosen separately now.
   minSpeed: 2.2,
+  /**
+   * Fallback cruise, used only if a loadout somehow names no engine. The
+   * figure that actually flies is the fitted engine's own `cruiseSpeed`,
+   * which rises with the ladder — see ENGINES above for why it rises more
+   * slowly than top speed does.
+   */
   cruiseSpeed: 4.6,
   /** Base turn rate; player.js scales it by how slowly you are flying. */
   turnRate: 0.052,
@@ -193,6 +225,12 @@ export const PLAYER = {
    * each plane's own top speed, so two jets at the same airspeed corner
    * identically — otherwise the faster airframe would quietly also be the
    * more agile one at any given speed.
+   *
+   * It stays shared now that cruise climbs with the engine, which is why
+   * cruise climbs only 4.6 -> 8.0 against a top speed of 5 -> 20: a strong
+   * engine does corner a little worse at its own cruise, and "slowing down
+   * turns tighter" stays true in absolute airspeed rather than relative to
+   * whatever is fitted.
    */
   agilityReferenceSpeed: 8.5,
   /**
@@ -516,77 +554,185 @@ export function resolveMissile(loadout) {
 
 // --- bombs ------------------------------------------------------------------
 /**
- * Dropped in place rather than fired: it sits still, then levels everything
- * inside its blast radius — enemy jets and your own alike.
+ * Dropped in place rather than fired: it sits still, then does something
+ * indiscriminate to everything inside its radius — enemy jets and your own
+ * alike.
  *
- * Radius trades against how many you carry, and damage scales with the size
- * of the blast: a stick of dynamite wounds, a B61 erases almost anything. Most
- * run on a fuse; the proximity mine instead waits to be touched.
- * Damage is flat inside the radius and nothing outside it, so the drawn circle
- * means exactly what it looks like.
+ * Six systems, carried one at a time, built the way the forward weapons are:
+ * each is a set of property ladders rather than a model off a shelf. What
+ * separates one system from another is never a rung —
+ *
+ *   frag / he / thermobaric   the radius of the circle, and nothing else
+ *   incendiary                leaves the ground burning instead of levelling it
+ *   cluster                   splits into bomblets that tile a spread
+ *   mine                      no fuse at all; waits to be touched
+ *
+ * — so radius and mechanic are declared per system, while AMMO, DAMAGE and
+ * FUSE are climbed. Every endpoint below is typed by hand: nothing is derived
+ * from radius, and nothing asserts a relationship between the six. The bay is
+ * progression gated by your engine rather than a set of alternatives, and
+ * `check-balance.js` prints the whole set as a table so a tuning mistake is
+ * visible without being a failure.
  *
  * Nothing is immune, including you — a bomb makes no distinction — but nothing
  * is guaranteed dead either, which is what gives the Leviathan the standing of
- * a boss rather than a bigger target. Each fuse is long enough to clear its own
- * blast if you leave immediately.
+ * a boss rather than a bigger target.
  */
 export const BOMBS = {
-  dynamite: {
-    id: "dynamite",
-    name: "DYNAMITE",
-    short: "DYNAMITE",
-    carried: 10,
-    resupply: 2,
+  frag: {
+    id: "frag",
+    name: "FRAG",
+    short: "FRAG",
+    blurb: "A small circle, right now",
+    trigger: "blast",
     blastRadius: 200,
-    damage: 90,
-    fuse: 60,
     dropCooldown: 25,
+    props: {
+      ammo: { label: "AMMO", tiers: [6, 8, 10, 12, 14], format: (v) => `${v}` },
+      damage: { label: "DAMAGE", tiers: [40, 75, 110, 145, 180], format: (v) => `${v}` },
+      fuse: {
+        label: "FUSE", tiers: [150, 135, 120, 105, 90], down: true,
+        format: (v) => `${(v / 60).toFixed(1)} s`,
+      },
+    },
   },
 
+  he: {
+    id: "he",
+    name: "HIGH EXPLOSIVE",
+    short: "HE",
+    blurb: "The middle ground",
+    trigger: "blast",
+    blastRadius: 500,
+    dropCooldown: 45,
+    props: {
+      ammo: { label: "AMMO", tiers: [3, 4, 5, 6, 8], format: (v) => `${v}` },
+      damage: { label: "DAMAGE", tiers: [70, 130, 190, 250, 310], format: (v) => `${v}` },
+      fuse: {
+        label: "FUSE", tiers: [180, 157, 135, 112, 90], down: true,
+        format: (v) => `${(v / 60).toFixed(1)} s`,
+      },
+    },
+  },
+
+  thermobaric: {
+    id: "thermobaric",
+    name: "THERMOBARIC",
+    short: "THRM",
+    blurb: "Erases almost anything",
+    trigger: "blast",
+    blastRadius: 1000,
+    dropCooldown: 90,
+    props: {
+      ammo: { label: "AMMO", tiers: [1, 2, 3, 4, 5], format: (v) => `${v}` },
+      damage: { label: "DAMAGE", tiers: [130, 260, 390, 520, 650], format: (v) => `${v}` },
+      fuse: {
+        label: "FUSE", tiers: [300, 265, 230, 195, 160], down: true,
+        format: (v) => `${(v / 60).toFixed(1)} s`,
+      },
+    },
+  },
+
+  /**
+   * No blast damage at all. The detonation leaves the ground burning, and
+   * anything that is inside — or flies in afterwards — is set alight by the
+   * same ignition the flame and the beam use, so the fire follows it out of
+   * the field and keeps killing after it has left.
+   *
+   * Its fuse ladder bottoms out higher than any other system of its size,
+   * because the danger it creates outlives its own detonation by
+   * `fieldDuration`: the drawn circle is a thing to stay out of for four
+   * seconds, not an instant.
+   */
+  incendiary: {
+    id: "incendiary",
+    name: "INCENDIARY",
+    short: "INC",
+    blurb: "Sets the ground alight and leaves it burning",
+    trigger: "field",
+    blastRadius: 420,
+    dropCooldown: 55,
+    /** Ticks the field keeps burning after the bomb goes off. */
+    fieldDuration: 240,
+    props: {
+      ammo: { label: "AMMO", tiers: [2, 3, 4, 5, 6], format: (v) => `${v}` },
+      // Burn rate rather than a lump of damage: the fire does the killing.
+      damage: { label: "DAMAGE", tiers: [25, 40, 55, 75, 90], format: (v) => `${v}/s` },
+      fuse: {
+        label: "FUSE", tiers: [240, 210, 180, 150, 120], down: true,
+        format: (v) => `${(v / 60).toFixed(1)} s`,
+      },
+    },
+  },
+
+  /**
+   * A regular bomb that throws submunitions when it goes off. The parent
+   * detonates on its fuse like any other blast, and the detonation flings
+   * `bomblets` small charges outward on a spray — they fly for a moment and
+   * then go off where they land, so the whole thing reads as a firework
+   * rather than as one big circle.
+   *
+   * That makes it the only system whose footprint is larger than the circle
+   * drawn under it: the parent clears 300 m, and the submunitions reach out to
+   * `scatterRange` beyond that. Both halves have to be escapable, which is why
+   * `check-bomb.js` measures the parent against the fuse and the spray against
+   * the fuse plus the flight.
+   *
+   * BOMBLETS and DAMAGE multiply, which is the shape the cannon already lives
+   * with — so both ladders are deliberately modest. One DAMAGE figure serves
+   * the parent and every submunition alike; what the parent has over one of
+   * them is radius, not a second number to tune.
+   */
+  cluster: {
+    id: "cluster",
+    name: "CLUSTER",
+    short: "CLST",
+    blurb: "Explodes, then throws bomblets everywhere",
+    trigger: "cluster",
+    /** The parent's own blast, exactly like a regular bomb's. */
+    blastRadius: 300,
+    dropCooldown: 60,
+    /** How far the detonation throws its submunitions, at the furthest. */
+    scatterRange: 700,
+    /** Each submunition's own blast where it lands. */
+    bombletRadius: 120,
+    /** Ticks a thrown submunition flies before it goes off. */
+    bombletFlight: 40,
+    props: {
+      ammo: { label: "AMMO", tiers: [2, 3, 4, 5, 6], format: (v) => `${v}` },
+      bomblets: { label: "BOMBLETS", tiers: [4, 6, 8, 10, 12], format: (v) => `${v}` },
+      damage: { label: "DAMAGE", tiers: [10, 20, 30, 40, 50], format: (v) => `${v} ea` },
+      fuse: {
+        label: "FUSE", tiers: [200, 173, 145, 118, 90], down: true,
+        format: (v) => `${(v / 60).toFixed(1)} s`,
+      },
+    },
+  },
+
+  /**
+   * No fuse: it sits where you left it until something flies into it — yours
+   * or theirs, it does not look.
+   *
+   * Its trigger ring is derived from DAMAGE rather than being its own ladder,
+   * so the one thing you climb makes it both deadlier and twitchier. A stock
+   * mine has to be almost collided with; a maxed one catches whatever crosses
+   * the lane, which includes a 2-hull Moucheron spending the whole warhead,
+   * and includes you.
+   */
   mine: {
     id: "mine",
     name: "PROXIMITY MINE",
     short: "MINE",
-    carried: 5,
-    resupply: 2,
-    blastRadius: 260,
-    damage: 260,
-    /**
-     * Never times out. It sits where you left it until something flies into
-     * it — yours or theirs, it does not look. `fuse: Infinity` keeps it in
-     * the same shape as every other bomb while meaning "waits forever".
-     */
-    fuse: Infinity,
+    blurb: "Waits where you left it",
     trigger: "contact",
-    /** How close an aircraft has to come, on top of its own radius. */
-    triggerRadius: 46,
+    blastRadius: 260,
+    dropCooldown: 35,
     /** Ticks before it is live, so you are not killed by your own drop. */
     armTime: 40,
-    dropCooldown: 35,
-  },
-
-  mk82: {
-    id: "mk82",
-    name: "MK 82 HEAVY BOMB",
-    short: "MK 82",
-    carried: 3,
-    resupply: 1,
-    blastRadius: 500,
-    damage: 220,
-    fuse: 300,
-    dropCooldown: 45,
-  },
-
-  b61: {
-    id: "b61",
-    name: "B61 NUCLEAR",
-    short: "B61",
-    carried: 1,
-    resupply: 1,
-    blastRadius: 1000,
-    damage: 650,
-    fuse: 480,
-    dropCooldown: 90,
+    props: {
+      ammo: { label: "AMMO", tiers: [4, 6, 8, 10, 12], format: (v) => `${v}` },
+      damage: { label: "DAMAGE", tiers: [60, 125, 190, 255, 320], format: (v) => `${v}` },
+    },
   },
 };
 
@@ -595,10 +741,115 @@ export const BOMB = {
   /** Ticks between fuse beeps early on; it accelerates as detonation nears. */
   slowBeepInterval: 60,
   fastBeepInterval: 10,
+  /**
+   * The hard floor under every FUSE ladder, whatever the engine unlocks.
+   * Without it the engine gate below would eventually hand you a warhead that
+   * goes off before you have visibly left, which reads as a bug rather than
+   * as a reward.
+   */
+  minFuse: 90,
+  /**
+   * Engine rungs per unlocked FUSE rung. Fuse rung n needs engine rung
+   * `n * fuseRungsPerEngineRung`, so a ten-rung engine ladder unlocks a
+   * five-rung fuse ladder two rungs at a time.
+   *
+   * This is the one place a fitting in another bay reaches into the
+   * armament, and it is deliberate: a shorter fuse is only safe because a
+   * better engine carries you out of the blast faster. `check-bomb.js` holds
+   * each unlocked rung escapable at the cruise of the engine that unlocked
+   * it, so the gate's promise is under test rather than merely stated.
+   */
+  fuseRungsPerEngineRung: 2,
+  /** A mine's trigger ring as a share of its warhead. */
+  triggerRadiusPerDamage: 0.18,
+  /** Bombs a crate puts back on the rails, whatever the rack holds. */
+  resupply: 1,
 };
 
-// --- loadout ----------------------------------------------------------------
 export const BOMB_IDS = Object.keys(BOMBS);
+
+/** Every bomb property, as "system.property" keys, the way weapons are stored. */
+export const BOMB_PROP_KEYS = BOMB_IDS.flatMap(
+  (id) => Object.keys(BOMBS[id].props).map((prop) => `${id}.${prop}`));
+
+/**
+ * The highest FUSE rung an engine has unlocked. Rung 0 is always available,
+ * so a stock engine still flies with a bomb — just the slowest one.
+ */
+export function maxFuseRung(engineId) {
+  const engineRung = Math.max(0, ENGINE_IDS.indexOf(engineId));
+  return Math.floor(engineRung / BOMB.fuseRungsPerEngineRung);
+}
+
+/** True if this system's fuse rung is beyond what the fitted engine allows. */
+export function fuseRungLocked(bombId, rung, engineId) {
+  const ladder = BOMBS[bombId].props.fuse;
+  if (!ladder) return false;
+  return rung > Math.min(maxFuseRung(engineId), ladder.tiers.length - 1);
+}
+
+/**
+ * Turn a loadout's rungs into the one concrete bomb the jet carries. The
+ * shape matches what the old per-model specs exposed, so `bombs.js` and the
+ * enemy bombs — which still declare their own — stay identical.
+ *
+ * The fitted engine is read here and nowhere else in the armament: it clamps
+ * the FUSE rung rather than changing any figure, so a bomb bought on a fast
+ * engine is never silently stronger, only differently timed.
+ */
+export function resolveBomb(loadout) {
+  const id = BOMBS[loadout.bomb] ? loadout.bomb : DEFAULT_LOADOUT.bomb;
+  const system = BOMBS[id];
+
+  const value = (prop) => {
+    const ladder = system.props[prop];
+    if (!ladder) return undefined;
+    let rung = Math.min(Math.max(loadout[`${id}.${prop}`] ?? 0, 0), ladder.tiers.length - 1);
+    // Only the fuse is gated, and only downward: an engine never adds reach.
+    if (prop === "fuse") rung = Math.min(rung, maxFuseRung(loadout.engine));
+    return ladder.tiers[rung];
+  };
+
+  const damage = value("damage");
+  const fuse = system.props.fuse
+    ? Math.max(BOMB.minFuse, value("fuse"))
+    : Infinity;
+
+  const spec = {
+    id,
+    name: system.name,
+    short: system.short,
+    trigger: system.trigger,
+    carried: value("ammo"),
+    resupply: BOMB.resupply,
+    damage,
+    fuse,
+    blastRadius: system.blastRadius,
+    dropCooldown: system.dropCooldown,
+  };
+
+  if (system.trigger === "contact") {
+    spec.triggerRadius = Math.round(damage * BOMB.triggerRadiusPerDamage);
+    spec.armTime = system.armTime;
+  }
+
+  if (system.trigger === "field") {
+    spec.fieldDuration = system.fieldDuration;
+  }
+
+  if (system.trigger === "cluster") {
+    spec.bomblets = value("bomblets");
+    spec.bombletRadius = system.bombletRadius;
+    spec.scatterRange = system.scatterRange;
+    spec.bombletFlight = system.bombletFlight;
+    /** Everything the drop can reach: the spray goes well past the parent. */
+    spec.footprint = system.scatterRange + system.bombletRadius;
+  }
+
+  return spec;
+}
+
+// --- loadout ----------------------------------------------------------------
 
 /**
  * Every upgradeable property in the game, as "track.property" keys. The
@@ -619,11 +870,15 @@ export const WEAPON_PROP_KEYS = WEAPON_IDS.flatMap(
 export const DEFAULT_LOADOUT = {
   armour: "scout",
   engine: "spark",
-  bomb: "mk82",
+  /** The smallest bomb, at its weakest, like everything else in the hangar. */
+  bomb: "frag",
   /** Which forward weapon is carried. Only one, ever. */
   weapon: "cannon",
   ...Object.fromEntries(WEAPON_PROP_KEYS.map((key) => [key, 0])),
   ...Object.fromEntries(MISSILE_PROP_KEYS.map((key) => [key, 0])),
+  // Every bomb keeps its own rungs, so switching away and back returns you to
+  // the one you built rather than a stock one.
+  ...Object.fromEntries(BOMB_PROP_KEYS.map((key) => [key, 0])),
 };
 
 /** Missile lock-on, acquired by holding a target inside a forward cone. */
