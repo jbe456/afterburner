@@ -8,7 +8,7 @@
  */
 
 import {
-  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, MISSILE_IDS,
+  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, GUIDANCE,
   BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, resolveWeapons,
 } from "../config.js";
@@ -54,11 +54,6 @@ const kmh = (v) => `${Math.round(v * KMH_PER_SPEED_UNIT)} km/h`;
 const AXES = {
   armour: [["HULL", (a) => a.maxHp, count]],
   engine: [["SPEED", (e) => e.maxSpeed, kmh]],
-  missile: [
-    ["AMMO", (m) => m.carried, count],
-    ["DAMAGE", (m) => m.damage, count],
-    ["SEEKER", (m) => m.acquireRange, (v) => (v ? metres(v) : "none")],
-  ],
   bomb: [
     ["AMMO", (b) => b.carried, count],
     ["BLAST", (b) => b.blastRadius, metres],
@@ -116,17 +111,16 @@ const statBar = (label, width, text) => `
 const BARS = {
   armour: barsFor("armour", ARMOUR_IDS, ARMOUR),
   engine: barsFor("engine", ENGINE_IDS, ENGINES),
-  missile: barsFor("missile", MISSILE_IDS, MISSILES),
   bomb: barsFor("bomb", BOMB_IDS, BOMBS),
 };
 
 /**
- * The same bars for a forward weapon, one per property. These measure how
+ * The same bars for a property track, one per property. These measure how
  * far up its own ladder each property has been taken rather than comparing
- * weapons with each other — a full bar means maxed, on every one of them.
+ * fittings with each other — a full bar means maxed, on every one of them.
  */
-function weaponPropBars(track) {
-  return Object.entries(WEAPONS[track].props).map(([prop, spec]) => {
+function trackPropBars(track) {
+  return Object.entries(PROP_TRACKS[track].props).map(([prop, spec]) => {
     const top = spec.tiers.length - 1;
     const rung = Math.min(chosen[`${track}.${prop}`] ?? 0, top);
     return statBar(spec.label, 18 + (top ? rung / top : 1) * 82,
@@ -140,10 +134,16 @@ const tierPips = (rung, total) => `
     (_, i) => `<span class="${i <= rung ? "on" : ""}"></span>`).join("")}</div>`;
 
 /** The tables and their orders, by slot, so a slot name is enough to read one. */
-const TABLES = { armour: ARMOUR, engine: ENGINES, missile: MISSILES, bomb: BOMBS };
-const IDS = {
-  armour: ARMOUR_IDS, engine: ENGINE_IDS, missile: MISSILE_IDS, bomb: BOMB_IDS,
-};
+const TABLES = { armour: ARMOUR, engine: ENGINES, bomb: BOMBS };
+const IDS = { armour: ARMOUR_IDS, engine: ENGINE_IDS, bomb: BOMB_IDS };
+
+/**
+ * Every track whose bay is a set of property ladders rather than a named
+ * fitting: the three forward weapons and the missile. They are stored and
+ * drawn identically, so one lookup serves the cards, the save file and the
+ * upgrade button.
+ */
+const PROP_TRACKS = { ...WEAPONS, ...MISSILES };
 
 /**
  * Hull and engine are climbed; missiles and bombs are picked between. The
@@ -151,6 +151,16 @@ const IDS = {
  * asked for by name rather than re-derived in five places.
  */
 const isLadder = (slot) => slot === "armour" || slot === "engine";
+
+/**
+ * A slot whose bay holds property ladders instead of one fitting: the forward
+ * weapon, which also carries a switch, and the missile, which does not — there
+ * is only one missile to carry.
+ */
+const isTrack = (slot) => slot === "weapon" || slot === "missile";
+
+/** The track a slot's property cards belong to. */
+const trackOf = (slot) => (slot === "weapon" ? chosen.weapon : slot);
 
 /** Every slot the hangar knows how to store. */
 const ALL_SLOTS = Object.keys(DEFAULT_LOADOUT);
@@ -167,7 +177,7 @@ const BAYS = [
   { slot: "armour", label: "HULL", action: "Upgrade" },
   { slot: "engine", label: "ENGINE", action: "Upgrade" },
   { slot: "weapon", label: "WEAPON", action: "Switch" },
-  { slot: "missile", label: "MISSILE", action: "Change" },
+  { slot: "missile", label: "MISSILE", action: "Upgrade" },
   { slot: "bomb", label: "BOMB", action: "Change" },
 ];
 
@@ -195,7 +205,7 @@ function validated(saved) {
   for (const slot of Object.keys(saved)) {
     if (!slot.includes(".")) continue;
     const [track, prop] = slot.split(".");
-    const tiers = WEAPONS[track]?.props[prop]?.tiers;
+    const tiers = PROP_TRACKS[track]?.props[prop]?.tiers;
     if (!tiers) continue;
     const rung = Number(saved[slot]);
     if (Number.isInteger(rung) && rung >= 0 && rung < tiers.length) out[slot] = rung;
@@ -347,26 +357,49 @@ function bayCard({ slot, label, action }) {
     </button>`;
 }
 
-/** True once a ladder has no rung left to step to. A choice has no top. */
-const atTop = (slot) =>
-  isLadder(slot) && IDS[slot].indexOf(chosen[slot]) === IDS[slot].length - 1;
+/**
+ * True once a bay has nothing left to buy. A single ladder is at its last
+ * rung; a property track is at the top of every one of its ladders; a choice
+ * has no top at all.
+ */
+function atTop(slot) {
+  if (isTrack(slot)) {
+    const track = trackOf(slot);
+    return Object.entries(PROP_TRACKS[track].props).every(
+      ([prop, spec]) => (chosen[`${track}.${prop}`] ?? 0) === spec.tiers.length - 1);
+  }
+  return isLadder(slot) && IDS[slot].indexOf(chosen[slot]) === IDS[slot].length - 1;
+}
 
-const fittedName = (slot) =>
-  (slot === "weapon" ? WEAPONS[chosen.weapon].label : TABLES[slot][chosen[slot]].name);
+function fittedName(slot) {
+  if (slot === "weapon") return WEAPONS[chosen.weapon].label;
+  // The missile has no model name any more: what it is called is how it is
+  // guided, which is the one property that is not a quantity.
+  if (slot === "missile") return GUIDANCE[missileRung("type")].name;
+  return TABLES[slot][chosen[slot]].name;
+}
+
+/** Where one of the missile's ladders currently stands. */
+const missileRung = (prop) => Math.min(
+  chosen[`missile.${prop}`] ?? 0, MISSILES.missile.props[prop].tiers.length - 1);
 
 function bayArt(slot) {
+  if (slot === "missile") return missileArt(missileRung("type"));
   if (!isLadder(slot)) return weaponArt(slot === "weapon" ? chosen.weapon : chosen[slot]);
   return ladderArt(slot, IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
 }
 
-/** A ladder shows how far up it stands. A choice has no rungs to show. */
+/**
+ * A single ladder shows how far up it stands. A property track has four of
+ * them and shows each on its own card instead, and a choice has no rungs.
+ */
 function bayPips(slot) {
   if (!isLadder(slot)) return "";
   return tierPips(IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
 }
 
 function bayBars(slot) {
-  if (slot === "weapon") return weaponPropBars(chosen.weapon);
+  if (isTrack(slot)) return trackPropBars(trackOf(slot));
   return BARS[slot](TABLES[slot][chosen[slot]]);
 }
 
@@ -394,12 +427,17 @@ function benchMarkup() {
 
 function benchHint(slot) {
   if (slot === "weapon") return "one at a time — the others keep their rungs";
+  if (slot === "missile") {
+    return `${Object.keys(MISSILES.missile.props).length} ladders, and only one way up`;
+  }
   if (isLadder(slot)) return `${IDS[slot].length} rungs, and only one way up`;
   return `${IDS[slot].length} to choose from`;
 }
 
 function benchBody(slot) {
   if (slot === "weapon") return weaponColumn();
+  // No switch: there is one missile, so the bench is its properties alone.
+  if (slot === "missile") return `<div class="options">${propCards("missile")}</div>`;
   if (isLadder(slot)) return `<div class="options single">${upgradeCard(slot)}</div>`;
   return `<div class="options">${choiceCards(slot)}</div>`;
 }
@@ -621,7 +659,7 @@ function upgrade(slot) {
   // Forward weapons store a rung index under a "track.property" key.
   if (slot.includes(".")) {
     const [track, prop] = slot.split(".");
-    const top = WEAPONS[track].props[prop].tiers.length - 1;
+    const top = PROP_TRACKS[track].props[prop].tiers.length - 1;
     const next = Math.min((chosen[slot] ?? 0) + 1, top);
     if (next !== chosen[slot]) select(slot, next);
     return;
@@ -645,9 +683,7 @@ function weaponColumn() {
       ${WEAPONS[id].label}<i>${WEAPONS[id].blurb}</i>
     </button>`).join("");
 
-  const cards = Object.keys(WEAPONS[chosen.weapon].props)
-    .map((prop) => propCard(chosen.weapon, prop))
-    .join("");
+  const cards = propCards(chosen.weapon);
 
   return `
     <div class="weapon-column">
@@ -656,8 +692,15 @@ function weaponColumn() {
     </div>`;
 }
 
+/** One card per property of a track, in the order config declares them. */
+function propCards(track) {
+  return Object.keys(PROP_TRACKS[track].props)
+    .map((prop) => propCard(track, prop))
+    .join("");
+}
+
 function propCard(track, prop) {
-  const spec = WEAPONS[track].props[prop];
+  const spec = PROP_TRACKS[track].props[prop];
   const key = `${track}.${prop}`;
   const rung = chosen[key] ?? 0;
   const top = spec.tiers.length - 1;
@@ -719,28 +762,6 @@ const WEAPON_ART = {
     <rect class="main" x="-1" y="-1.5" width="21" height="3"/>
     <path class="arc" d="M 4,-6.5 L 13,-6.5 M 4,6.5 L 13,6.5"/>`,
 
-  // --- missiles: a pod of many, one slim seeker, one big radar shot ---
-  hydra: `
-    <rect class="dim" x="-18" y="-10" width="21" height="20" rx="3"/>
-    <polygon class="main" points="3,-8.4 13,-6.6 3,-4.8"/>
-    <polygon class="main" points="3,-1.8 15,0 3,1.8"/>
-    <polygon class="main" points="3,4.8 13,6.6 3,8.4"/>`,
-
-  sidewinder: `
-    <polygon class="main" points="18,0 8,-3 -12,-3 -12,3 8,3"/>
-    <polygon class="dim" points="-12,-3 -19,-9 -14,-3"/>
-    <polygon class="dim" points="-12,3 -19,9 -14,3"/>
-    <polygon class="dim" points="1,-3 -3,-9 -7,-3"/>
-    <polygon class="dim" points="1,3 -3,9 -7,3"/>`,
-
-  amraam: `
-    <polygon class="main" points="19,0 7,-4.2 -11,-4.2 -11,4.2 7,4.2"/>
-    <polygon class="dim" points="-11,-4.2 -19,-10 -13,-4.2"/>
-    <polygon class="dim" points="-11,4.2 -19,10 -13,4.2"/>
-    <polygon class="dim" points="2,-4.2 -3,-10 -8,-4.2"/>
-    <polygon class="dim" points="2,4.2 -3,10 -8,4.2"/>
-    <path class="arc" d="M 13,-7.5 A 8.5,8.5 0 0 1 13,7.5"/>`,
-
   // --- bombs: sticks, a shaped case, and the obvious ---
   mine: `
     <polygon class="dim" points="15.0,0.0 8.0,3.2 8.0,-3.2"/>
@@ -778,6 +799,37 @@ function weaponArt(id) {
   return `
     <svg class="weapon-art" viewBox="-22 -14 44 28" aria-hidden="true">
       ${WEAPON_ART[id] ?? ""}
+    </svg>`;
+}
+
+/**
+ * One missile that gains hardware as its TYPE rung climbs, the same way the
+ * armour gains plates: a bare finned rocket, then a seeker head and canards
+ * to steer with, then the radar arc that lets it look behind you.
+ *
+ * Generated from the rung rather than drawn three times, so a fourth mode
+ * would not need a fourth drawing.
+ */
+function missileArt(rung) {
+  const parts = [
+    `<polygon class="main" points="17,0 7,-3.4 -12,-3.4 -12,3.4 7,3.4"/>`,
+    `<polygon class="dim" points="-12,-3.4 -19,-9.5 -14,-3.4"/>`,
+    `<polygon class="dim" points="-12,3.4 -19,9.5 -14,3.4"/>`,
+  ];
+
+  // A seeker needs something to see with, and something to steer with.
+  if (rung >= 1) {
+    parts.push(`<circle class="dim" cx="11" cy="0" r="2.6"/>`);
+    parts.push(`<polygon class="dim" points="1,-3.4 -3,-9 -7,-3.4"/>`);
+    parts.push(`<polygon class="dim" points="1,3.4 -3,9 -7,3.4"/>`);
+  }
+
+  // All-aspect: the arc is the radar looking everywhere at once.
+  if (rung >= 2) parts.push(`<path class="arc" d="M 12,-7.5 A 8.5,8.5 0 0 1 12,7.5"/>`);
+
+  return `
+    <svg class="weapon-art" viewBox="-22 -14 44 28" aria-hidden="true">
+      ${parts.join("")}
     </svg>`;
 }
 

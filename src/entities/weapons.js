@@ -198,31 +198,27 @@ export function fireMissile(world) {
   if (!missileReady(world.player)) return;
 
   const spec = player.missile;
-  const salvo = Math.min(spec.perShot, player.missiles);
-  player.missiles -= salvo;
+  player.missiles -= 1;
   player.missileCooldown = spec.cooldown;
 
-  const target = acquireAtLaunch(world, player, spec);
+  // One off the rails per pull, alternating wings so the rack visibly empties
+  // from both sides rather than one.
+  const side = player.missiles % 2 === 0 ? 1 : -1;
+  const perpendicular = player.angle + Math.PI / 2;
+  // Unguided rockets get a touch of dispersion; guided ones do not need it.
+  const aim = spec.turnRate > 0 ? player.angle : player.angle + rand(-0.035, 0.035);
 
-  for (let i = 0; i < salvo; i++) {
-    // Alternate rails so a salvo visibly comes off both wings.
-    const side = i % 2 === 0 ? 1 : -1;
-    const perpendicular = player.angle + Math.PI / 2;
-    // Unguided rockets get a touch of dispersion; guided ones do not need it.
-    const aim = spec.turnRate > 0 ? player.angle : player.angle + rand(-0.035, 0.035);
-
-    world.missiles.push({
-      spec,
-      friendly: true,
-      x: player.x + Math.cos(perpendicular) * 14 * side,
-      y: player.y + Math.sin(perpendicular) * 14 * side,
-      angle: aim,
-      speed: spec.launchSpeed,
-      target,
-      life: spec.life,
-      arming: MISSILE.armingDelay,
-    });
-  }
+  world.missiles.push({
+    spec,
+    friendly: true,
+    x: player.x + Math.cos(perpendicular) * 14 * side,
+    y: player.y + Math.sin(perpendicular) * 14 * side,
+    angle: aim,
+    speed: spec.launchSpeed,
+    target: acquireAtLaunch(world, player, spec),
+    life: spec.life,
+    arming: MISSILE.armingDelay,
+  });
 
   sfx.missile();
   addShake(world, 3);

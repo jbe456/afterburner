@@ -374,87 +374,145 @@ export const CANNON = {
 
 // --- missiles ---------------------------------------------------------------
 /**
- * The axis here is guidance against quantity: a pod of unguided rockets you
- * aim yourself, a dependable IR missile, or three radar shots that delete
- * whatever they touch but will not leave the rail without a solid lock.
+ * One missile, built the way the forward weapons are: a set of property
+ * ladders rather than a choice between models. The three that used to sit
+ * here — a rocket pod, an IR seeker and a radar shot — survive as the three
+ * rungs of TYPE, which is the only one of the four that is not a quantity.
+ *
+ * Everything else about a missile is derived from these four in
+ * `resolveMissile`: how long it stays in the air, what its splash does, how
+ * far its seeker can see. Nothing downstream declares a missile's numbers.
  */
 export const MISSILES = {
-  hydra: {
-    id: "hydra",
-    name: "HYDRA ROCKET POD",
-    short: "HYDRA",
-    carried: 30,
-    resupply: 6,
-    perShot: 2,
-    cooldown: 14,
-    damage: 28,
-    splashDamage: 12,
-    splashRadius: 70,
-    /** 0 means it flies dead straight. */
-    turnRate: 0,
-    /** Unguided: it acquires nothing and goes where it was pointed. */
-    acquireRange: 0,
-    acquireCone: 0,
-    launchSpeed: 6,
-    accel: 0.4,
-    maxSpeed: 16,
-    life: 150,
-    hitRadius: 12,
-  },
-
-  sidewinder: {
-    id: "sidewinder",
-    name: "SIDEWINDER HEAT-SEEKER",
-    short: "AIM-9",
-    carried: 6,
-    resupply: 3,
-    perShot: 1,
-    cooldown: 42,
-    damage: 70,
-    splashDamage: 30,
-    splashRadius: 110,
-    turnRate: 0.085,
-    /** Seeks forward only, and not far — point it roughly at something. */
-    acquireRange: 900,
-    acquireCone: 0.9,
-    launchSpeed: 5,
-    accel: 0.26,
-    maxSpeed: 13,
-    life: 230,
-    hitRadius: 16,
-  },
-
-  amraam: {
-    id: "amraam",
-    name: "AMRAAM ALL-ASPECT",
-    short: "AMRAAM",
-    carried: 3,
-    resupply: 1,
-    perShot: 1,
-    cooldown: 55,
-    damage: 150,
-    splashDamage: 70,
-    splashRadius: 190,
-    turnRate: 0.15,
-    /**
-     * All-aspect: acquires anything on the radar regardless of bearing, so it
-     * can be fired over your shoulder at something chasing you.
-     */
-    acquireRange: RADAR_RANGE,
-    acquireCone: Math.PI,
-    launchSpeed: 5,
-    accel: 0.3,
-    maxSpeed: 15,
-    life: 300,
-    hitRadius: 18,
+  missile: {
+    label: "MISSILE",
+    blurb: "Off the rails, one at a time",
+    props: {
+      type: {
+        label: "TYPE",
+        tiers: [0, 1, 2],
+        format: (v) => ["UNGUIDED", "IR SEEKER", "ALL-ASPECT"][v],
+      },
+      ammo: {
+        label: "AMMO",
+        tiers: steps(3, 30, 5),
+        format: (v) => `${v}`,
+      },
+      damage: {
+        label: "DAMAGE",
+        tiers: steps(30, 150, 5, 5),
+        format: (v) => `${v}`,
+      },
+      reach: {
+        label: "REACH",
+        tiers: steps(800, 2500, 5, 50),
+        format: (v) => `${v} m`,
+      },
+    },
   },
 };
 
-/** Shared by every missile regardless of type. */
+export const MISSILE_PROP_KEYS = Object.keys(MISSILES.missile.props)
+  .map((prop) => `missile.${prop}`);
+
+/**
+ * What each TYPE rung does. These are three unrelated quantities rather than
+ * one that grows, which is why TYPE's tiers are plain indices into this and
+ * not the numbers themselves — a bar cannot be drawn from a turn rate and an
+ * arc at the same time.
+ *
+ * The figures are the retired models' guidance, unchanged: a rocket that goes
+ * where it was pointed, a seeker that has to be aimed roughly at something,
+ * and one that takes anything on the radar including what is behind you.
+ */
+export const GUIDANCE = [
+  { name: "UNGUIDED", turnRate: 0, acquireRange: 0, acquireCone: 0 },
+  { name: "IR SEEKER", turnRate: 0.085, acquireRange: 900, acquireCone: 0.9 },
+  { name: "ALL-ASPECT", turnRate: 0.15, acquireRange: RADAR_RANGE, acquireCone: Math.PI },
+];
+
+/** Shared by every missile however its ladders are set. */
 export const MISSILE = {
   /** Ticks before the warhead arms, so it can't detonate on the launch rail. */
   armingDelay: 10,
+  /**
+   * Ticks between launches, the same whatever is fitted. Rate of fire is
+   * deliberately not a ladder: it would multiply with DAMAGE, and a ceiling
+   * that is the product of two rungs is how the cannon once reached 15,000
+   * dps. At the top rung this is 100 dps, half of a maxed cannon.
+   */
+   cooldown: 90,
+  /** One airframe, so one speed ramp: units per tick. */
+  launchSpeed: 5,
+  accel: 0.28,
+  maxSpeed: 14,
+  hitRadius: 16,
+  /** Missiles a crate puts back on the rails, whatever the rack holds. */
+  resupply: 3,
+  /** Splash is a fixed share of the warhead, over a radius that grows with it. */
+  splashShare: 0.45,
+  splashRadiusBase: 60,
+  splashRadiusPerDamage: 0.87,
 };
+
+/**
+ * Ticks of flight that cover `reach`, against the acceleration ramp above.
+ * Solved rather than divided: a missile is still speeding up for its first
+ * second, so reach / maxSpeed would overshoot every time.
+ */
+function lifeForReach(reach) {
+  let speed = MISSILE.launchSpeed;
+  let flown = 0;
+  let ticks = 0;
+  while (flown < reach) {
+    speed = Math.min(speed + MISSILE.accel, MISSILE.maxSpeed);
+    flown += speed;
+    ticks++;
+  }
+  return ticks;
+}
+
+/**
+ * Turn a loadout's rungs into the one concrete missile the jet carries. The
+ * shape matches what the old per-model specs exposed, so the flight code and
+ * the enemy missiles — which still declare their own — stay identical.
+ */
+export function resolveMissile(loadout) {
+  const value = (prop) => {
+    const { tiers } = MISSILES.missile.props[prop];
+    const rung = loadout[`missile.${prop}`] ?? 0;
+    return tiers[Math.min(Math.max(rung, 0), tiers.length - 1)];
+  };
+
+  const guidance = GUIDANCE[value("type")];
+  const damage = value("damage");
+  const reach = value("reach");
+
+  return {
+    name: guidance.name,
+    short: guidance.name,
+    carried: value("ammo"),
+    resupply: MISSILE.resupply,
+    cooldown: MISSILE.cooldown,
+    damage,
+    splashDamage: Math.round(damage * MISSILE.splashShare),
+    splashRadius: Math.round(
+      MISSILE.splashRadiusBase + damage * MISSILE.splashRadiusPerDamage),
+    turnRate: guidance.turnRate,
+    /**
+     * A seeker cannot be allowed to see past the airframe: chasing something
+     * the motor will never reach only empties the rack.
+     */
+    acquireRange: Math.min(guidance.acquireRange, reach),
+    acquireCone: guidance.acquireCone,
+    launchSpeed: MISSILE.launchSpeed,
+    accel: MISSILE.accel,
+    maxSpeed: MISSILE.maxSpeed,
+    reach,
+    life: lifeForReach(reach),
+    hitRadius: MISSILE.hitRadius,
+  };
+}
 
 // --- bombs ------------------------------------------------------------------
 /**
@@ -540,7 +598,6 @@ export const BOMB = {
 };
 
 // --- loadout ----------------------------------------------------------------
-export const MISSILE_IDS = Object.keys(MISSILES);
 export const BOMB_IDS = Object.keys(BOMBS);
 
 /**
@@ -562,11 +619,11 @@ export const WEAPON_PROP_KEYS = WEAPON_IDS.flatMap(
 export const DEFAULT_LOADOUT = {
   armour: "scout",
   engine: "spark",
-  missile: "sidewinder",
   bomb: "mk82",
   /** Which forward weapon is carried. Only one, ever. */
   weapon: "cannon",
   ...Object.fromEntries(WEAPON_PROP_KEYS.map((key) => [key, 0])),
+  ...Object.fromEntries(MISSILE_PROP_KEYS.map((key) => [key, 0])),
 };
 
 /** Missile lock-on, acquired by holding a target inside a forward cone. */

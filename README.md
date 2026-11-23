@@ -47,8 +47,9 @@ weapon built for what you are testing.
 
 There is one airframe. Hull and engine are single fittings you **upgrade**
 rung by rung; the forward weapon is a **switch** between three systems, each
-with property ladders of its own; missile and bomb are **choices** between
-three or four alternatives.
+with property ladders of its own; the missile is a set of ladders with no
+switch, because there is only one missile; the bomb is a **choice** between
+four alternatives.
 
 ### The hangar
 
@@ -99,9 +100,10 @@ applies to them too.
 
 ## Loadout
 
-Missiles and bombs are real choices: the same no-dominance rule applies
-inside each category, so no missile or bomb is better than its siblings at
-everything.
+Bombs are a real choice: the no-dominance rule applies inside the category,
+so no bomb is better than its siblings at everything. The forward weapon and
+the missile are climbed instead, and what holds there is that every rung beats
+the one below it.
 
 ### Forward weapons
 
@@ -144,11 +146,39 @@ landed last.
 
 You start on the cannon at its weakest: two wing guns, regular rounds.
 
-| Missile | | |
+### The missile
+
+One missile, built the way the forward weapons are. The rocket pod, the
+heat-seeker and the radar shot that used to be three separate fittings are now
+the three rungs of **TYPE** — the only one of the four properties that is not
+a quantity.
+
+| | | |
 | --- | --- | --- |
-| **Hydra rocket pod** | 30 carried, 28 dmg | Unguided, 2 per pull — you do the aiming |
-| **Sidewinder heat-seeker** | 6 carried, 70 dmg | Seeks a forward arc to 900 m |
-| **AMRAAM all-aspect** | 3 carried, 150 dmg | Fire in any direction; finds anything on the radar |
+| **TYPE** | UNGUIDED / IR SEEKER / ALL-ASPECT | how it finds something |
+| **AMMO** | 3, 10, 17, 23, 30 | what the rack holds |
+| **DAMAGE** | 30, 60, 90, 120, 150 | and the splash that scales with it |
+| **REACH** | 800 – 2500 m | how far the motor carries it |
+
+Everything else is derived rather than declared. Splash is 45% of the warhead
+over a radius that grows with it, so a 150 lands 68 across 191 m — within a
+point and a metre of the AMRAAM it replaces. Flight time is *solved* from
+REACH against the acceleration ramp rather than divided by top speed, because
+a missile is still speeding up through its first second; every rung burns out
+within one tick of travel of its stated distance.
+
+Rate of fire is deliberately **not** a ladder. It is a flat 90 ticks for
+everything, which at the top rung is 100 dps — half a maxed cannon. A RATE
+ladder would multiply with DAMAGE, and a ceiling that is the product of two
+rungs is how the cannon once reached 15,000 dps. The cost of that decision
+lands on the bottom rung: unguided rockets reload seven times slower than the
+Hydra pod they replace.
+
+A crate puts **3** back on the rails whatever the rack holds — a full reload
+at the bottom of the AMMO ladder, a tenth of one at the top.
+
+Note that missile reach **fell**. The AMRAAM used to fly 4,338 m and the
+Sidewinder 2,871; nothing now exceeds 2,500. The cap was not always there.
 
 | Bomb | | |
 | --- | --- | --- |
@@ -170,15 +200,23 @@ the drop, which is what stops it killing you on release. Laying a line of them
 across a wave's approach is the point; forgetting where you put one is the
 cost.
 
-The missiles differ in how far and how wide their seekers look. Hydra has no
-seeker at all. The Sidewinder searches a forward arc out to 900 m. The AMRAAM
-is all-aspect out to `RADAR_RANGE`, the same constant the radar display uses —
-so "if it is on your radar, the missile will find it" is enforced rather than
-merely claimed, including for something sitting on your six.
+The TYPE rungs differ in how far and how wide the seeker looks, and the
+figures are the retired models' guidance unchanged. **UNGUIDED** has no seeker
+at all and goes where the nose was pointing. **IR SEEKER** searches a forward
+0.9 rad arc out to 900 m. **ALL-ASPECT** finds anything on `RADAR_RANGE`, the
+same constant the radar display uses, in any direction — so "if it is on your
+radar, the missile will find it" is enforced rather than merely claimed,
+including for something sitting on your six.
+
+With one caveat the ladder makes necessary: **a seeker never sees further than
+the motor can carry it**. Acquisition is clamped to REACH, so an all-aspect
+warhead on an 800 m airframe looks 800 m, not 2600. A missile that chases what
+it can never reach does nothing but empty the rack.
 
 `check-weapons.js` pins the mechanics that are invisible when they break —
-pierce depth, ignition and its damage-over-time, salvo size, and the lock
-requirement. `check-bomb.js` proves each bomb kills friend and foe at its own
+pierce depth, ignition and its damage-over-time, each TYPE rung guiding as
+advertised, burn-out landing on REACH, acquisition never outrunning it, and a
+full rack staying under a Supercarrier's hull. `check-bomb.js` proves each bomb kills friend and foe at its own
 radius on its own fuse, and that each is escapable at cruise speed.
 
 Every card in the hangar is a name, a drawing
@@ -397,7 +435,7 @@ silently fall back to the plain fighter shape).
 | `W` / `Shift` | Afterburner |
 | `S` | Throttle back |
 | Left click / `Space` | Cannon |
-| Right click / `F` | Fire missile (needs a lock) |
+| Right click / `F` | Fire missile (no lock needed) |
 | `B` | Drop bomb |
 | `P` | Pause |
 | `Esc` | Back a step — out of a reading screen, or pause then abandon a run |
@@ -458,7 +496,7 @@ scripts/
 ├── serve.js            Dev server
 ├── build.js            Single-file bundler
 ├── check-balance.js    Asserts nothing dominates in any category
-├── check-weapons.js    Asserts pierce, ignition, salvos and lock behave
+├── check-weapons.js    Asserts pierce, ignition, guidance and reach behave
 ├── check-bomb.js       Asserts each bomb's fuse and its friendly fire
 ├── check-waves.js      Asserts every wave is populated, capped and escalating
 └── check-carrier.js    Asserts decks, launching, repair and sinking behave

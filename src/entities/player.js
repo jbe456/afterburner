@@ -15,7 +15,7 @@ import { input, isDown } from "../core/input.js";
 import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
-  PLAYER, ARMOUR, ENGINES, MISSILES, BOMBS, DEFAULT_LOADOUT, LOCK, resolveWeapons,
+  PLAYER, ARMOUR, ENGINES, BOMBS, DEFAULT_LOADOUT, LOCK, resolveWeapons, resolveMissile,
   ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
 import { fireGun, fireMissile, dropBomb, sprayFlame, fireLaser } from "./weapons.js";
@@ -35,12 +35,15 @@ export function createPlayer(loadout = {}) {
 
   const armour = pick(ARMOUR, loadout.armour, DEFAULT_LOADOUT.armour);
   const engine = pick(ENGINES, loadout.engine, DEFAULT_LOADOUT.engine);
-  const missile = pick(MISSILES, loadout.missile, DEFAULT_LOADOUT.missile);
   const bomb = pick(BOMBS, loadout.bomb, DEFAULT_LOADOUT.bomb);
 
   // The forward weapon comes from ladder rungs rather than a named model.
   // Exactly one of the three resolves; the other two come back null.
   const { weapon, cannon, flame, laser } = resolveWeapons({ ...DEFAULT_LOADOUT, ...loadout });
+
+  // So does the missile: one airframe whose guidance, rack, warhead and
+  // burn distance are all rungs rather than a model picked off a shelf.
+  const missile = resolveMissile({ ...DEFAULT_LOADOUT, ...loadout });
 
   return {
     /** How much the hull absorbs. */

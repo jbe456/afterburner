@@ -21,7 +21,7 @@ import { updateBullets, updateFlames, updateMissiles } from "../src/entities/pro
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
 import {
   WEAPONS, MISSILES, RADAR_RANGE, ENEMY_TYPES, ENEMY_TYPE_IDS,
-  DEFAULT_LOADOUT, resolveWeapons, CANNON, enemyWeapon, enemyDps,
+  DEFAULT_LOADOUT, resolveWeapons, resolveMissile, CANNON, enemyWeapon, enemyDps,
 } from "../src/config.js";
 import { updatePlayerBurn } from "../src/entities/player.js";
 
@@ -184,22 +184,70 @@ console.log("\nONE WEAPON AT A TIME");
 
 console.log("\nMISSILES");
 
-for (const id of Object.keys(MISSILES)) {
-  const spec = MISSILES[id];
-  const { world, player } = setup({ missile: id }, [400]);
+/** A loadout with the missile's ladders pushed to given rungs. */
+function msl(overrides = {}) {
+  const out = { ...DEFAULT_LOADOUT };
+  for (const [prop, rung] of Object.entries(overrides)) {
+    const { tiers } = MISSILES.missile.props[prop];
+    out[`missile.${prop}`] = rung === "max" ? tiers.length - 1 : rung;
+  }
+  return out;
+}
 
-  // No lock given: nothing should need one any more.
+const TYPE = { unguided: 0, seeker: 1, allAspect: 2 };
+
+{
+  // One off the rails per pull, and one off the rack. The salvo the rocket
+  // pod used to fire is gone with the models.
+  const { world, player } = setup(msl({ ammo: "max" }), [400]);
+  const rack = player.missiles;
+
   fireMissile(world);
-  check(`${spec.name} launches ${spec.perShot} per pull`,
-    world.missiles.length === spec.perShot, `got ${world.missiles.length}`);
-  check(`${spec.name} draws ${spec.perShot} from the rack`,
-    player.missiles === spec.carried - spec.perShot, `left ${player.missiles}`);
+  check("a pull launches one missile", world.missiles.length === 1,
+    `got ${world.missiles.length}`);
+  check("and draws one from the rack", player.missiles === rack - 1,
+    `left ${player.missiles} of ${rack}`);
 }
 
 {
-  // AMRAAM is all-aspect: no lock needed, and it will take a target that is
-  // directly behind the jet, anywhere inside radar range.
-  const { world, player, enemies } = setup({ missile: "amraam" }, []);
+  // Unguided: no lock needed, and it must ignore the target entirely.
+  const { world, player, enemies } = setup(msl({ type: TYPE.unguided }), [400]);
+  player.lock = null;
+  fireMissile(world);
+  check("UNGUIDED launches with no lock at all", world.missiles.length === 1);
+  check("UNGUIDED takes no target", world.missiles[0].target === null);
+
+  // Put a target hard off to one side; a guided missile would turn for it.
+  enemies[0].x = 600; enemies[0].y = 600;
+  const heading = world.missiles[0].angle;
+  for (let t = 0; t < 60; t++) {
+    for (const m of world.missiles) {
+      m.x += Math.cos(m.angle) * m.speed;
+      m.y += Math.sin(m.angle) * m.speed;
+    }
+  }
+  check("UNGUIDED flies straight past a target it could have chased",
+    world.missiles[0].angle === heading);
+}
+
+{
+  // The IR seeker looks forward only — that is its limitation, and the whole
+  // reason the rung above it is worth climbing to.
+  const { world, player } = setup(msl({ type: TYPE.seeker, reach: "max" }), []);
+  spawnEnemy(world, "fighter");
+  world.enemies[0].x = -400;
+  world.enemies[0].y = 0;
+
+  player.lock = null;
+  fireMissile(world);
+  check("IR SEEKER will not acquire a target behind the jet",
+    world.missiles[0].target === null);
+}
+
+{
+  // All-aspect: no lock needed, and it will take a target that is directly
+  // behind the jet.
+  const { world, player } = setup(msl({ type: TYPE.allAspect, reach: "max" }), []);
   spawnEnemy(world, "fighter");
   const chaser = world.enemies[0];
   chaser.x = -1800; // on our six, well outside any forward cone
@@ -207,56 +255,61 @@ for (const id of Object.keys(MISSILES)) {
 
   player.lock = null;
   fireMissile(world);
-  check("AMRAAM launches with no lock at all", world.missiles.length === 1);
-  check("AMRAAM acquires a target behind the jet",
+  check("ALL-ASPECT launches with no lock at all", world.missiles.length === 1);
+  check("ALL-ASPECT acquires a target behind the jet",
     world.missiles[0].target === chaser, "took no target");
 }
 
 {
-  // And it must still respect the radar's edge.
-  const { world, player } = setup({ missile: "amraam" }, []);
-  spawnEnemy(world, "fighter");
-  world.enemies[0].x = RADAR_RANGE + 400;
-  world.enemies[0].y = 0;
-
-  player.lock = null;
-  fireMissile(world);
-  check("AMRAAM takes no target beyond radar range",
-    world.missiles[0].target === null);
-}
-
-{
-  // The Sidewinder's seeker looks forward only — that is its limitation.
-  const { world, player } = setup({ missile: "sidewinder" }, []);
-  spawnEnemy(world, "fighter");
-  world.enemies[0].x = -400;
-  world.enemies[0].y = 0;
-
-  player.lock = null;
-  fireMissile(world);
-  check("AIM-9 will not acquire a target behind the jet",
-    world.missiles[0].target === null);
-}
-
-{
-  // Hydra is unguided: no lock needed, and it must ignore the target entirely.
-  const { world, player, enemies } = setup({ missile: "hydra" }, [400]);
-  player.lock = null;
-  fireMissile(world);
-  check("HYDRA launches with no lock at all", world.missiles.length === 2);
-  check("HYDRA takes no target", world.missiles.every((m) => m.target === null));
-
-  // Put a target hard off to one side; a guided missile would turn for it.
-  enemies[0].x = 600; enemies[0].y = 600;
-  const headings = world.missiles.map((m) => m.angle);
-  for (let t = 0; t < 60; t++) {
-    for (const m of world.missiles) {
-      m.x += Math.cos(m.angle) * m.speed;
-      m.y += Math.sin(m.angle) * m.speed;
+  // A seeker may never see further than the motor can carry it: chasing
+  // something unreachable only empties the rack.
+  for (const type of [TYPE.seeker, TYPE.allAspect]) {
+    for (const reach of MISSILES.missile.props.reach.tiers.keys()) {
+      const spec = resolveMissile(msl({ type, reach }));
+      check(`${spec.short} at ${spec.reach} m acquires no further than it flies`,
+        spec.acquireRange <= spec.reach, `sees ${spec.acquireRange} m`);
     }
   }
-  check("HYDRA flies straight past a target it could have chased",
-    world.missiles.every((m, i) => m.angle === headings[i]));
+
+  // And one past the end of the leash must genuinely be ignored.
+  const { world, player } = setup(msl({ type: TYPE.allAspect, reach: 0 }), []);
+  spawnEnemy(world, "fighter");
+  world.enemies[0].x = 1600; // beyond an 800 m airframe, inside radar
+  world.enemies[0].y = 0;
+
+  player.lock = null;
+  fireMissile(world);
+  check("ALL-ASPECT takes no target beyond its own reach",
+    world.missiles[0].target === null);
+}
+
+{
+  // REACH is a real distance, the way the cannon's is: the missile burns out
+  // at it rather than somewhere near it. Flown rather than calculated, since
+  // the warhead is still accelerating for its first second.
+  for (const reach of MISSILES.missile.props.reach.tiers.keys()) {
+    const spec = resolveMissile(msl({ type: TYPE.unguided, reach }));
+    let speed = spec.launchSpeed;
+    let flown = 0;
+    for (let t = 0; t < spec.life; t++) {
+      speed = Math.min(speed + spec.accel, spec.maxSpeed);
+      flown += speed;
+    }
+    check(`reach ${spec.reach} m burns out within a tick of its range`,
+      Math.abs(flown - spec.reach) <= spec.maxSpeed, `flew ${Math.round(flown)} m`);
+  }
+}
+
+{
+  // A full rack must not be a capital ship on its own. Missiles are meant to
+  // cost a carrier dearly, not to delete one while the guns stay cold.
+  const spec = resolveMissile(msl({ ammo: "max", damage: "max" }));
+  const rack = spec.carried * spec.damage;
+  const toughest = Math.max(...ENEMY_TYPE_IDS
+    .map((id) => ENEMY_TYPES[id]).filter((t) => t.carrier).map((t) => t.hp));
+
+  check(`a full rack's ${rack} damage stays under the toughest hull's ${toughest}`,
+    rack < toughest, `rack ${rack} vs hull ${toughest}`);
 }
 
 // --- enemy guns ------------------------------------------------------------
@@ -309,7 +362,7 @@ console.log("\nENEMY FORWARD WEAPONS");
 
   check("at least one type carries a SAM", ships.length > 0);
 
-  const bestMissile = Math.max(...Object.values(MISSILES).map((m) => m.damage));
+  const bestMissile = MISSILES.missile.props.damage.tiers.at(-1);
   const hardest = Math.max(...ships.map((t) => t.sam.damage));
   check(`no SAM out-damages your best missile's ${bestMissile}`,
     hardest < bestMissile, `hardest ${hardest}`);

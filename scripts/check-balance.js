@@ -16,7 +16,7 @@
  *   3. The fittings that decide how the aircraft flies must not touch what it
  *      shoots. Armour and engine change hull and speed, nothing else.
  *
- * Run after touching ARMOUR, ENGINES, CANNONS, MISSILES, BOMBS or PLAYER.
+ * Run after touching ARMOUR, ENGINES, WEAPONS, MISSILES, BOMBS or PLAYER.
  *
  *   npm test
  *
@@ -25,7 +25,7 @@
 
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
-  MISSILES, MISSILE_IDS, BOMBS, BOMB_IDS, PLAYER, DEFAULT_LOADOUT,
+  MISSILES, BOMBS, BOMB_IDS, PLAYER, DEFAULT_LOADOUT,
   WEAPON_PROP_KEYS, resolveWeapons, KMH_PER_SPEED_UNIT,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
@@ -93,9 +93,11 @@ assertLadder("ENGINE", ENGINE_IDS, ENGINES, "km/h",
   (e) => Math.round(e.maxSpeed * KMH_PER_SPEED_UNIT));
 
 // --- cannons ---------------------------------------------------------------
-// --- the forward weapons, which are ladders too ---------------------------
-for (const track of WEAPON_IDS) {
-  const spec = WEAPONS[track];
+// --- the forward weapons and the missile, which are ladders too -----------
+// There is nothing to rank the missile against any more: it is one fitting
+// whose four properties are climbed, so what has to hold is that each ladder
+// rises, exactly as for the guns.
+for (const spec of [...WEAPON_IDS.map((id) => WEAPONS[id]), MISSILES.missile]) {
   for (const [prop, ladder] of Object.entries(spec.props)) {
     assertLadder(`${spec.label} ${ladder.label}`,
       ladder.tiers.map((_, i) => i),
@@ -121,19 +123,6 @@ console.log("\nSTOCK FORWARD WEAPONS");
   }
 }
 
-// --- missiles --------------------------------------------------------------
-assertNoDominance("MISSILES", MISSILE_IDS, MISSILES, {
-  carried: (m) => m.carried,
-  damage: (m) => m.damage,
-  splashDamage: (m) => m.splashDamage,
-  splashRadius: (m) => m.splashRadius,
-  guidance: (m) => m.turnRate,
-  salvo: (m) => m.perShot,
-  reload: (m) => 1 / m.cooldown,
-  /** How far, and over how wide an arc, the seeker can find a target itself. */
-  acquisition: (m) => m.acquireRange,
-  allAspect: (m) => m.acquireCone,
-});
 
 // --- bombs -----------------------------------------------------------------
 assertNoDominance("BOMBS", BOMB_IDS, BOMBS, {
@@ -200,7 +189,7 @@ function observeLoadout(armourId, engineId) {
 
   return {
     fitted: `${ARMOUR[armourId].short} + ${ENGINES[engineId].short}`,
-    missileLoad: p.missiles + p.missile.perShot, // a salvo was just fired
+    missileLoad: p.missiles + 1, // one was just fired
     missileCooldown: p.missileCooldown,
     bombs: p.bombs,
     barrels: world.bullets.length,
