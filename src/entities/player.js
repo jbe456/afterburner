@@ -113,7 +113,11 @@ export function updatePlayer(world) {
   if (input.mouse.left || isDown("Space")) {
     if (p.cannon && p.gunCooldown <= 0) {
       fireGun(world, p, true);
-      p.gunCooldown = p.cannon.cooldown;
+      // Added rather than assigned, so a fractional cooldown carries its
+      // remainder forward: 7.5 ticks fires on 8, 7, 8, 7 and averages the
+      // 8/s the rung promises. The counter never runs below zero while the
+      // trigger is off, so holding fire banks no free bursts.
+      p.gunCooldown += p.cannon.cooldown;
     }
     if (p.flame) sprayFlame(world, p);
     if (p.laser) fireLaser(world, p);

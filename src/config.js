@@ -4,7 +4,8 @@
  */
 
 /** The simulation runs on a fixed step, independent of display refresh rate. */
-export const TICK_MS = 1000 / 60;
+export const TPS = 60;
+export const TICK_MS = 1000 / TPS;
 
 /**
  * Converts the simulation's speed unit into km/h for the HUD.
@@ -14,7 +15,7 @@ export const TICK_MS = 1000 / 60;
  * between roughly 475 km/h at a crawl and 2200 km/h flat out, which is about
  * right for the aircraft they are pretending to be.
  */
-export const KMH_PER_SPEED_UNIT = (1000 / TICK_MS) * 3.6;
+export const KMH_PER_SPEED_UNIT = TPS * 3.6;
 
 /**
  * World distance covered by the radar's outer ring. The AMRAAM's acquisition
@@ -297,7 +298,7 @@ export const WEAPONS = {
       },
       damage: {
         label: "DAMAGE",
-        tiers: [4, 6, 8, 10],
+        tiers: [4, 6, 8],
         format: (v) => `${v}`,
       },
       reach: {
@@ -307,7 +308,7 @@ export const WEAPONS = {
       },
       rate: {
         label: "RATE",
-        tiers: steps(2, 5, 5, 0.5),
+        tiers: steps(2, 8, 5, 0.5),
         format: (v) => `${v}/s`,
       },
     },
@@ -378,8 +379,14 @@ export function resolveWeapons(loadout) {
       damage: value("cannon", "damage"),
       reach,
       rate,
-      /** Ticks between bursts, from the shots-per-second rung. */
-      cooldown: Math.max(1, Math.round((1000 / TICK_MS) / rate)),
+      /**
+       * Ticks between bursts, from the shots-per-second rung. Deliberately
+       * fractional: 8/s is 7.5 ticks, which no whole number of ticks can hit.
+       * The gun carries the remainder from one burst to the next, so the
+       * rung's rate is what comes out over a second rather than whatever
+       * rounding happened to leave.
+       */
+      cooldown: Math.max(1, TPS / rate),
       /** Ticks a round survives, so it dies exactly at its reach. */
       bulletLife: Math.max(1, Math.round(reach / CANNON.bulletSpeed)),
     },
@@ -1254,10 +1261,10 @@ export const ENEMY_TYPE_IDS = Object.keys(ENEMY_TYPES);
  * burns at, which is what they actually do to you.
  */
 export const enemyDps = (t) => {
-  if (t.sam) return (t.sam.salvo * t.sam.damage * (1000 / TICK_MS)) / t.sam.cooldown;
+  if (t.sam) return (t.sam.salvo * t.sam.damage * TPS) / t.sam.cooldown;
   if (t.flame) return t.flame.damage;
   if (t.laser) return t.laser.damage;
-  return ((t.barrels ?? 1) * t.damage * (1000 / TICK_MS)) / t.fireCd;
+  return ((t.barrels ?? 1) * t.damage * TPS) / t.fireCd;
 };
 
 /**

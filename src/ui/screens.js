@@ -9,7 +9,7 @@
 
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, GUIDANCE,
-  BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TICK_MS,
+  BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TPS,
   BOMB, fuseRungLocked, maxFuseRung,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, resolveWeapons,
 } from "../config.js";
@@ -28,8 +28,6 @@ const CONTROLS = [
   ["B", "Drop bomb"],
   ["P", "Pause"],
 ];
-
-const TPS = 1000 / TICK_MS;
 
 /** Formatters, so each bar can state its own value in its own unit. */
 const count = (v) => String(Math.round(v));
@@ -312,9 +310,9 @@ function readoutBody() {
 
   // Every weapon states one number, so a fit can be compared across the three
   // of them: damage to a hull per second. The guns multiply out from the
-  // cadence the simulation actually fires at rather than the rung's nominal
-  // rate, which a cooldown of whole ticks cannot always hit exactly; what
-  // they are made of stays on the CANNON bay, a ladder to a bar.
+  // cadence the simulation fires at, which is the rung's nominal rate now
+  // that a burst carries its leftover fraction of a tick forward; what they
+  // are made of stays on the CANNON bay, a ladder to a bar.
   const dps = gun ? gun.slots * gun.damage * (TPS / gun.cooldown) : nose.damage;
 
   const figures = [
