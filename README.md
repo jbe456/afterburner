@@ -52,11 +52,29 @@ missile is a set of ladders with no switch, because there is only one missile;
 and the bomb is a second switch, over **six systems**, each with ladders of its
 own.
 
+The sixth bay is the **system**, and it is the only one that holds nothing that
+shoots. A system is a device you trigger with `C`, and the bay is a switch from
+the start even though it carries one device today — the shape is what it is,
+and the second device will not change a line of the bench.
+
+The **ring shield** spends a charge to make the aircraft untouchable for a
+window it climbs: `DURATION` from 2 s to 8 s, `AMMO` from 2 charges to 5. It is
+not a barrier at a radius — nothing is deflected or destroyed, you simply
+cannot be damaged, and the ring drawn around the aircraft is a readout of that
+flag rather than a promise about collisions. It unwinds as the seconds go, so
+the window is legible without looking away. Raising it also puts out a fire you
+are already carrying, since a suppressed fire would otherwise resume the moment
+the ring dropped.
+
+Charges come back from the blue squares dead aircraft drop, two at a time. They
+come out of the existing drop budget's ammo half rather than off the top, so
+hull repair stays exactly as common as it was before systems existed.
+
 ### The hangar
 
 The hangar opens on an overview rather than on every control at once: a
 readout strip of what this fit adds up to — hull, top speed, firepower,
-reach — and under it five **bays**, one per fitting, each showing what is
+reach — and under it six **bays**, one per fitting, each showing what is
 installed there and its figures as bars.
 
 Clicking a bay opens its **bench** underneath, which is where a fitting
@@ -520,6 +538,7 @@ silently fall back to the plain fighter shape).
 | Left click / `Space` | Cannon |
 | Right click / `F` | Fire missile (no lock needed) |
 | `B` | Drop bomb |
+| `C` | Trigger the fitted system |
 | `P` | Pause |
 | `Esc` | Back a step — out of a reading screen, or pause then abandon a run |
 

@@ -9,7 +9,7 @@
 
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, GUIDANCE,
-  BOMBS, BOMB_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TPS,
+  BOMBS, BOMB_IDS, SYSTEMS, SYSTEM_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TPS,
   BOMB, fuseRungLocked, maxFuseRung,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, resolveWeapons,
 } from "../config.js";
@@ -26,6 +26,7 @@ const CONTROLS = [
   ["Click / Space", "Cannon"],
   ["Right click / F", "Missile"],
   ["B", "Drop bomb"],
+  ["C", "Ring shield"],
   ["P", "Pause"],
 ];
 
@@ -141,7 +142,7 @@ const IDS = { armour: ARMOUR_IDS, engine: ENGINE_IDS, bomb: BOMB_IDS };
  * drawn identically, so one lookup serves the cards, the save file and the
  * upgrade button.
  */
-const PROP_TRACKS = { ...WEAPONS, ...MISSILES, ...BOMBS };
+const PROP_TRACKS = { ...WEAPONS, ...MISSILES, ...BOMBS, ...SYSTEMS };
 
 /**
  * Hull and engine are climbed as single fittings. The difference decides what
@@ -155,12 +156,16 @@ const isLadder = (slot) => slot === "armour" || slot === "engine";
  * weapon and the bomb, which both carry a switch over several systems, and the
  * missile, which does not — there is only one missile to carry.
  */
-const isTrack = (slot) => slot === "weapon" || slot === "missile" || slot === "bomb";
+const isTrack = (slot) =>
+  slot === "weapon" || slot === "missile" || slot === "bomb" || slot === "system";
 
 /** A track whose bench opens with a switch over several systems. */
 const SWITCHES = {
   weapon: { ids: WEAPON_IDS, table: WEAPONS, name: (spec) => spec.label },
   bomb: { ids: BOMB_IDS, table: BOMBS, name: (spec) => spec.name },
+  // A switch over one device, drawn as a switch anyway. The row is honest
+  // about the shape of the bay, and the second device changes nothing here.
+  system: { ids: SYSTEM_IDS, table: SYSTEMS, name: (spec) => spec.name },
 };
 
 /** The track a slot's property cards belong to. */
@@ -173,9 +178,9 @@ const ALL_SLOTS = Object.keys(DEFAULT_LOADOUT);
 const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout(ALL_SLOTS)) };
 
 /**
- * The five bays of the overview, in fitting order. `action` says what the
+ * The six bays of the overview, in fitting order. `action` says what the
  * bench under an open one offers, which differs: two of them are ladders,
- * two are choices, and the weapon is both.
+ * three are choices, and the weapon is both.
  */
 const BAYS = [
   { slot: "armour", label: "HULL", action: "Upgrade" },
@@ -183,6 +188,7 @@ const BAYS = [
   { slot: "weapon", label: "WEAPON", action: "Switch" },
   { slot: "missile", label: "MISSILE", action: "Upgrade" },
   { slot: "bomb", label: "BOMB", action: "Switch" },
+  { slot: "system", label: "SYSTEM", action: "Switch" },
 ];
 
 /** Which bay's bench is open, or null for the overview on its own. */
@@ -384,6 +390,7 @@ const missileRung = (prop) => Math.min(
   chosen[`missile.${prop}`] ?? 0, MISSILES.missile.props[prop].tiers.length - 1);
 
 function bayArt(slot) {
+  if (slot === "system") return systemArt(chosen.system);
   if (slot === "missile") return missileArt(missileRung("type"));
   if (!isLadder(slot)) return weaponArt(chosen[slot]);
   return ladderArt(slot, IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
@@ -432,6 +439,12 @@ function benchHint(slot) {
   }
   if (slot === "missile") {
     return `${Object.keys(MISSILES.missile.props).length} ladders, and only one way up`;
+  }
+  // One device so far, so there is nothing to say about keeping rungs. It
+  // counts ladders rather than devices, which stays true as the bay fills.
+  if (slot === "system") {
+    return `${Object.keys(SYSTEMS[chosen.system].props).length} ladders,`
+      + " and only one way up";
   }
   return `${IDS[slot].length} rungs, and only one way up`;
 }
@@ -873,6 +886,29 @@ function missileArt(rung) {
 }
 
 /**
+ * A system is drawn from behind the aircraft rather than side-on, which is
+ * how every other bay is drawn. That is deliberate: a ring shield is not
+ * ordnance, it does not fly anywhere, and a device that protects the airframe
+ * reads best with the airframe in it. The tail sits between two half-rings,
+ * one either side, closing around it.
+ */
+const SYSTEM_ART = {
+  ring: `
+    <path class="arc" d="M -8,-12 A 12,12 0 0 0 -8,12"/>
+    <path class="arc" d="M 8,-12 A 12,12 0 0 1 8,12"/>
+    <polygon class="dim" points="-14,-0.5 0,1.6 14,-0.5 14,1.9 0,4 -14,1.9"/>
+    <polygon class="main" points="0,-11 1.9,-2.6 -1.9,-2.6"/>
+    <circle class="main" cx="0" cy="0" r="3"/>`,
+};
+
+function systemArt(id) {
+  return `
+    <svg class="weapon-art" viewBox="-22 -14 44 28" aria-hidden="true">
+      ${SYSTEM_ART[id] ?? ""}
+    </svg>`;
+}
+
+/**
  * The same polygons the canvas renderer uses, so the hangar shows the actual
  * aircraft — nose up.
  */
@@ -915,7 +951,7 @@ export function showGameOver(world, onFlyAgain, onChangePlane) {
     </div>
     ${world.practice ? `<div class="hint">practice run — not recorded</div>` : ""}
     <div class="loadout-recap">
-      ${WEAPONS[p.weapon].label} · ${p.missile.short} · ${p.bomb.short}
+      ${WEAPONS[p.weapon].label} · ${p.missile.short} · ${p.bomb.short} · ${p.system.short}
     </div>
     <button class="btn" id="start">Fly Again</button>
     <button class="btn ghost" id="hangar">Change Loadout</button>

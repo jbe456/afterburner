@@ -858,6 +858,81 @@ export function resolveBomb(loadout) {
 
 // --- loadout ----------------------------------------------------------------
 
+// --- systems ----------------------------------------------------------------
+/**
+ * The sixth bay, and the only one that holds nothing that shoots. A system is
+ * a device you trigger, and the bay is a switch from the start even though it
+ * carries one device today: the shape is what it is, and the second device
+ * will not change a line of the bench.
+ *
+ * The ring shield spends a charge to make the aircraft untouchable for a
+ * fixed window. It is deliberately not a barrier at a radius — nothing is
+ * deflected, intercepted or destroyed, you simply cannot be damaged — so the
+ * drawn ring is a readout of a flag rather than a promise about collisions
+ * the simulation would then have to keep.
+ */
+export const SYSTEMS = {
+  ring: {
+    id: "ring",
+    name: "RING SHIELD",
+    short: "RING",
+    blurb: "A few seconds nothing can touch",
+    props: {
+      duration: {
+        label: "DURATION",
+        tiers: [2, 4, 6, 8],
+        format: (v) => `${v} s`,
+      },
+      ammo: {
+        label: "AMMO",
+        tiers: [2, 3, 4, 5],
+        format: (v) => `${v}`,
+      },
+    },
+  },
+};
+
+export const SYSTEM_IDS = Object.keys(SYSTEMS);
+
+/** Every system property, as "system.property" keys, the way bombs are stored. */
+export const SYSTEM_PROP_KEYS = SYSTEM_IDS.flatMap(
+  (id) => Object.keys(SYSTEMS[id].props).map((prop) => `${id}.${prop}`));
+
+/** Shared by every system, whatever the bay is carrying. */
+export const SYSTEM = {
+  /** Charges a blue square puts back, whatever the rack holds. */
+  resupply: 2,
+};
+
+/**
+ * Turn a loadout's rungs into the one concrete system the jet carries.
+ *
+ * `duration` is stated in seconds in the hangar because that is what the
+ * player is buying, and converted to ticks here so nothing downstream has to
+ * remember which unit it is holding.
+ */
+export function resolveSystem(loadout) {
+  const id = SYSTEMS[loadout.system] ? loadout.system : DEFAULT_LOADOUT.system;
+  const device = SYSTEMS[id];
+
+  const value = (prop) => {
+    const ladder = device.props[prop];
+    const rung = Math.min(Math.max(loadout[`${id}.${prop}`] ?? 0, 0), ladder.tiers.length - 1);
+    return ladder.tiers[rung];
+  };
+
+  return {
+    id,
+    name: device.name,
+    short: device.short,
+    seconds: value("duration"),
+    /** Ticks the ring stays up, which is what the player's invulnerability reads. */
+    duration: Math.round(value("duration") * TPS),
+    carried: value("ammo"),
+    resupply: SYSTEM.resupply,
+  };
+}
+
 /**
  * Every upgradeable property in the game, as "track.property" keys. The
  * hangar, the save file and the defaults all walk this one list, so adding a
@@ -881,11 +956,14 @@ export const DEFAULT_LOADOUT = {
   bomb: "frag",
   /** Which forward weapon is carried. Only one, ever. */
   weapon: "cannon",
+  /** The only device there is, which is still chosen rather than assumed. */
+  system: "ring",
   ...Object.fromEntries(WEAPON_PROP_KEYS.map((key) => [key, 0])),
   ...Object.fromEntries(MISSILE_PROP_KEYS.map((key) => [key, 0])),
   // Every bomb keeps its own rungs, so switching away and back returns you to
   // the one you built rather than a stock one.
   ...Object.fromEntries(BOMB_PROP_KEYS.map((key) => [key, 0])),
+  ...Object.fromEntries(SYSTEM_PROP_KEYS.map((key) => [key, 0])),
 };
 
 /** Missile lock-on, acquired by holding a target inside a forward cone. */
@@ -1341,9 +1419,21 @@ export const WAVES = {
 // --- pickups ----------------------------------------------------------------
 export const PICKUPS = {
   dropChance: 0.28,
-  /** Odds a drop is repair rather than ammo. */
+  /** Odds a drop is repair rather than one of the two ammo kinds. */
   repairShare: 0.6,
   repairAmount: 30,
+  /**
+   * How the remaining 40% splits between the yellow crate and the blue
+   * square. Deliberately taken out of the ammo half rather than off the top:
+   * repair stays exactly as common as it was before systems existed, because
+   * funding one survivability tool by halving the other is close to a wash.
+   *
+   * A blue square is worth two charges rather than one, so a maxed rack of
+   * five fills in three drops instead of five. Waves run 3 to 13 aircraft, so
+   * at one charge a square the top AMMO rungs would buy capacity the drop
+   * rate could never keep filled.
+   */
+  shieldShare: 0.5,
   /** Crates top up by the amount each weapon type defines as its `resupply`. */
   life: 700,
   pickupRadius: 42,

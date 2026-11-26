@@ -11,6 +11,7 @@ import { viewport } from "../core/viewport.js";
 import { input } from "../core/input.js";
 import { ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK, BOMB, PLAYER } from "../config.js";
 import { drawHull, drawHullShadow } from "./hulls.js";
+import { PICKUP_COLOUR, PICKUP_GLYPH } from "../entities/pickups.js";
 
 const GRID = 320;
 /** How far the camera leans toward the cursor, as a fraction of the offset. */
@@ -102,18 +103,24 @@ function drawBoundary(ctx) {
   ctx.setLineDash([]);
 }
 
+/** The square's fill, at the same wash as its outline. */
+const PICKUP_FILL = {
+  repair: "rgba(93,219,160,.22)",
+  ammo: "rgba(255,209,102,.22)",
+  shield: "rgba(78,168,255,.22)",
+};
+
 function drawPickups(ctx, world) {
   for (const p of world.pickups) {
     const bob = Math.sin(p.bob) * 4;
-    const repair = p.kind === "repair";
     // Blink out over the last two seconds of life.
     ctx.globalAlpha = p.life < 120 && Math.floor(p.life / 6) % 2 ? 0.25 : 1;
 
     ctx.save();
     ctx.translate(p.x, p.y + bob);
     ctx.rotate(p.bob * 0.3);
-    ctx.fillStyle = repair ? "rgba(93,219,160,.22)" : "rgba(255,209,102,.22)";
-    ctx.strokeStyle = repair ? "#5ddba0" : "#ffd166";
+    ctx.fillStyle = PICKUP_FILL[p.kind];
+    ctx.strokeStyle = PICKUP_COLOUR[p.kind];
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.rect(-11, -11, 22, 22);
@@ -121,11 +128,11 @@ function drawPickups(ctx, world) {
     ctx.stroke();
     ctx.restore();
 
-    ctx.fillStyle = repair ? "#5ddba0" : "#ffd166";
+    ctx.fillStyle = PICKUP_COLOUR[p.kind];
     ctx.font = "bold 15px ui-monospace, monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(repair ? "+" : "M", p.x, p.y + bob + 1);
+    ctx.fillText(PICKUP_GLYPH[p.kind], p.x, p.y + bob + 1);
     ctx.globalAlpha = 1;
   }
 }
@@ -312,14 +319,58 @@ function drawAircraft(ctx, world) {
   }
 
   if (player.alive) {
-    // Blink while the spawn invulnerability lasts.
-    const blink = player.invuln > 0 && Math.floor(time / 4) % 2 === 0;
+    // Blink while the spawn invulnerability lasts — but not under a ring,
+    // which is the same immunity said a different way. Strobing the aircraft
+    // for eight seconds would bury the thing the ring is there to show.
+    const blink = player.invuln > 0 && player.shield <= 0
+      && Math.floor(time / 4) % 2 === 0;
     if (!blink) {
       drawHull(ctx, "jet", player.x, player.y, player.angle, PLAYER.scale,
         PLAYER.color, PLAYER.accent, false, 0.35 + player.boost * 0.65, time);
     }
+    if (player.shield > 0) drawShield(ctx, player, time);
   }
 }
+
+/**
+ * The ring, drawn as its own countdown: a faint full circle for where it
+ * reaches, and a bright arc that unwinds clockwise from the nose as the
+ * seconds go. You read how long you have left without looking away from the
+ * aircraft, which at eight seconds in a crowded fight is the whole point.
+ *
+ * It deflects nothing — there is no barrier here, only immunity — so the
+ * radius is chosen to sit clear of the hull and is not a collision figure.
+ */
+function drawShield(ctx, player, time) {
+  const left = player.shield / Math.max(1, player.shieldSpan);
+  const pulse = 1 + Math.sin(time * 0.18) * 0.02;
+  const radius = SHIELD_RADIUS * pulse;
+
+  ctx.save();
+  ctx.translate(player.x, player.y);
+
+  ctx.fillStyle = "rgba(78,168,255,.07)";
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, TAU);
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(78,168,255,.28)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // The arc that actually runs out. Starts at the top and closes clockwise.
+  ctx.strokeStyle = "#4ea8ff";
+  ctx.lineWidth = 3.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, -Math.PI / 2, -Math.PI / 2 + TAU * left);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+/** How far out the ring is drawn. Cosmetic: nothing is tested against it. */
+const SHIELD_RADIUS = 46;
 
 /**
  * The flamethrower's cone. Drawn under the aircraft so the jet sits on top of

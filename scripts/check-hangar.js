@@ -6,7 +6,8 @@
  * unlocks it — so a missing drawing, a ladder with no formatter or an id that
  * exists in config but nowhere else is invisible in code and obvious the first
  * time somebody opens that bench. This walks the whole product: six bomb
- * systems x ten engines x three rung sets, plus the other four bays.
+ * systems x ten engines x three rung sets, plus the other five bays, the
+ * system bay at every rung of both its ladders.
  *
  * It renders to strings against a stubbed DOM rather than a real browser, so
  * what it proves is that the markup generates and says what it should — not
@@ -40,7 +41,7 @@ globalThis.window = globalThis;
 globalThis.devicePixelRatio = 1;
 
 const { __test_renderHangar, __test_setLoadout } = await import("../src/ui/screens.js");
-const { BOMBS, BOMB_IDS, ENGINE_IDS, ENGINES, maxFuseRung } =
+const { BOMBS, BOMB_IDS, ENGINE_IDS, ENGINES, SYSTEMS, SYSTEM_IDS, maxFuseRung } =
   await import("../src/config.js");
 
 let failures = 0;
@@ -130,7 +131,48 @@ console.log("\nTHE FUSE GATE IS LEGIBLE IN THE HANGAR");
   }
 }
 
-// --- the other four bays still draw ---------------------------------------
+// --- the system bay, at every rung it has ---------------------------------
+console.log("\nTHE SYSTEM BAY");
+for (const id of SYSTEM_IDS) {
+  const ladders = Object.entries(SYSTEMS[id].props);
+  const rungs = Math.max(...ladders.map(([, l]) => l.tiers.length));
+
+  for (let rung = 0; rung < rungs; rung++) {
+    const loadout = { system: id };
+    for (const [prop, ladder] of ladders) {
+      loadout[`${id}.${prop}`] = Math.min(rung, ladder.tiers.length - 1);
+    }
+    __test_setLoadout(loadout);
+
+    let html = "";
+    let detail = "";
+    try {
+      html = __test_renderHangar("system");
+    } catch (err) {
+      detail = err.message;
+    }
+
+    check(`${SYSTEMS[id].name} draws at rung ${rung}`, html.length > 100, detail);
+    // The device has a picture of its own: the bay falls back to an empty
+    // <svg> when an id has no art, which renders without throwing and would
+    // otherwise pass this file silently.
+    check(`${SYSTEMS[id].name} has art at rung ${rung}`, html.includes("class=\"arc\""));
+
+    for (const [prop, ladder] of ladders) {
+      const value = ladder.format(ladder.tiers[Math.min(rung, ladder.tiers.length - 1)]);
+      check(`${SYSTEMS[id].name} states ${ladder.label} ${value} at rung ${rung}`,
+        html.includes(ladder.label) && html.includes(value));
+    }
+  }
+}
+
+// A switch over one device is still a switch: the card is there and selected.
+__test_setLoadout({});
+const systemBench = __test_renderHangar("system");
+check("the system bay draws its switch row", systemBench.includes('data-pick-slot="system"'));
+check("the one device is selected", systemBench.includes('class="pick selected"'));
+
+// --- the other bays still draw --------------------------------------------
 console.log("\nTHE OTHER BAYS ARE UNCHANGED");
 for (const slot of ["armour", "engine", "weapon", "missile"]) {
   let ok = false;

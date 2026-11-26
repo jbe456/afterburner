@@ -16,7 +16,7 @@ import { viewport } from "../core/viewport.js";
 import { sfx } from "../core/audio.js";
 import {
   PLAYER, ARMOUR, ENGINES, DEFAULT_LOADOUT, LOCK,
-  resolveWeapons, resolveMissile, resolveBomb,
+  resolveWeapons, resolveMissile, resolveBomb, resolveSystem,
   ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
 } from "../config.js";
 import { fireGun, fireMissile, dropBomb, sprayFlame, fireLaser } from "./weapons.js";
@@ -51,6 +51,9 @@ export function createPlayer(loadout = {}) {
   // a fuse the airframe has no business carrying.
   const bomb = resolveBomb({ ...DEFAULT_LOADOUT, ...loadout, engine: engine.id });
 
+  // And the system, the one bay that holds nothing that shoots.
+  const system = resolveSystem({ ...DEFAULT_LOADOUT, ...loadout });
+
   return {
     /** How much the hull absorbs. */
     armour,
@@ -64,6 +67,7 @@ export function createPlayer(loadout = {}) {
     laser,
     missile,
     bomb,
+    system,
     x: 0,
     y: 0,
     angle: -Math.PI / 2, // nose north
@@ -75,6 +79,22 @@ export function createPlayer(loadout = {}) {
     missileCooldown: 0,
     bombs: bomb.carried,
     bombCooldown: 0,
+    /** Charges left for the fitted system. */
+    charges: system.carried,
+    /**
+     * Ticks the ring has left, purely so it can be drawn. What actually makes
+     * the aircraft untouchable is `invuln`, the same flag spawn protection
+     * uses — there is one immunity in this game, not two.
+     */
+    shield: 0,
+    /** Ticks the current ring started with, so it can be drawn decaying. */
+    shieldSpan: 0,
+    /**
+     * True while C is held. The trigger is edge-read rather than level-read:
+     * `isDown` cannot tell a press from a hold, and a held key would spend
+     * the whole rack one charge at a time as each ring expired.
+     */
+    shieldHeld: false,
     invuln: PLAYER.spawnInvuln,
     /** Current lock target, or null. */
     lock: null,
@@ -107,6 +127,9 @@ export function updatePlayer(world) {
   if (p.missileCooldown > 0) p.missileCooldown--;
   if (p.bombCooldown > 0) p.bombCooldown--;
   if (p.invuln > 0) p.invuln--;
+  if (p.shield > 0) p.shield--;
+
+  triggerSystem(p);
 
   // Exactly one forward weapon is fitted: the guns on their own cadence, a
   // nose weapon continuously while the trigger is held.
@@ -130,6 +153,33 @@ export function updatePlayer(world) {
   }
 
   updateLock(world, p);
+}
+
+/**
+ * The system bay's trigger. One press, one charge, and nothing at all if the
+ * ring is already up — a second press inside the window is a no-op rather
+ * than a refresh, so a panicking pilot cannot burn the rack in half a second
+ * and have nothing to show for it.
+ */
+function triggerSystem(p) {
+  const pressed = isDown("KeyC");
+  const tapped = pressed && !p.shieldHeld;
+  p.shieldHeld = pressed;
+
+  if (!tapped || p.shield > 0 || p.charges <= 0) return;
+
+  p.charges--;
+  p.shield = p.system.duration;
+  p.shieldSpan = p.system.duration;
+  // The ring and spawn protection are the same immunity. Taking the longer of
+  // the two means raising a ring on the spawn blink cannot cut it short.
+  p.invuln = Math.max(p.invuln, p.system.duration);
+  // Being untouchable while visibly on fire reads as a bug, and the fire
+  // would otherwise resume the moment the ring dropped: the burn's timer
+  // runs whether or not its damage lands.
+  p.burn = null;
+
+  sfx.shield();
 }
 
 function applySteering(p) {

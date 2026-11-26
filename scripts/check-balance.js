@@ -19,7 +19,8 @@
  * better than another at everything. What is left is the table below, printed
  * without assertions, so a tuning mistake is visible in test output.
  *
- * Run after touching ARMOUR, ENGINES, WEAPONS, MISSILES, BOMBS or PLAYER.
+ * Run after touching ARMOUR, ENGINES, WEAPONS, MISSILES, BOMBS, SYSTEMS or
+ * PLAYER.
  *
  *   npm test
  *
@@ -28,7 +29,7 @@
 
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
-  MISSILES, BOMBS, BOMB_IDS, BOMB, PLAYER, DEFAULT_LOADOUT,
+  MISSILES, BOMBS, BOMB_IDS, BOMB, SYSTEMS, SYSTEM_IDS, PLAYER, DEFAULT_LOADOUT,
   resolveWeapons, resolveBomb, maxFuseRung, KMH_PER_SPEED_UNIT,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
@@ -70,6 +71,7 @@ const TRACKS = [
   ...WEAPON_IDS.map((id) => ({ label: WEAPONS[id].label, props: WEAPONS[id].props })),
   { label: MISSILES.missile.label, props: MISSILES.missile.props },
   ...BOMB_IDS.map((id) => ({ label: BOMBS[id].name, props: BOMBS[id].props })),
+  ...SYSTEM_IDS.map((id) => ({ label: SYSTEMS[id].name, props: SYSTEMS[id].props })),
 ];
 
 for (const spec of TRACKS) {

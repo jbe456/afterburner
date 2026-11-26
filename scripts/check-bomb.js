@@ -31,11 +31,9 @@ import { updateBombs } from "../src/entities/bombs.js";
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
 import { updatePlayerBurn } from "../src/entities/player.js";
 import {
-  BOMBS, BOMB_IDS, BOMB, ENGINES, ENGINE_IDS, ENEMY_TYPES, PLAYER, TICK_MS,
+  BOMBS, BOMB_IDS, BOMB, ENGINES, ENGINE_IDS, ENEMY_TYPES, PLAYER, TPS,
   CANNON, resolveBomb, maxFuseRung, DEFAULT_LOADOUT,
 } from "../src/config.js";
-
-const TPS = 1000 / TICK_MS;
 /** Tough enough to survive any bomb, so its hull loss reads as the damage. */
 const DUMMY = "leviathan";
 

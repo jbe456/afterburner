@@ -214,6 +214,11 @@ export const sfx = {
     tone(48, 1.6, "sine", 0.5, 18);
     tone(120, 0.9, "sawtooth", 0.25, 30);
   },
+  /** The ring going up: a rising pair, bright and short, unlike any weapon. */
+  shield: () => {
+    tone(520, 0.12, "sine", 0.06);
+    setTimeout(() => tone(780, 0.16, "sine", 0.05), 60);
+  },
   pickup: () => {
     tone(620, 0.09, "sine", 0.14);
     setTimeout(() => tone(930, 0.13, "sine", 0.14), 70);

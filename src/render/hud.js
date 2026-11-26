@@ -119,6 +119,9 @@ function drawInstruments(ctx, world) {
 
   drawRack(ctx, "MSL", 114, p.missiles, p.missile, "#ffd166", "square");
   drawRack(ctx, "BMB", 134, p.bombs, p.bomb, "#ff6b4a", "round");
+  // Charges only. How long the ring has left is the ring's own job — it is
+  // drawn around the aircraft, where you are already looking.
+  drawRack(ctx, "SYS", 154, p.charges, p.system, "#4ea8ff", "round");
 }
 
 /**
