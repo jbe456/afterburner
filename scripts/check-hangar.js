@@ -6,8 +6,8 @@
  * unlocks it — so a missing drawing, a ladder with no formatter or an id that
  * exists in config but nowhere else is invisible in code and obvious the first
  * time somebody opens that bench. This walks the whole product: six bomb
- * systems x ten engines x three rung sets, plus the other five bays, the
- * system bay at every rung of both its ladders.
+ * systems x ten engines x three rung sets, plus the other five bays, and the
+ * missile and system bays at every rung of every ladder they have.
  *
  * It renders to strings against a stubbed DOM rather than a real browser, so
  * what it proves is that the markup generates and says what it should — not
@@ -41,8 +41,10 @@ globalThis.window = globalThis;
 globalThis.devicePixelRatio = 1;
 
 const { __test_renderHangar, __test_setLoadout } = await import("../src/ui/screens.js");
-const { BOMBS, BOMB_IDS, ENGINE_IDS, ENGINES, SYSTEMS, SYSTEM_IDS, maxFuseRung } =
-  await import("../src/config.js");
+const {
+  BOMBS, BOMB_IDS, ENGINE_IDS, ENGINES, MISSILES, MISSILE_IDS,
+  SYSTEMS, SYSTEM_IDS, maxFuseRung,
+} = await import("../src/config.js");
 
 let failures = 0;
 
@@ -172,9 +174,56 @@ const systemBench = __test_renderHangar("system");
 check("the system bay draws its switch row", systemBench.includes('data-pick-slot="system"'));
 check("the one device is selected", systemBench.includes('class="pick selected"'));
 
+// --- the missile bay, at every rung it has --------------------------------
+console.log("\nTHE MISSILE BAY");
+for (const id of MISSILE_IDS) {
+  const ladders = Object.entries(MISSILES[id].props);
+  const rungs = Math.max(...ladders.map(([, l]) => l.tiers.length));
+
+  for (let rung = 0; rung < rungs; rung++) {
+    const loadout = { missile: id };
+    for (const [prop, ladder] of ladders) {
+      loadout[`${id}.${prop}`] = Math.min(rung, ladder.tiers.length - 1);
+    }
+    __test_setLoadout(loadout);
+
+    let html = "";
+    let detail = "";
+    try {
+      html = __test_renderHangar("missile");
+    } catch (err) {
+      detail = err.message;
+    }
+
+    check(`${MISSILES[id].name} draws at rung ${rung}`, html.length > 100, detail);
+    // The airframe is drawn from the GUIDANCE rung rather than from the
+    // warhead, so the one thing worth pinning is that the drawing is there
+    // at every rung — an id with no art renders an empty <svg> and passes.
+    check(`${MISSILES[id].name} has art at rung ${rung}`, html.includes("class=\"main\""));
+    // The bay is named for its warhead, not for how it is guided: that is
+    // the whole point of the switch, and the one thing a GUIDANCE rung must
+    // not quietly take back.
+    check(`${MISSILES[id].name} names its warhead at rung ${rung}`,
+      html.includes(MISSILES[id].name));
+
+    for (const [prop, ladder] of ladders) {
+      const value = ladder.format(ladder.tiers[Math.min(rung, ladder.tiers.length - 1)]);
+      check(`${MISSILES[id].name} states ${ladder.label} ${value} at rung ${rung}`,
+        html.includes(ladder.label) && html.includes(value));
+    }
+  }
+}
+
+// A switch over one warhead is still a switch: the card is there and selected.
+__test_setLoadout({});
+const missileBench = __test_renderHangar("missile");
+check("the missile bay draws its switch row",
+  missileBench.includes('data-pick-slot="missile"'));
+check("the one warhead is selected", missileBench.includes('class="pick selected"'));
+
 // --- the other bays still draw --------------------------------------------
 console.log("\nTHE OTHER BAYS ARE UNCHANGED");
-for (const slot of ["armour", "engine", "weapon", "missile"]) {
+for (const slot of ["armour", "engine", "weapon"]) {
   let ok = false;
   let detail = "";
   try {

@@ -8,7 +8,8 @@
  */
 
 import {
-  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS, MISSILES, GUIDANCE,
+  ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
+  MISSILES, MISSILE_IDS,
   BOMBS, BOMB_IDS, SYSTEMS, SYSTEM_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TPS,
   BOMB, fuseRungLocked, maxFuseRung,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, resolveWeapons,
@@ -132,15 +133,26 @@ const tierPips = (rung, total, reachable = total - 1) => `
     (_, i) => `<span class="${i <= rung ? "on" : i > reachable ? "locked" : ""}"></span>`)
     .join("")}</div>`;
 
-/** The tables and their orders, by slot, so a slot name is enough to read one. */
-const TABLES = { armour: ARMOUR, engine: ENGINES, bomb: BOMBS };
-const IDS = { armour: ARMOUR_IDS, engine: ENGINE_IDS, bomb: BOMB_IDS };
+/**
+ * The tables and their orders, by slot, so a slot name is enough to read one.
+ * Every bay that holds a named fitting is here — the two ladders and the four
+ * switches alike — because one list is what lets `validated()` repair a save
+ * file without a line per bay. A bay missing from it keeps nothing it is told.
+ */
+const TABLES = {
+  armour: ARMOUR, engine: ENGINES,
+  weapon: WEAPONS, missile: MISSILES, bomb: BOMBS, system: SYSTEMS,
+};
+const IDS = {
+  armour: ARMOUR_IDS, engine: ENGINE_IDS,
+  weapon: WEAPON_IDS, missile: MISSILE_IDS, bomb: BOMB_IDS, system: SYSTEM_IDS,
+};
 
 /**
  * Every track whose bay is a set of property ladders rather than a named
- * fitting: the three forward weapons and the missile. They are stored and
- * drawn identically, so one lookup serves the cards, the save file and the
- * upgrade button.
+ * fitting: the three forward weapons, the warhead, the six bombs and the
+ * system. They are stored and drawn identically, so one lookup serves the
+ * cards, the save file and the upgrade button.
  */
 const PROP_TRACKS = { ...WEAPONS, ...MISSILES, ...BOMBS, ...SYSTEMS };
 
@@ -152,19 +164,23 @@ const PROP_TRACKS = { ...WEAPONS, ...MISSILES, ...BOMBS, ...SYSTEMS };
 const isLadder = (slot) => slot === "armour" || slot === "engine";
 
 /**
- * A slot whose bay holds property ladders instead of one fitting: the forward
- * weapon and the bomb, which both carry a switch over several systems, and the
- * missile, which does not — there is only one missile to carry.
+ * A slot whose bay holds property ladders instead of one fitting: all four
+ * armament bays, every one of which opens on a switch and carries one of
+ * what it switches between.
  */
 const isTrack = (slot) =>
   slot === "weapon" || slot === "missile" || slot === "bomb" || slot === "system";
 
-/** A track whose bench opens with a switch over several systems. */
+/**
+ * A track whose bench opens with a switch over several systems. Two of them
+ * switch over one thing today and are drawn as switches anyway: the row is
+ * honest about the shape of the bay, and the second warhead or device
+ * changes nothing here.
+ */
 const SWITCHES = {
   weapon: { ids: WEAPON_IDS, table: WEAPONS, name: (spec) => spec.label },
+  missile: { ids: MISSILE_IDS, table: MISSILES, name: (spec) => spec.name },
   bomb: { ids: BOMB_IDS, table: BOMBS, name: (spec) => spec.name },
-  // A switch over one device, drawn as a switch anyway. The row is honest
-  // about the shape of the bay, and the second device changes nothing here.
   system: { ids: SYSTEM_IDS, table: SYSTEMS, name: (spec) => spec.name },
 };
 
@@ -179,14 +195,15 @@ const chosen = { ...DEFAULT_LOADOUT, ...validated(loadLoadout(ALL_SLOTS)) };
 
 /**
  * The six bays of the overview, in fitting order. `action` says what the
- * bench under an open one offers, which differs: two of them are ladders,
- * three are choices, and the weapon is both.
+ * bench under an open one offers, which differs: the first two are ladders
+ * climbed rung by rung, and the four armament bays are switches with ladders
+ * of their own under whatever they are carrying.
  */
 const BAYS = [
   { slot: "armour", label: "HULL", action: "Upgrade" },
   { slot: "engine", label: "ENGINE", action: "Upgrade" },
   { slot: "weapon", label: "WEAPON", action: "Switch" },
-  { slot: "missile", label: "MISSILE", action: "Upgrade" },
+  { slot: "missile", label: "MISSILE", action: "Switch" },
   { slot: "bomb", label: "BOMB", action: "Switch" },
   { slot: "system", label: "SYSTEM", action: "Switch" },
 ];
@@ -202,6 +219,11 @@ let menuKeyHandler = null;
  * Drops anything saved that no longer makes sense: a fitting that has been
  * removed from config, or a rung beyond the end of a ladder that has been
  * shortened since.
+ *
+ * Anything it does not return is dropped, so a bay absent from `TABLES` would
+ * silently lose every pick made in it — which is exactly what the system bay
+ * did while it was missing from that list, invisibly, because one device
+ * cannot show that your choice was thrown away.
  */
 function validated(saved) {
   const out = {};
@@ -209,8 +231,6 @@ function validated(saved) {
   for (const [slot, table] of Object.entries(TABLES)) {
     if (saved[slot] && table[saved[slot]]) out[slot] = saved[slot];
   }
-
-  if (WEAPONS[saved.weapon]) out.weapon = saved.weapon;
 
   for (const slot of Object.keys(saved)) {
     if (!slot.includes(".")) continue;
@@ -379,19 +399,22 @@ function atTop(slot) {
 function fittedName(slot) {
   const sw = SWITCHES[slot];
   if (sw) return sw.name(sw.table[chosen[slot]]);
-  // The missile has no model name any more: what it is called is how it is
-  // guided, which is the one property that is not a quantity.
-  if (slot === "missile") return GUIDANCE[missileRung("type")].name;
   return TABLES[slot][chosen[slot]].name;
 }
 
-/** Where one of the missile's ladders currently stands. */
-const missileRung = (prop) => Math.min(
-  chosen[`missile.${prop}`] ?? 0, MISSILES.missile.props[prop].tiers.length - 1);
+/**
+ * Where one of the fitted warhead's ladders currently stands. Only the
+ * drawing asks: a missile is named for its warhead like every other fitting,
+ * and GUIDANCE reads as the bar it is.
+ */
+const missileRung = (prop) => {
+  const props = MISSILES[chosen.missile].props;
+  return Math.min(chosen[`${chosen.missile}.${prop}`] ?? 0, props[prop].tiers.length - 1);
+};
 
 function bayArt(slot) {
   if (slot === "system") return systemArt(chosen.system);
-  if (slot === "missile") return missileArt(missileRung("type"));
+  if (slot === "missile") return missileArt(missileRung("guidance"));
   if (!isLadder(slot)) return weaponArt(chosen[slot]);
   return ladderArt(slot, IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
 }
@@ -437,11 +460,13 @@ function benchHint(slot) {
   if (slot === "bomb") {
     return `${BOMB_IDS.length} systems — the others keep their rungs`;
   }
+  // One warhead and one device so far, so there is nothing to say about
+  // keeping rungs. Both count ladders rather than fittings, which stays true
+  // as their bays fill.
   if (slot === "missile") {
-    return `${Object.keys(MISSILES.missile.props).length} ladders, and only one way up`;
+    return `${Object.keys(MISSILES[chosen.missile].props).length} ladders,`
+      + " and only one way up";
   }
-  // One device so far, so there is nothing to say about keeping rungs. It
-  // counts ladders rather than devices, which stays true as the bay fills.
   if (slot === "system") {
     return `${Object.keys(SYSTEMS[chosen.system].props).length} ladders,`
       + " and only one way up";
@@ -451,8 +476,6 @@ function benchHint(slot) {
 
 function benchBody(slot) {
   if (SWITCHES[slot]) return switchColumn(slot);
-  // No switch: there is one missile, so the bench is its properties alone.
-  if (slot === "missile") return `<div class="options">${propCards("missile")}</div>`;
   return `<div class="options single">${upgradeCard(slot)}</div>`;
 }
 
@@ -855,12 +878,14 @@ function weaponArt(id) {
 }
 
 /**
- * One missile that gains hardware as its TYPE rung climbs, the same way the
- * armour gains plates: a bare finned rocket, then a seeker head and canards
- * to steer with, then the radar arc that lets it look behind you.
+ * One airframe that gains hardware as its GUIDANCE rung climbs, the same way
+ * the armour gains plates: a bare finned rocket, then a seeker head and
+ * canards to steer with, then the radar arc that lets it look behind you.
  *
  * Generated from the rung rather than drawn three times, so a fourth mode
- * would not need a fourth drawing.
+ * would not need a fourth drawing. It is drawn from the rung and not from
+ * the fitted warhead because what is on the rails is the thing that changes
+ * shape; a second warhead would layer over this rather than replace it.
  */
 function missileArt(rung) {
   const parts = [

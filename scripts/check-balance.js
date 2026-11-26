@@ -29,7 +29,8 @@
 
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
-  MISSILES, BOMBS, BOMB_IDS, BOMB, SYSTEMS, SYSTEM_IDS, PLAYER, DEFAULT_LOADOUT,
+  MISSILES, MISSILE_IDS, BOMBS, BOMB_IDS, BOMB, SYSTEMS, SYSTEM_IDS,
+  PLAYER, DEFAULT_LOADOUT,
   resolveWeapons, resolveBomb, maxFuseRung, KMH_PER_SPEED_UNIT,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
@@ -64,12 +65,12 @@ assertLadder("ENGINE", ENGINE_IDS, ENGINES, "km/h",
 
 // --- cannons ---------------------------------------------------------------
 // --- the forward weapons and the missile, which are ladders too -----------
-// There is nothing to rank the missile against any more: it is one fitting
-// whose four properties are climbed, so what has to hold is that each ladder
-// rises, exactly as for the guns.
+// There is nothing to rank the warheads against each other: a bay holds one
+// at a time and its properties are climbed, so what has to hold is that each
+// ladder rises, exactly as for the guns.
 const TRACKS = [
   ...WEAPON_IDS.map((id) => ({ label: WEAPONS[id].label, props: WEAPONS[id].props })),
-  { label: MISSILES.missile.label, props: MISSILES.missile.props },
+  ...MISSILE_IDS.map((id) => ({ label: MISSILES[id].name, props: MISSILES[id].props })),
   ...BOMB_IDS.map((id) => ({ label: BOMBS[id].name, props: BOMBS[id].props })),
   ...SYSTEM_IDS.map((id) => ({ label: SYSTEMS[id].name, props: SYSTEMS[id].props })),
 ];

@@ -46,16 +46,16 @@ weapon built for what you are testing.
 ## Your aircraft
 
 There is one airframe, and every fitting on it is now climbed. Hull and engine
-are single ladders you **upgrade** rung by rung; the forward weapon is a
-**switch** between three systems, each with property ladders of its own; the
-missile is a set of ladders with no switch, because there is only one missile;
-and the bomb is a second switch, over **six systems**, each with ladders of its
-own.
+are single ladders you **upgrade** rung by rung; the four armament bays are all
+**switches**, each carrying one of what it switches between, with property
+ladders under whatever is fitted. The forward weapon switches over three
+systems, the bomb over **six**, and the missile and the system over one apiece
+— drawn as switches anyway, because the shape of a bay is not a function of how
+full it happens to be, and the second warhead or device will not change a line
+of the bench.
 
 The sixth bay is the **system**, and it is the only one that holds nothing that
-shoots. A system is a device you trigger with `C`, and the bay is a switch from
-the start even though it carries one device today — the shape is what it is,
-and the second device will not change a line of the bench.
+shoots. A system is a device you trigger with `C`.
 
 The **ring shield** spends a charge to make the aircraft untouchable for a
 window it climbs: `DURATION` from 2 s to 8 s, `AMMO` from 2 charges to 5. It is
@@ -179,17 +179,31 @@ You start on the cannon at its weakest: two wing guns, regular rounds.
 
 ### The missile
 
-One missile, built the way the forward weapons are. The rocket pod, the
-heat-seeker and the radar shot that used to be three separate fittings are now
-the three rungs of **TYPE** — the only one of the four properties that is not
-a quantity.
+The rails hold a **warhead**, carried one at a time, and the bay is a switch
+exactly like the bomb row — with **one warhead** on it today, `EXPLOSIVE`.
+It is drawn as a switch anyway, for the same reason the system bay is: the
+row is honest about the shape of the bay, and the second warhead will not
+change a line of the bench.
+
+What is climbed underneath is the airframe the warhead rides, built the way
+the forward weapons are. The rocket pod, the heat-seeker and the radar shot
+that used to be three separate fittings are now the three rungs of
+**GUIDANCE** — the only one of the four properties that is not a quantity.
 
 | | | |
 | --- | --- | --- |
-| **TYPE** | UNGUIDED / IR SEEKER / ALL-ASPECT | how it finds something |
+| **GUIDANCE** | UNGUIDED / IR SEEKER / ALL-ASPECT | how it finds something |
 | **AMMO** | 3, 10, 17, 23, 30 | what the rack holds |
 | **DAMAGE** | 30, 60, 90, 120, 150 | and the splash that scales with it |
 | **REACH** | 800 – 2500 m | how far the motor carries it |
+
+A missile answers to its warhead wherever a fitting is named — the bay card,
+the loadout recap, the resupply toast — and never to how it is guided. The
+guidance is a ladder, and reads as one: the bay card carries it as a bar
+beside AMMO, DAMAGE and REACH, so nothing about it is hidden by the renaming.
+The bay *art* is still generated from the GUIDANCE rung rather than from the
+warhead, since what gains a seeker head and a radar arc as you climb is the
+airframe, not the thing on its nose.
 
 Everything else is derived rather than declared. Splash is 45% of the warhead
 over a radius that grows with it, so a 150 lands 68 across 191 m — within a
@@ -211,7 +225,7 @@ at the bottom of the AMMO ladder, a tenth of one at the top.
 Note that missile reach **fell**. The AMRAAM used to fly 4,338 m and the
 Sidewinder 2,871; nothing now exceeds 2,500. The cap was not always there.
 
-The TYPE rungs differ in how far and how wide the seeker looks, and the
+The GUIDANCE rungs differ in how far and how wide the seeker looks, and the
 figures are the retired models' guidance unchanged. **UNGUIDED** has no seeker
 at all and goes where the nose was pointing. **IR SEEKER** searches a forward
 0.9 rad arc out to 900 m. **ALL-ASPECT** finds anything on `RADAR_RANGE`, the
@@ -225,7 +239,7 @@ warhead on an 800 m airframe looks 800 m, not 2600. A missile that chases what
 it can never reach does nothing but empty the rack.
 
 `check-weapons.js` pins the mechanics that are invisible when they break —
-pierce depth, ignition and its damage-over-time, each TYPE rung guiding as
+pierce depth, ignition and its damage-over-time, each GUIDANCE rung guiding as
 advertised, burn-out landing on REACH, acquisition never outrunning it, and a
 full rack staying under a Supercarrier's hull.
 

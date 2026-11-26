@@ -419,22 +419,29 @@ export const CANNON = {
 
 // --- missiles ---------------------------------------------------------------
 /**
- * One missile, built the way the forward weapons are: a set of property
- * ladders rather than a choice between models. The three that used to sit
- * here — a rocket pod, an IR seeker and a radar shot — survive as the three
- * rungs of TYPE, which is the only one of the four that is not a quantity.
+ * The rails hold a warhead, carried one at a time, and the bay is a switch
+ * from the start even though it carries one warhead today — the same shape
+ * the system bay takes, for the same reason: the second warhead will not
+ * change a line of the bench.
  *
- * Everything else about a missile is derived from these four in
+ * What is climbed underneath is the airframe the warhead rides. The three
+ * missiles that used to sit here — a rocket pod, an IR seeker and a radar
+ * shot — survive as the three rungs of GUIDANCE, the only one of the four
+ * ladders that is not a quantity.
+ *
+ * Everything else about a missile is derived from those four in
  * `resolveMissile`: how long it stays in the air, what its splash does, how
  * far its seeker can see. Nothing downstream declares a missile's numbers.
  */
 export const MISSILES = {
-  missile: {
-    label: "MISSILE",
-    blurb: "Off the rails, one at a time",
+  explosive: {
+    id: "explosive",
+    name: "EXPLOSIVE",
+    short: "EXPLOSIVE",
+    blurb: "A blast at the end of a motor",
     props: {
-      type: {
-        label: "TYPE",
+      guidance: {
+        label: "GUIDANCE",
         tiers: [0, 1, 2],
         format: (v) => ["UNGUIDED", "IR SEEKER", "ALL-ASPECT"][v],
       },
@@ -457,14 +464,17 @@ export const MISSILES = {
   },
 };
 
-export const MISSILE_PROP_KEYS = Object.keys(MISSILES.missile.props)
-  .map((prop) => `missile.${prop}`);
+export const MISSILE_IDS = Object.keys(MISSILES);
+
+/** Every missile property, as "warhead.property" keys, the way bombs are stored. */
+export const MISSILE_PROP_KEYS = MISSILE_IDS.flatMap(
+  (id) => Object.keys(MISSILES[id].props).map((prop) => `${id}.${prop}`));
 
 /**
- * What each TYPE rung does. These are three unrelated quantities rather than
- * one that grows, which is why TYPE's tiers are plain indices into this and
- * not the numbers themselves — a bar cannot be drawn from a turn rate and an
- * arc at the same time.
+ * What each GUIDANCE rung does. These are three unrelated quantities rather
+ * than one that grows, which is why GUIDANCE's tiers are plain indices into
+ * this and not the numbers themselves — a bar cannot be drawn from a turn
+ * rate and an arc at the same time.
  *
  * The figures are the retired models' guidance, unchanged: a rocket that goes
  * where it was pointed, a seeker that has to be aimed roughly at something,
@@ -521,21 +531,29 @@ function lifeForReach(reach) {
  * Turn a loadout's rungs into the one concrete missile the jet carries. The
  * shape matches what the old per-model specs exposed, so the flight code and
  * the enemy missiles — which still declare their own — stay identical.
+ *
+ * A missile answers to its warhead everywhere a fitting is named: the bay
+ * card, the recap and the resupply toast. How it is guided is a ladder, and
+ * reads as one — the bay draws GUIDANCE as a bar like any other property.
  */
 export function resolveMissile(loadout) {
+  const id = MISSILES[loadout.missile] ? loadout.missile : DEFAULT_LOADOUT.missile;
+  const warhead = MISSILES[id];
+
   const value = (prop) => {
-    const { tiers } = MISSILES.missile.props[prop];
-    const rung = loadout[`missile.${prop}`] ?? 0;
+    const { tiers } = warhead.props[prop];
+    const rung = loadout[`${id}.${prop}`] ?? 0;
     return tiers[Math.min(Math.max(rung, 0), tiers.length - 1)];
   };
 
-  const guidance = GUIDANCE[value("type")];
+  const guidance = GUIDANCE[value("guidance")];
   const damage = value("damage");
   const reach = value("reach");
 
   return {
-    name: guidance.name,
-    short: guidance.name,
+    id,
+    name: warhead.name,
+    short: warhead.short,
     carried: value("ammo"),
     resupply: MISSILE.resupply,
     cooldown: MISSILE.cooldown,
@@ -956,6 +974,8 @@ export const DEFAULT_LOADOUT = {
   bomb: "frag",
   /** Which forward weapon is carried. Only one, ever. */
   weapon: "cannon",
+  /** The only warhead there is, which is still chosen rather than assumed. */
+  missile: "explosive",
   /** The only device there is, which is still chosen rather than assumed. */
   system: "ring",
   ...Object.fromEntries(WEAPON_PROP_KEYS.map((key) => [key, 0])),

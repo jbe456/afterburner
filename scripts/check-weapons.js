@@ -184,17 +184,28 @@ console.log("\nONE WEAPON AT A TIME");
 
 console.log("\nMISSILES");
 
-/** A loadout with the missile's ladders pushed to given rungs. */
+/** The one warhead on the switch, and its ladders. */
+const WARHEAD = DEFAULT_LOADOUT.missile;
+const MISSILE_PROPS = MISSILES[WARHEAD].props;
+
+/** A loadout with the fitted warhead's ladders pushed to given rungs. */
 function msl(overrides = {}) {
   const out = { ...DEFAULT_LOADOUT };
   for (const [prop, rung] of Object.entries(overrides)) {
-    const { tiers } = MISSILES.missile.props[prop];
-    out[`missile.${prop}`] = rung === "max" ? tiers.length - 1 : rung;
+    const { tiers } = MISSILE_PROPS[prop];
+    out[`${WARHEAD}.${prop}`] = rung === "max" ? tiers.length - 1 : rung;
   }
   return out;
 }
 
-const TYPE = { unguided: 0, seeker: 1, allAspect: 2 };
+const GUIDANCE_RUNG = { unguided: 0, seeker: 1, allAspect: 2 };
+
+/**
+ * What a GUIDANCE rung is called. A missile answers to its warhead
+ * everywhere a fitting is named, so the rung has to be read from the ladder
+ * to tell these assertions apart.
+ */
+const guidanceName = (rung) => MISSILE_PROPS.guidance.format(rung);
 
 {
   // One off the rails per pull, and one off the rack. The salvo the rocket
@@ -211,7 +222,7 @@ const TYPE = { unguided: 0, seeker: 1, allAspect: 2 };
 
 {
   // Unguided: no lock needed, and it must ignore the target entirely.
-  const { world, player, enemies } = setup(msl({ type: TYPE.unguided }), [400]);
+  const { world, player, enemies } = setup(msl({ guidance: GUIDANCE_RUNG.unguided }), [400]);
   player.lock = null;
   fireMissile(world);
   check("UNGUIDED launches with no lock at all", world.missiles.length === 1);
@@ -233,7 +244,7 @@ const TYPE = { unguided: 0, seeker: 1, allAspect: 2 };
 {
   // The IR seeker looks forward only — that is its limitation, and the whole
   // reason the rung above it is worth climbing to.
-  const { world, player } = setup(msl({ type: TYPE.seeker, reach: "max" }), []);
+  const { world, player } = setup(msl({ guidance: GUIDANCE_RUNG.seeker, reach: "max" }), []);
   spawnEnemy(world, "fighter");
   world.enemies[0].x = -400;
   world.enemies[0].y = 0;
@@ -247,7 +258,7 @@ const TYPE = { unguided: 0, seeker: 1, allAspect: 2 };
 {
   // All-aspect: no lock needed, and it will take a target that is directly
   // behind the jet.
-  const { world, player } = setup(msl({ type: TYPE.allAspect, reach: "max" }), []);
+  const { world, player } = setup(msl({ guidance: GUIDANCE_RUNG.allAspect, reach: "max" }), []);
   spawnEnemy(world, "fighter");
   const chaser = world.enemies[0];
   chaser.x = -1800; // on our six, well outside any forward cone
@@ -263,16 +274,17 @@ const TYPE = { unguided: 0, seeker: 1, allAspect: 2 };
 {
   // A seeker may never see further than the motor can carry it: chasing
   // something unreachable only empties the rack.
-  for (const type of [TYPE.seeker, TYPE.allAspect]) {
-    for (const reach of MISSILES.missile.props.reach.tiers.keys()) {
-      const spec = resolveMissile(msl({ type, reach }));
-      check(`${spec.short} at ${spec.reach} m acquires no further than it flies`,
+  for (const guidance of [GUIDANCE_RUNG.seeker, GUIDANCE_RUNG.allAspect]) {
+    for (const reach of MISSILE_PROPS.reach.tiers.keys()) {
+      const spec = resolveMissile(msl({ guidance, reach }));
+      check(`${guidanceName(guidance)} at ${spec.reach} m `
+        + "acquires no further than it flies",
         spec.acquireRange <= spec.reach, `sees ${spec.acquireRange} m`);
     }
   }
 
   // And one past the end of the leash must genuinely be ignored.
-  const { world, player } = setup(msl({ type: TYPE.allAspect, reach: 0 }), []);
+  const { world, player } = setup(msl({ guidance: GUIDANCE_RUNG.allAspect, reach: 0 }), []);
   spawnEnemy(world, "fighter");
   world.enemies[0].x = 1600; // beyond an 800 m airframe, inside radar
   world.enemies[0].y = 0;
@@ -287,8 +299,8 @@ const TYPE = { unguided: 0, seeker: 1, allAspect: 2 };
   // REACH is a real distance, the way the cannon's is: the missile burns out
   // at it rather than somewhere near it. Flown rather than calculated, since
   // the warhead is still accelerating for its first second.
-  for (const reach of MISSILES.missile.props.reach.tiers.keys()) {
-    const spec = resolveMissile(msl({ type: TYPE.unguided, reach }));
+  for (const reach of MISSILE_PROPS.reach.tiers.keys()) {
+    const spec = resolveMissile(msl({ guidance: GUIDANCE_RUNG.unguided, reach }));
     let speed = spec.launchSpeed;
     let flown = 0;
     for (let t = 0; t < spec.life; t++) {
@@ -362,7 +374,7 @@ console.log("\nENEMY FORWARD WEAPONS");
 
   check("at least one type carries a SAM", ships.length > 0);
 
-  const bestMissile = MISSILES.missile.props.damage.tiers.at(-1);
+  const bestMissile = MISSILE_PROPS.damage.tiers.at(-1);
   const hardest = Math.max(...ships.map((t) => t.sam.damage));
   check(`no SAM out-damages your best missile's ${bestMissile}`,
     hardest < bestMissile, `hardest ${hardest}`);

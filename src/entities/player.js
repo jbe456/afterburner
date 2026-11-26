@@ -41,8 +41,9 @@ export function createPlayer(loadout = {}) {
   // Exactly one of the three resolves; the other two come back null.
   const { weapon, cannon, flame, laser } = resolveWeapons({ ...DEFAULT_LOADOUT, ...loadout });
 
-  // So does the missile: one airframe whose guidance, rack, warhead and
-  // burn distance are all rungs rather than a model picked off a shelf.
+  // So does the missile: a warhead off the switch, on one airframe whose
+  // guidance, rack, damage and burn distance are all rungs rather than a
+  // model picked off a shelf.
   const missile = resolveMissile({ ...DEFAULT_LOADOUT, ...loadout });
 
   // And so does the bomb, with one extra input: the fitted engine, which
