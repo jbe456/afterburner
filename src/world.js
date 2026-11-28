@@ -9,6 +9,7 @@
 import { rand } from "./core/math.js";
 import { ARENA_HALF } from "./config.js";
 import { createPlayer } from "./entities/player.js";
+import { createLavaField } from "./entities/lava.js";
 
 export function createWorld(loadout) {
   return {
@@ -23,6 +24,12 @@ export function createWorld(loadout) {
     bomblets: [],
     /** Burning ground left by an incendiary; ignites anything standing in it. */
     fields: [],
+    /**
+     * The sprayer's ribbons, molten and cooled, plus the spatial index they
+     * are answered from. The only pool in this world that never expires, and
+     * the only one big enough to need an index — see entities/lava.js.
+     */
+    lava: createLavaField(),
     /** Short-lived flamethrower cones, one per tick while the trigger is held. */
     flames: [],
     pickups: [],

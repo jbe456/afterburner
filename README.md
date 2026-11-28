@@ -350,11 +350,13 @@ no check at all.
 
 ### Bombs
 
-Six systems, carried one at a time, and the bomb row is a switch exactly like
+Seven systems, carried one at a time, and the bomb row is a switch exactly like
 the weapon row: fitting one puts the others away, and each remembers the rungs
 you bought for it. What separates one system from another is never a rung —
 three of them differ only in the **radius** of the circle they clear, and the
-other three each do something a circle cannot.
+other four each do something a circle cannot. The seventh is not a munition at
+all: it is held rather than dropped, and what it leaves behind outlives the
+threat that made it.
 
 | | Mechanic | AMMO | DAMAGE | FUSE |
 | --- | --- | --- | --- | --- |
@@ -364,6 +366,12 @@ other three each do something a circle cannot.
 | **INCENDIARY** | 420 m of burning ground, for 4.0 s | 2–6 | 25–90/s | 4.0 – 2.0 s |
 | **CLUSTER** | 300 m, then throws 4–12 bomblets out to 700 m | 2–6 | 10–50 ea | 3.3 – 1.5 s |
 | **PROXIMITY MINE** | 260 m, triggered by touch | 4–12 | 60–320 | — |
+| **LAVA SPRAYER** | an 11–30 m ribbon drawn behind you | 2.0–5.0 s | 20–70/s | — |
+
+The sprayer's AMMO is a tank measured in **seconds of held trigger** rather
+than a count of anything, and it carries a third ladder the table above has no
+column for: **ROCK HP**, 60–260 per 100 m of wall, which is what the ribbon is
+worth once it has cooled.
 
 Damage is flat inside the radius and nothing outside it, so the circle drawn on
 the ground means exactly what it looks like. Nothing is immune, including you —
@@ -395,7 +403,7 @@ instant you drop must clear the radius. A hard **1.5 s floor** sits under every
 ladder regardless, so no engine can ever hand you a warhead that goes off
 before you have visibly left.
 
-#### The three that are not circles
+#### The four that are not circles
 
 The **proximity mine** has no fuse at all: it sits where you dropped it
 indefinitely and goes off when any aircraft comes within its trigger ring —
@@ -430,11 +438,84 @@ Thermobaric's worth, spread across a far wider area in much smaller circles.
 BOMBLETS and DAMAGE multiply, which is the shape the cannon already lives with,
 so both ladders are deliberately modest.
 
+#### The sprayer draws terrain
+
+The **lava sprayer** is the only system you hold rather than tap, and the only
+thing in this game that ever occupies space. Holding `B` lays a ribbon of
+molten rock out of the tail, one segment per tick, for as long as the tank
+lasts. The ribbon then does two different jobs one after the other:
+
+* **Molten**, for three seconds, it sets alight anything that touches it on
+  exactly the terms the flame and the incendiary use — and blocks nothing.
+* **Cooled**, from then on, it burns nobody and **stops everything that
+  flies**. It is terrain. It does not expire, and the only way it ever leaves
+  the world is by being destroyed.
+
+That inversion is the weapon. For three seconds you have made something that
+cannot be answered; after that you have made something that can be answered but
+will not leave on its own.
+
+**It does not exempt you from anything.** There is no arming delay: your own
+molten ribbon lights you as readily as it lights them. What keeps that flyable
+is geometry rather than mercy — a segment is laid 44 m behind the tail and is
+born 8 m wide, swelling to full width over a quarter second, by which time you
+have flown on. Spraying in a straight line is safe at every throttle. Turning
+while you spray is safe for most of a circle, and then it is not:
+
+| Throttle | Ribbon | Hard over, holding the trigger |
+| --- | --- | --- |
+| idle (2.2) | 30 m | laps into its own line after **1.18 s** |
+| cruise (4.6) | 29 m | **1.58 s** |
+| fast cruise (8.0) | 25 m | **2.13 s** |
+| 14+ | 18 m | never — the turn circle is wider than the ribbon |
+
+So the rule the weapon teaches is **you cannot close a circle in one breath**.
+You can sweep most of the way round and break off; carry on and you fly into
+what you just laid.
+
+**Speed shapes the ribbon.** Width comes off airspeed, so the same tank buys
+either a long thin smear laid on the run or a short fat plug laid deliberately.
+A thin wall is genuinely flimsier, not merely narrower: a segment's HP is
+pro-rated by both its length and its thickness, so what it costs to open a hole
+is the wall's HP across that hole. Slowing down to build something that lasts
+is true in two senses at once.
+
+**Nothing avoids it.** Aircraft have never steered around anything in this game
+and they do not start now — a wall drawn across an approach is a trap precisely
+because they fly into it, grind along it, and burn on whatever is still molten.
+The single concession is to the gun, not the stick: a jet that has been wedged
+for a full second is allowed to fire at what is stopping it, because its nose
+is already buried in it. A jet that is lined up on you with a wall in the way
+needs no special case — it shoots at you, and the wall eats the rounds, which
+is the same thing. That is also what makes a wall **cover**: it stops their
+fire exactly as readily as yours.
+
+**Ships dig.** A carrier is stopped by rock like anything else, and it does not
+steer around one either — the heading it arrived on is still the only heading
+it has. What it does instead is point its SAM battery at the wall. That is the
+best reason to build one in front of a ship: the same launcher cannot be
+shooting at you and digging at the same time, so a wall across a Supercarrier's
+track buys you eight to thirteen seconds in which the nastiest thing in the sky
+is stationary and silent. It still launches aircraft the whole time.
+
+Anything that damages an aircraft damages rock: rounds, warheads, blasts, and
+the flame and the beam, which cut into whatever they are pointed at and are
+stopped by it. Your own bombs clear your own walls. Because terrain outlives
+waves, aircraft and crates that would arrive inside a wall are put down beside
+it instead.
+
 `check-bomb.js` pins all of it: that every system damages friend and foe alike
 at its own radius, that a mine waits and arms and is set off by either side,
 that an incendiary deals burn rather than a lump and its field expires, that a
 cluster's spray lands inside the range it is thrown and nowhere beyond its
-footprint, and that every unlocked fuse rung can be flown away from.
+footprint, and that every unlocked fuse rung can be flown away from. For the
+sprayer it holds the five things that would break without showing: that molten
+lava burns the pilot who laid it as well as the enemy, that a newborn ribbon
+can never reach the jet that laid it, that the ribbon sets and what it sets
+into actually stops an aircraft, that sustained fire opens a hole in it, and
+that a tankful lays a bounded number of segments at every throttle — which,
+since nothing caps terrain, is the only thing standing between a drain bug and
+an arena that fills up.
 
 Every card in the hangar is a name, a drawing and a set of bars. A hull or
 engine card's bars are normalised against the other rungs in its own ladder; a
@@ -614,6 +695,13 @@ envelope inside both a fully upgraded beam's 2400 m reach and the radar's
 2600 m, and every warhead under your best missile's 150, so standing off and
 whittling stays a legitimate — if slow — answer to any carrier.
 
+The battery has one other job. A ship is stopped by a lava wall exactly as an
+aircraft is, and it has no way to steer around one — so when rock blocks its
+track it fires at the rock instead of at you. It cannot do both. That makes a
+wall drawn across a carrier's heading the only thing in the game that takes a
+boss's gun offline, for as long as it takes the battery to open a gateway wide
+enough for a hull of up to 140 m. It is still launching the whole time.
+
 #### What this costs you
 
 Upgrades are free, and the cannon spans 16 dps stock to 200 dps maxed, so
@@ -685,6 +773,11 @@ Which system you carry, and how far up its ladders you have taken it, is set in
 the hangar (see **Bombs** above). Crates put **one** back on the rails whatever
 the rack holds — a sixth of a stock Frag load, a whole Thermobaric.
 
+With the **lava sprayer** fitted, `B` is held rather than tapped and what it
+spends is a tank of seconds rather than a rack, so the HUD shows a draining bar
+in place of the row of pips and a crate puts back **one second** of it.
+Releasing the trigger is what ends a wall and starts the next one.
+
 ## Layout
 
 ```
@@ -708,6 +801,7 @@ src/
 │   ├── projectiles.js  Flight and impact of bullets and missiles
 │   ├── carrier.js      Carriers: transit, launching, the deck, the SAM battery
 │   ├── bombs.js        Dropped bombs: fuses, blasts, sprays, burning ground
+│   ├── lava.js         Terrain: molten ribbons, cooled rock, and the grid they answer from
 │   ├── pickups.js      Repair and ammo crates
 │   └── effects.js      Particles, shockwaves, screen shake (cosmetic only)
 ├── render/             Drawing only; never mutates game state
@@ -735,7 +829,7 @@ scripts/
 requestAnimationFrame
         │
         ├─ simulate(world) × N     fixed 60 Hz steps, N depends on elapsed time
-        │     player → carriers → enemies → projectiles → bombs → pickups → effects → waves
+        │     player → carriers → enemies → projectiles → bombs → lava → fires → pickups → effects → waves
         │
         ├─ drawScene(world)        world-space pass, behind the HUD
         └─ drawHud(world)          screen-space instruments

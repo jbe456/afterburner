@@ -885,6 +885,116 @@ export const BOMBS = {
       damage: { label: "DAMAGE", tiers: [60, 125, 190, 255, 320], format: (v) => `${v}` },
     },
   },
+
+  /**
+   * The one system that is not a munition. Holding B sprays molten rock out
+   * of the tail, a ribbon at a time, and the ribbon does two different jobs
+   * one after the other:
+   *
+   *   molten   sets alight anything it touches — you included, with no
+   *            arming grace whatsoever — and blocks nothing
+   *   cooled   blocks everything that flies, burns nobody, and is the only
+   *            terrain in this game: it stays until something shoots it down
+   *
+   * So it is drawn rather than dropped. What you are buying with the tank is
+   * a shape, and the shape outlives the threat that made it.
+   *
+   * Its ladders break the bay's pattern in the one way the mine already does:
+   * there is no FUSE, so the engine bay does not reach into it at all. What
+   * the engine changes instead is geometry — a ribbon thins as you go faster
+   * (see `LAVA.width`), so speed trades a wall's thickness against its length
+   * out of the same tank.
+   */
+  lava: {
+    id: "lava",
+    name: "LAVA SPRAYER",
+    short: "LAVA",
+    blurb: "Draws burning ground that cools into wall",
+    trigger: "spray",
+    /** Nothing detonates, so there is no circle to draw under it. */
+    blastRadius: 0,
+    /** Continuous: the tank is the limit, not a refire delay. */
+    dropCooldown: 0,
+    props: {
+      // Seconds of held trigger rather than a count of anything. A fast pass
+      // spends the same tank over more ground, which is the whole trade.
+      ammo: {
+        label: "TANK", tiers: [120, 165, 210, 255, 300],
+        format: (v) => `${(v / TPS).toFixed(1)} s`,
+      },
+      // A burn rate, as the incendiary's is, and deliberately under it: lava
+      // covers far more ground than a field and never expires on its own.
+      damage: { label: "DAMAGE", tiers: [20, 32, 44, 58, 70], format: (v) => `${v}/s` },
+      // What the cooled ribbon is worth per 100 m of wall at reference
+      // thickness. A thinner ribbon carries proportionally less, so a wall
+      // laid at speed is genuinely flimsier rather than merely narrower.
+      rock: { label: "ROCK HP", tiers: [60, 110, 160, 210, 260], format: (v) => `${v}/100m` },
+    },
+  },
+};
+
+/**
+ * The sprayer's geometry, which is the whole weapon.
+ *
+ * Every figure here is a flat constant rather than a rung, because the three
+ * ladders already say what the material is worth and these say where it goes.
+ * Two of them decide whether the thing can be flown at all:
+ *
+ *   `tailOffset`  how far behind you a ribbon is born. The nearest molten
+ *                 segment is always the newest one, at exactly this distance,
+ *                 in a turn as much as in a straight line — so this number
+ *                 alone is what stands between the pilot and their own trail.
+ *   `birthRadius` how hot it is on the tick it appears. The ribbon swells to
+ *                 its full width over `swellTicks`, which is an arming delay
+ *                 expressed as geometry: visible on screen rather than hidden
+ *                 in a counter, and the reason a weapon with no arming grace
+ *                 is survivable.
+ *
+ * Worked through at offset 44 with a 16 m hitbox: spraying straight is safe
+ * at every throttle, any single turn held under about a second and a half is
+ * safe at every throttle, and a sustained full-rate circle laps you into your
+ * own lava after 1.4 s at idle or 1.7 s at cruise. That last one is the cost
+ * of the weapon, and `check-bomb.js` holds the first two.
+ */
+export const LAVA = {
+  /** How far behind the jet a ribbon is laid. See above: load-bearing. */
+  tailOffset: 44,
+  /** Radius on the tick a segment is born, before it swells. */
+  birthRadius: 8,
+  /** Ticks from birth to full width. */
+  swellTicks: 15,
+  /** Ticks from birth to solid rock. Molten until then, inert wall after. */
+  hardenTicks: 180,
+  /**
+   * Full width as a function of airspeed: fat and short when you dawdle,
+   * long and thin at the burner. Clamped at both ends so a ribbon is never
+   * wider than it is far behind you, and never so thin it stops reading.
+   */
+  width: (speed) => Math.min(30, Math.max(11, 34 - 1.15 * speed)),
+  /**
+   * The widest `width` can return. Every spatial query pads its search box by
+   * this, so it must never be under the clamp above — a smaller figure would
+   * silently miss the fattest ribbons at the edge of a cell, which is a hole
+   * in a wall that nobody shot.
+   */
+  maxReach: 30,
+  /** The thickness and length the ROCK HP ladder is quoted against. */
+  refWidth: 28,
+  refLength: 100,
+  /** Hull lost per unit of airspeed on the tick a body first touches rock. */
+  impactDamagePerSpeed: 1.2,
+  /**
+   * Ticks an aircraft grinds against a wall before it gives up and shoots it.
+   * Long enough that a glancing scrape is not answered with gunfire, short
+   * enough that a jet pinned on a wall is never a permanent fixture.
+   */
+  grindBeforeShooting: 60,
+  /** How far ahead a ship looks for rock to clear off its track. */
+  shipLookahead: 420,
+  /** Ticks of tank a crate puts back, whatever the tank holds. */
+  resupply: 60,
+  /** Spatial-grid cell, in world units. Nothing else in the game needs one. */
+  cellSize: 128,
 };
 
 /** Shared by every bomb regardless of type. */
@@ -986,6 +1096,16 @@ export function resolveBomb(loadout) {
 
   if (system.trigger === "field") {
     spec.fieldDuration = system.fieldDuration;
+  }
+
+  if (system.trigger === "spray") {
+    // `carried` is ticks of tank rather than a count of munitions, so the
+    // crate has to hand back ticks too — `BOMB.resupply` is one *bomb*, and
+    // one tick of lava would be an insult.
+    spec.resupply = LAVA.resupply;
+    /** HP per 100 m of wall at `LAVA.refWidth`; segments scale off this. */
+    spec.rockHp = value("rock");
+    spec.hardenTicks = LAVA.hardenTicks;
   }
 
   if (system.trigger === "cluster") {

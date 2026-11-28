@@ -11,11 +11,16 @@
  */
 
 import { rand, clamp, steer, angDiff, TAU } from "../core/math.js";
-import { ARENA_HALF, CARRIER, ENEMY, ENEMY_TYPES, enemyWeapon } from "../config.js";
+import {
+  ARENA_HALF, CARRIER, ENEMY, ENEMY_TYPES, enemyWeapon, CANNON, LAVA,
+} from "../config.js";
 import {
   fireGun, fireEnemyMissile, dropEnemyBomb, fireEnemyFlame, fireEnemyLaser,
 } from "./weapons.js";
 import { burst, explode } from "./effects.js";
+import {
+  resolveRockContact, isWedged, hottestLavaTouching, nudgeOutOfRock,
+} from "./lava.js";
 import { maybeDropPickup } from "./pickups.js";
 import { sfx } from "../core/audio.js";
 
@@ -113,6 +118,11 @@ export function spawnEnemyAt(world, typeName, x, y, angle) {
     e.swarmTimer = 0;
   }
 
+  // Terrain outlives waves, so a spawn point chosen by the wave logic can
+  // be inside a wall that did not exist when the run started. Put it down
+  // where there is room rather than let it grind its way out on camera.
+  nudgeOutOfRock(world, e, e.radius);
+
   world.enemies.push(e);
   return e;
 }
@@ -164,6 +174,17 @@ export function updateEnemy(world, e) {
   e.x += Math.cos(e.angle) * e.speed;
   e.y += Math.sin(e.angle) * e.speed;
 
+  // Nothing above looked where it was going. Aircraft have never avoided
+  // anything in this game and they do not start now: a wall drawn across
+  // their approach is a trap precisely because they fly into it, grind along
+  // it, and burn on whatever is still molten. What stops that being a jet
+  // welded to a rock forever is `fireForwardWeapon`, which lets one that has
+  // been stuck a full second shoot its way out.
+  if (resolveRockContact(world, e, e.radius)) {
+    damageEnemy(world, e, e.speed * LAVA.impactDamagePerSpeed, e.x, e.y, { quiet: true });
+    if (!world.enemies.includes(e)) return;
+  }
+
   e.trail.push({ x: e.x - Math.cos(e.angle) * 16, y: e.y - Math.sin(e.angle) * 16 });
   if (e.trail.length > (type.trail ?? 16)) e.trail.shift();
   if (e.flash > 0) e.flash--;
@@ -183,7 +204,22 @@ function fireForwardWeapon(world, e, type, player, range, offBoresight) {
 
   const lined = player.alive && e.mode !== "evade"
     && range < type.range && offBoresight < ENEMY.fireCone;
-  if (!lined) return;
+
+  // Dumb about flying into rock, pragmatic about leaving it.
+  //
+  // A jet that is lined up on you and has a wall in the way needs nothing
+  // special: it shoots at you, and the wall eats the rounds, which is the
+  // same thing as shooting the wall. The case that needs saying out loud is
+  // the one where it has nothing to shoot at and is wedged anyway — out of
+  // range, or breaking away — because that jet would otherwise sit parked on
+  // a rock for the rest of the wave. Its nose is already buried in the thing
+  // stopping it, so permission to fire is the whole of the fix; no aiming is
+  // required and none is done.
+  //
+  // This is the only place an aircraft acknowledges terrain at all, and it is
+  // deliberately about the gun rather than the stick. Letting them *steer*
+  // around walls would make walls decorative.
+  if (!lined && !isWedged(e)) return;
 
   switch (enemyWeapon(type)) {
     case "flame":
@@ -363,6 +399,15 @@ export function updatePoison(world) {
 export function updateBurning(world) {
   for (let i = world.enemies.length - 1; i >= 0; i--) {
     const e = world.enemies[i];
+
+    // Molten rock lights whatever is sitting in it, every tick it is sitting
+    // there, and the fire then follows it out for `CANNON.burnDuration` — the
+    // same bargain the flame, the beam and burning ground already strike. The
+    // player half of this is in player.js, because each side owns its own
+    // fire and neither module needs to know the other exists.
+    const dps = hottestLavaTouching(world, e.x, e.y, e.radius);
+    if (dps > 0) ignite(world, e, { dps, duration: CANNON.burnDuration });
+
     if (!e.burn) continue;
 
     if (--e.burn.ticksLeft <= 0) { e.burn = null; continue; }

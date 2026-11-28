@@ -10,7 +10,7 @@ import { TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import {
   ENEMY_TYPES, ARENA_WARN_EDGE, ARENA_DAMAGE_EDGE, LOCK, KMH_PER_SPEED_UNIT,
-  RADAR_RANGE,
+  RADAR_RANGE, TPS,
 } from "../config.js";
 
 const MONO = "ui-monospace, monospace";
@@ -127,10 +127,41 @@ function drawInstruments(ctx, world) {
   // colour is not having to.
   drawRack(ctx, "MSL", 114, p.missiles, p.missile,
     p.missile.effect === "blast" ? "#ffd166" : p.missile.colour, "square");
-  drawRack(ctx, "BMB", 134, p.bombs, p.bomb, "#ff6b4a", "round");
+  // The sprayer's rack is not a rack. What it holds is seconds of held
+  // trigger, and a row of pips counting down from three hundred would be a
+  // true readout of a number the pilot never thinks in.
+  if (p.bomb.trigger === "spray") drawTank(ctx, 134, p.bombs, p.bomb, "#ff6b4a");
+  else drawRack(ctx, "BMB", 134, p.bombs, p.bomb, "#ff6b4a", "round");
   // Charges only. How long the ring has left is the ring's own job — it is
   // drawn around the aircraft, where you are already looking.
   drawRack(ctx, "SYS", 154, p.charges, p.system, "#4ea8ff", "round");
+}
+
+/**
+ * The sprayer's row: a draining bar and the seconds left on it.
+ *
+ * A bar rather than pips because what is being spent is continuous, and the
+ * only question a pilot asks of it is "how much longer may I hold this" —
+ * which is a length, not a count. The figure is seconds for the same reason
+ * the ladder is sold in seconds.
+ */
+function drawTank(ctx, y, remaining, spec, color) {
+  const WIDTH = 92;
+  const full = remaining / spec.carried;
+
+  ctx.font = `11px ${MONO}`;
+  ctx.fillStyle = "#6f8ba6";
+  ctx.fillText("BMB", 22, y);
+
+  ctx.fillStyle = dim(color);
+  ctx.fillRect(52, y - 9, WIDTH, 9);
+  ctx.fillStyle = color;
+  ctx.fillRect(52, y - 9, WIDTH * full, 9);
+
+  ctx.font = `10px ${MONO}`;
+  ctx.fillStyle = "#56708a";
+  ctx.fillText(`${(remaining / TPS).toFixed(1)}s ${spec.short}`, 52 + WIDTH + 8, y);
+  ctx.font = `11px ${MONO}`;
 }
 
 /**

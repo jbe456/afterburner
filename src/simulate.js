@@ -9,6 +9,7 @@ import { updateEnemy, updateBurning, updatePoison } from "./entities/enemy.js";
 import { updateCarriers } from "./entities/carrier.js";
 import { updateBullets, updateMissiles, updateFlames } from "./entities/projectiles.js";
 import { updateBombs } from "./entities/bombs.js";
+import { updateLava } from "./entities/lava.js";
 import { updatePickups } from "./entities/pickups.js";
 import { updateEffects } from "./entities/effects.js";
 import { updateWaves } from "./waves.js";
@@ -27,6 +28,9 @@ export function simulate(world) {
   updateFlames(world);
   updateMissiles(world);
   updateBombs(world);
+  // Before the fires, because what a ribbon is worth touching depends on how
+  // wide it has swelled and whether it has cooled past burning anything.
+  updateLava(world);
   updateBurning(world);
   // Alongside the fires and for the same reason: it damages, so it can kill,
   // so it cannot run inside a loop over the list it might shorten.

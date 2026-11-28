@@ -26,7 +26,7 @@ const CONTROLS = [
   ["S", "Throttle back (turns tighter)"],
   ["Click / Space", "Cannon"],
   ["Right click / F", "Missile"],
-  ["B", "Drop bomb"],
+  ["B", "Drop bomb · hold to spray"],
   ["C", "Ring shield"],
   ["P", "Pause"],
 ];
@@ -868,6 +868,16 @@ const WEAPON_ART = {
     <polygon class="dim" points="10.6,-10.6 7.9,-3.4 3.4,-7.9"/>
     <circle class="main" cx="0" cy="0" r="8.5"/>
     <circle class="dim" cx="-2.5" cy="-2.5" r="2.6"/>`,
+
+  // Not a case at all: a tank with a nozzle, and the ribbon it lays running
+  // off behind — narrow where it leaves and thickening as it settles, which
+  // is the one thing about this weapon a pilot has to understand on sight.
+  lava: `
+    <rect class="main" x="-2" y="-8" width="14" height="16" rx="5"/>
+    <polygon class="main" points="12,-4 19,-2.5 19,2.5 12,4"/>
+    <path class="arc" d="M -3,1 q -4,-4 -8,-1 q -4,3 -8,1"/>
+    <circle class="dim" cx="-13" cy="-1.5" r="3"/>
+    <circle class="dim" cx="-18.5" cy="1" r="4"/>`,
 
 
 

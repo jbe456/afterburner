@@ -6,10 +6,12 @@
  * because the HUD needs it to line overlays up with world objects.
  */
 
-import { rand, TAU } from "../core/math.js";
+import { rand, clamp, TAU } from "../core/math.js";
 import { viewport } from "../core/viewport.js";
 import { input } from "../core/input.js";
-import { ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK, BOMB, PLAYER } from "../config.js";
+import {
+  ARENA_HALF, ARENA_SIZE, ENEMY_TYPES, LOCK, BOMB, PLAYER, LAVA,
+} from "../config.js";
 import { drawHull, drawHullShadow } from "./hulls.js";
 import { PICKUP_COLOUR, PICKUP_GLYPH } from "../entities/pickups.js";
 
@@ -30,6 +32,9 @@ export function drawScene(world) {
   ctx.translate(w / 2 - world.camX + rand(-s, s), h / 2 - world.camY + rand(-s, s));
 
   drawBoundary(ctx);
+  // Terrain, so it goes under everything that flies — a wall drawn over your
+  // own jet would hide the thing you are steering.
+  drawLava(ctx, world);
   drawSamEnvelopes(ctx, world);
   drawBombs(ctx, world);
   drawPickups(ctx, world);
@@ -260,6 +265,102 @@ function drawBomblets(ctx, world) {
  * circle, because it is already doing its damage — there is nothing to count
  * down to, only ground to be off.
  */
+/**
+ * The sprayer's ribbons, molten through cooling to rock.
+ *
+ * Each segment is drawn as a round-capped stroke along its own spine, which
+ * is exactly the capsule the simulation collides against — so the wall you
+ * can see and the wall you cannot fly through are the same shape, to within
+ * the wobble. That matters more here than anywhere else in this renderer: the
+ * entire promise of the weapon is that the line you flew is the wall you
+ * built, and a drawing that flattered the geometry would be a lie the pilot
+ * discovers by dying.
+ *
+ * Three passes rather than one, because a single stroke per segment reads as
+ * a pipe: an outer crust, the body, and a brighter core that fades out as the
+ * rock cools. Only what is on screen is touched — terrain never expires, so
+ * by the late waves the pool is far larger than the view.
+ */
+function drawLava(ctx, world) {
+  const segments = world.lava.segments;
+  if (segments.length === 0) return;
+
+  const halfW = viewport.w / 2 + 120;
+  const halfH = viewport.h / 2 + 120;
+
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  for (const seg of segments) {
+    if (Math.abs(seg.ax - world.camX) > halfW || Math.abs(seg.ay - world.camY) > halfH) {
+      continue;
+    }
+
+    // 0 while molten, 1 once set. Drives colour and shimmer together, so the
+    // transition is one continuous cooling rather than a state that pops.
+    const cooled = clamp(
+      (seg.age - LAVA.swellTicks) / (LAVA.hardenTicks - LAVA.swellTicks), 0, 1);
+    // A slow crawl along the ribbon while it is still liquid, dying out as it
+    // sets. Seeded per segment so the wobble sits still rather than racing.
+    const live = 1 - cooled;
+    const wobble = 1 + Math.sin(world.time * 0.11 + seg.seed) * 0.09 * live;
+    const r = seg.r * wobble;
+
+    ctx.beginPath();
+    ctx.moveTo(seg.ax, seg.ay);
+    ctx.lineTo(seg.bx, seg.by);
+
+    // Crust: dark from the first tick, so even fresh lava has an edge rather
+    // than glowing away into the ground.
+    ctx.strokeStyle = mix("#7a3a1c", "#2b2b33", cooled);
+    ctx.lineWidth = r * 2;
+    ctx.globalAlpha = 1;
+    ctx.stroke();
+
+    ctx.strokeStyle = mix("#ff5a28", "#3c3a44", cooled);
+    ctx.lineWidth = r * 1.55;
+    ctx.stroke();
+
+    if (live > 0.02) {
+      ctx.globalAlpha = live;
+      ctx.strokeStyle = mix("#ffd166", "#4a4452", cooled * 0.6);
+      ctx.lineWidth = r * 0.75;
+      ctx.stroke();
+    }
+
+    // Cracks, but only once there is rock to crack. One short stroke across
+    // the ribbon per segment: at the density segments are laid, that reads as
+    // a fractured surface without drawing a texture nobody asked for.
+    if (cooled > 0.75) {
+      ctx.globalAlpha = (cooled - 0.75) * 2.2;
+      ctx.strokeStyle = "#6b4a3a";
+      ctx.lineWidth = 1.4;
+      const mx = (seg.ax + seg.bx) / 2;
+      const my = (seg.ay + seg.by) / 2;
+      const across = Math.atan2(seg.by - seg.ay, seg.bx - seg.ax) + Math.PI / 2 + seg.seed;
+      ctx.beginPath();
+      ctx.moveTo(mx - Math.cos(across) * r * 0.8, my - Math.sin(across) * r * 0.8);
+      ctx.lineTo(mx + Math.cos(across) * r * 0.8, my + Math.sin(across) * r * 0.8);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+/** Blend two "#rrggbb" strings. Only this module needs it, so it lives here. */
+function mix(from, to, t) {
+  const a = parseInt(from.slice(1), 16);
+  const b = parseInt(to.slice(1), 16);
+  const ch = (shift) => {
+    const lo = (a >> shift) & 255;
+    const hi = (b >> shift) & 255;
+    return Math.round(lo + (hi - lo) * t);
+  };
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
+}
+
 function drawFields(ctx, world) {
   for (const field of world.fields) {
     const t = field.life / field.maxLife;
@@ -427,7 +528,12 @@ function drawCone(ctx, world, emission) {
 /** A hard white core inside a wide glow, held straight out from the nose. */
 function drawBeam(ctx, world, emission) {
   const pulse = 0.88 + Math.sin(world.time * 0.9) * 0.12;
-  const length = emission.range;
+  // A beam stops at the wall it is cutting into, rather than being drawn
+  // straight through it — the simulation already stops there, and a beam that
+  // visibly crossed a wall would make the wall look like a decal.
+  const length = emission.blockedAt
+    ? Math.hypot(emission.blockedAt.x - emission.x, emission.blockedAt.y - emission.y)
+    : emission.range;
 
   // Yours is violet, theirs is red — you should never have to work out whose
   // beam is crossing the screen.

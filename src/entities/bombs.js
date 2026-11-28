@@ -22,6 +22,7 @@ import { BOMB, CANNON, PLAYER } from "../config.js";
 import { burst, addShake } from "./effects.js";
 import { damageEnemy, ignite } from "./enemy.js";
 import { damagePlayer, ignitePlayer } from "./player.js";
+import { damageRockArea, playerInLava } from "./lava.js";
 
 /**
  * How far in from the spray's full reach the nearest submunition lands. The
@@ -247,6 +248,11 @@ function updateFields(world) {
 
 /** Levels everything inside a radius, without taking sides. */
 function blastAt(world, x, y, radius, damage) {
+  // Including terrain, which is how a bomb clears a wall you no longer want —
+  // your own as readily as anyone's. An area rather than an impact, so a
+  // warhead opens a gateway rather than chipping one segment.
+  damageRockArea(world, x, y, radius, damage);
+
   // Enemies first, iterating backwards because damageEnemy removes entries.
   for (let i = world.enemies.length - 1; i >= 0; i--) {
     const e = world.enemies[i];
@@ -343,6 +349,12 @@ function playerInBlastZone(world) {
   if (world.fields.some((f) => Math.hypot(p.x - f.x, p.y - f.y) <= f.radius)) {
     return true;
   }
+
+  // Molten rock counts, on the same grounds as burning ground: it is already
+  // costing hull. Cooled rock never does — it is terrain, not a hazard, and
+  // a warning that lit up next to every wall in the arena would be wallpaper
+  // by the third wave.
+  if (playerInLava(world)) return true;
 
   // A submunition about to land on you counts: there is nothing to see on the
   // ground yet, so the HUD warning is the only notice you get.

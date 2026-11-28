@@ -8,10 +8,13 @@
 
 import { dist2, angDiff, steer, rand } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { PLAYER } from "../config.js";
+import { PLAYER, TPS } from "../config.js";
 import { burst, explode, addShake } from "./effects.js";
 import { damageEnemy, ignite, poisonEnemy, freezeEnemy } from "./enemy.js";
 import { damagePlayer, ignitePlayer } from "./player.js";
+import {
+  damageRockPoint, damageRockArea, rockAt, rockBlocksLine, firstRockOnRay,
+} from "./lava.js";
 
 export function updateBullets(world) {
   const { bullets, enemies, player } = world;
@@ -24,6 +27,16 @@ export function updateBullets(world) {
     b.y += b.vy;
 
     if (--b.life <= 0) { bullets.splice(i, 1); continue; }
+
+    // Rock is checked before aircraft and without asking whose round this is.
+    // That is what makes a wall cover: it stops their fire as readily as
+    // yours, and the round is spent on it rather than passing through to
+    // whatever is sheltering behind.
+    if (damageRockPoint(world, b.x, b.y, 4, b.damage)) {
+      burst(world, b.x, b.y, 5, "#9a8a80", 3, 3, 16);
+      bullets.splice(i, 1);
+      continue;
+    }
 
     if (b.friendly) {
       if (resolveFriendlyHit(world, b, enemies)) bullets.splice(i, 1);
@@ -51,15 +64,21 @@ export function updateFlames(world) {
     // consumed between frames and never appear on screen.
     if (emission.spent) { world.flames.splice(i, 1); continue; }
 
+    // A cone or a beam is stopped by a wall like everything else, and works
+    // at it while it is stopped — which is the only way a pilot who fitted a
+    // flame or a beam could ever open one, since neither fires a round that
+    // rock could absorb.
+    burnThroughRock(world, emission);
+
     if (emission.friendly) {
       for (let k = world.enemies.length - 1; k >= 0; k--) {
         const e = world.enemies[k];
-        if (touches(emission, e)) ignite(world, e, emission.burn);
+        if (touches(world, emission, e)) ignite(world, e, emission.burn);
       }
     } else {
       const p = world.player;
       const target = { x: p.x, y: p.y, radius: PLAYER.radius };
-      if (p.alive && touches(emission, target)) ignitePlayer(world, emission.burn);
+      if (p.alive && touches(world, emission, target)) ignitePlayer(world, emission.burn);
     }
 
     emission.spent = true;
@@ -71,11 +90,36 @@ export function updateFlames(world) {
  * a line for the laser. Neither deals damage on contact — both set light to
  * what they touch, and the fire does the work.
  */
-function touches(emission, e) {
+/**
+ * What a nose weapon does to a wall it is pointed at, and how far down the
+ * ray it stops.
+ *
+ * The centre line only. A cone is 48 degrees across and cutting a hole with
+ * the whole of it would mean a dozen rays a tick for a weapon that fights at
+ * 450 m anyway; working on what the nose is actually pointed at is both
+ * cheaper and the thing a pilot would expect.
+ */
+function burnThroughRock(world, emission) {
+  const blockage = firstRockOnRay(
+    world, emission.x, emission.y, emission.angle, emission.range);
+  if (!blockage) return;
+
+  // Burn rate per tick, the same figure the fire itself does per tick, so
+  // cutting through a wall costs what setting something alight costs.
+  damageRockPoint(world, blockage.x, blockage.y, 6, emission.burn.dps / TPS);
+  /** Where the beam stops, so the renderer draws it ending at the rock. */
+  emission.blockedAt = blockage;
+}
+
+function touches(world, emission, e) {
   const dx = e.x - emission.x;
   const dy = e.y - emission.y;
   const distance = Math.hypot(dx, dy);
   if (distance > emission.range + e.radius) return false;
+  // Nothing is set alight through a wall. Checked per target rather than by
+  // trimming the emission, because a cone is wide enough to reach round one
+  // edge of a wall while being stopped at the other.
+  if (rockBlocksLine(world, emission.x, emission.y, e.x, e.y)) return false;
 
   if (emission.kind === "cone") {
     return Math.abs(angDiff(Math.atan2(dy, dx), emission.angle)) <= emission.halfAngle;
@@ -162,6 +206,18 @@ export function updateMissiles(world) {
       } else {
         explode(world, m.x, m.y, false);
       }
+      missiles.splice(i, 1);
+      continue;
+    }
+
+    // A warhead that runs into a wall goes off against it. Splash rather than
+    // a point hit, because this is also how a ship digs itself a gateway —
+    // see `fireBattery` in carrier.js — and a salvo that chipped one segment
+    // at a time would never get a hull of 140 m through anything.
+    if (m.arming <= 0 && rockAt(world, m.x, m.y)) {
+      const reach = m.spec.splashRadius ?? m.spec.hitRadius * 3;
+      damageRockArea(world, m.x, m.y, reach, m.spec.damage);
+      explode(world, m.x, m.y, reach > 150);
       missiles.splice(i, 1);
       continue;
     }

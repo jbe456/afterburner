@@ -8,10 +8,11 @@
  * whatever spec it is handed.
  */
 
-import { rand, angDiff } from "../core/math.js";
+import { rand, angDiff, TAU } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { ENEMY, ENEMY_TYPES, MISSILE, CANNON } from "../config.js";
+import { ENEMY, ENEMY_TYPES, MISSILE, CANNON, LAVA } from "../config.js";
 import { muzzleFlash, addShake } from "./effects.js";
+import { addLavaSegment } from "./lava.js";
 
 /**
  * Where the barrels sit across the wings, in symmetric pairs working outward.
@@ -259,9 +260,13 @@ export function fireEnemyMissile(world, enemy, spec) {
  * envelope — which is what makes closing with a carrier a decision rather
  * than a manoeuvre.
  */
-export function fireSam(world, ship, spec) {
+export function fireSam(world, ship, spec, blockage = null) {
   const player = world.player;
-  const bearing = Math.atan2(player.y - ship.y, player.x - ship.x);
+  // Normally you. When a wall is in the way it is the wall instead, fired
+  // unguided at a fixed point — there is nothing to chase, and a seeker that
+  // tried to would turn away from the rock toward the aircraft behind it.
+  const aim = blockage ?? player;
+  const bearing = Math.atan2(aim.y - ship.y, aim.x - ship.x);
   const perpendicular = bearing + Math.PI / 2;
 
   for (let i = 0; i < spec.salvo; i++) {
@@ -275,7 +280,7 @@ export function fireSam(world, ship, spec) {
       y: ship.y + Math.sin(perpendicular) * across,
       angle: bearing + rand(-0.1, 0.1),
       speed: spec.speed,
-      target: player,
+      target: blockage ? null : player,
       life: spec.life,
       arming: MISSILE.armingDelay,
     });
@@ -294,6 +299,63 @@ export function dropEnemyBomb(world, enemy, spec) {
     arming: spec.armTime ?? 0,
   });
   sfx.bombArm();
+}
+
+/**
+ * One tick of held trigger on the sprayer: a single ribbon segment, running
+ * from where the tail was last tick to where it is now.
+ *
+ * One per tick rather than one per fixed distance travelled. At the burner a
+ * distance-based emitter would need three overlapping blobs every tick to
+ * stay contiguous — a thousand of them per tankful, permanently — while at
+ * idle it would lay one every few ticks and read as beads. A segment that
+ * simply spans the tick is contiguous by construction at any airspeed and
+ * costs the same sixty a second whatever the throttle is doing.
+ *
+ * Width comes off airspeed (`LAVA.width`), so the same tank buys either a
+ * long thin smear laid on the run or a short fat plug laid deliberately. The
+ * ribbon carries no velocity: it is laid, not thrown.
+ */
+export function sprayLava(world, player) {
+  if (player.bombs <= 0) return;
+
+  const spec = player.bomb;
+  player.bombs--; // ticks of tank, not a count of munitions
+
+  const tail = {
+    x: player.x - Math.cos(player.angle) * LAVA.tailOffset,
+    y: player.y - Math.sin(player.angle) * LAVA.tailOffset,
+  };
+  // The first tick of a press has nowhere to run from, so it lays a stub at
+  // the tail rather than a ribbon reaching back to wherever the jet last
+  // sprayed — which could be the far side of the arena.
+  const from = player.lavaTail ?? tail;
+  player.lavaTail = tail;
+
+  const full = LAVA.width(player.speed);
+  const length = Math.hypot(tail.x - from.x, tail.y - from.y);
+
+  addLavaSegment(world, {
+    ax: from.x, ay: from.y,
+    bx: tail.x, by: tail.y,
+    /** Width once it has finished swelling; see LAVA for why it starts small. */
+    full,
+    r: LAVA.birthRadius,
+    age: 0,
+    solid: false,
+    dps: spec.damage,
+    /**
+     * HP per 100 m of wall at reference thickness, pro-rated to what this
+     * segment actually is. Both factors matter: a thin ribbon is weaker per
+     * metre than a fat one, which is what makes "slow down to build something
+     * that lasts" true rather than merely flavourful.
+     */
+    hp: spec.rockHp * (length / LAVA.refLength) * (full / LAVA.refWidth),
+    /** Fixed per segment so the ribbon's wobble does not crawl as it is drawn. */
+    seed: Math.random() * TAU,
+  });
+
+  if (world.time % 5 === 0) sfx.flame();
 }
 
 /**

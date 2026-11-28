@@ -30,7 +30,7 @@
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
   MISSILES, MISSILE_IDS, BOMBS, BOMB_IDS, BOMB, SYSTEMS, SYSTEM_IDS,
-  PLAYER, DEFAULT_LOADOUT,
+  PLAYER, DEFAULT_LOADOUT, LAVA, CANNON, TPS,
   resolveWeapons, resolveBomb, maxFuseRung, KMH_PER_SPEED_UNIT,
 } from "../src/config.js";
 import { createWorld } from "../src/world.js";
@@ -121,7 +121,14 @@ console.log("\nBOMBS (progression, not a choice — printed, not asserted)");
  * yield is (1 + bomblets) x damage.
  */
 function yieldOf(spec) {
-  return spec.bomblets ? (1 + spec.bomblets) * spec.damage : spec.damage;
+  if (spec.bomblets) return (1 + spec.bomblets) * spec.damage;
+  // A burn rate is not a lump of damage. What one pass through a ribbon
+  // actually costs is the fire it leaves behind, which runs for
+  // `CANNON.burnDuration` whether or not the aircraft is still in it.
+  if (spec.trigger === "spray") {
+    return Math.round((spec.damage * CANNON.burnDuration) / TPS);
+  }
+  return spec.damage;
 }
 
 /** Resolve a system with every ladder at its bottom rung, or every one at top. */
@@ -135,8 +142,23 @@ function atRung(id, which) {
   return resolveBomb(loadout);
 }
 
-const fuseText = (spec) =>
-  (Number.isFinite(spec.fuse) ? `${(spec.fuse / 60).toFixed(1)}s` : "on touch");
+/**
+ * What the FUSE column means for a system that has no fuse. Two of the seven
+ * do not: a mine waits to be touched, and the sprayer has no moment of
+ * detonation at all — what it has is a cooling time, which is the nearest
+ * thing it owns to "how long until this becomes the thing it is going to be".
+ */
+const fuseText = (spec) => {
+  if (Number.isFinite(spec.fuse)) return `${(spec.fuse / TPS).toFixed(1)}s`;
+  return spec.trigger === "spray"
+    ? `sets in ${(spec.hardenTicks / TPS).toFixed(1)}s`
+    : "on touch";
+};
+
+/** AMMO is a count everywhere but the sprayer, where it is a tank of seconds. */
+const ammoText = (spec) => (spec.trigger === "spray"
+  ? `${(spec.carried / TPS).toFixed(1)}s`
+  : `${spec.carried}`);
 
 console.table(BOMB_IDS.map((id) => {
   const stock = atRung(id, "stock");
@@ -144,14 +166,22 @@ console.table(BOMB_IDS.map((id) => {
   return {
     system: BOMBS[id].name,
     mechanic: BOMBS[id].trigger,
-    blast: BOMBS[id].scatterRange
-      ? `${BOMBS[id].blastRadius} m (+${BOMBS[id].scatterRange} spray)`
-      : `${BOMBS[id].blastRadius} m`,
-    ammo: `${stock.carried} -> ${top.carried}`,
+    // The sprayer has no circle to quote, so it quotes the ribbon it draws:
+    // thick and short at idle, thin and long at the burner.
+    blast: BOMBS[id].trigger === "spray"
+      ? `${Math.round(LAVA.width(ENGINES[ENGINE_IDS.at(-1)].maxSpeed))}`
+        + `-${Math.round(LAVA.width(PLAYER.minSpeed))} m ribbon`
+      : BOMBS[id].scatterRange
+        ? `${BOMBS[id].blastRadius} m (+${BOMBS[id].scatterRange} spray)`
+        : `${BOMBS[id].blastRadius} m`,
+    ammo: `${ammoText(stock)} -> ${ammoText(top)}`,
     damage: `${stock.damage} -> ${top.damage}`,
-    fuse: `${fuseText(stock)} -> ${fuseText(top)}`,
+    "rock hp": top.rockHp ? `${stock.rockHp} -> ${top.rockHp}` : "—",
+    // A ladder that does not move says so once rather than twice.
+    fuse: fuseText(stock) === fuseText(top)
+      ? fuseText(stock) : `${fuseText(stock)} -> ${fuseText(top)}`,
     "maxed yield": yieldOf(top),
-    cooldown: `${BOMBS[id].dropCooldown}t`,
+    cooldown: BOMBS[id].trigger === "spray" ? "held" : `${BOMBS[id].dropCooldown}t`,
   };
 }));
 

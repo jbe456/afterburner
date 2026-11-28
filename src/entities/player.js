@@ -17,10 +17,13 @@ import { sfx } from "../core/audio.js";
 import {
   PLAYER, ARMOUR, ENGINES, DEFAULT_LOADOUT, LOCK,
   resolveWeapons, resolveMissile, resolveBomb, resolveSystem,
-  ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK,
+  ARENA_HALF, ARENA_DAMAGE_EDGE, EDGE_DAMAGE_PER_TICK, LAVA, CANNON,
 } from "../config.js";
-import { fireGun, fireMissile, dropBomb, sprayFlame, fireLaser } from "./weapons.js";
+import {
+  fireGun, fireMissile, dropBomb, sprayFlame, fireLaser, sprayLava,
+} from "./weapons.js";
 import { explode, addShake } from "./effects.js";
+import { resolveRockContact, hottestLavaTouching } from "./lava.js";
 
 /** Ticks between the jet being hit and the game-over screen appearing. */
 const DEATH_DELAY = 72;
@@ -78,8 +81,15 @@ export function createPlayer(loadout = {}) {
     gunCooldown: 0,
     missiles: missile.carried,
     missileCooldown: 0,
+    /** Munitions on the rails — or, on the sprayer, ticks left in the tank. */
     bombs: bomb.carried,
     bombCooldown: 0,
+    /**
+     * Where the last ribbon segment ended, so the next one starts there and
+     * the stroke is continuous. Null between presses: releasing the trigger
+     * is what breaks a wall into two walls.
+     */
+    lavaTail: null,
     /** Charges left for the fitted system. */
     charges: system.carried,
     /**
@@ -120,6 +130,15 @@ export function updatePlayer(world) {
   p.y += Math.sin(p.angle) * p.speed;
 
   enforceArena(world, p);
+  // Cooled rock is the one thing in this game that occupies space. Hitting it
+  // costs hull in proportion to how fast you arrived and then holds you
+  // against it — the heading stays yours, so you scrape along under power
+  // rather than being thrown somewhere you did not choose.
+  if (resolveRockContact(world, p, PLAYER.radius)) {
+    damagePlayer(world, p.speed * LAVA.impactDamagePerSpeed);
+    addShake(world, 8);
+    sfx.hit();
+  }
 
   p.trail.push({ x: p.x - Math.cos(p.angle) * 18, y: p.y - Math.sin(p.angle) * 18 });
   if (p.trail.length > PLAYER.trailLength) p.trail.shift();
@@ -149,7 +168,14 @@ export function updatePlayer(world) {
   if ((input.mouse.right || isDown("KeyF", "KeyX")) && p.missileCooldown <= 0) {
     fireMissile(world);
   }
-  if (isDown("KeyB") && p.bombCooldown <= 0) {
+  // B drops a munition, except on the one system that is not a munition:
+  // there the key is held rather than tapped, and what it spends is a tank.
+  if (p.bomb.trigger === "spray") {
+    if (isDown("KeyB")) sprayLava(world, p);
+    // Releasing breaks the ribbon, so the next press starts a new stroke at
+    // the tail instead of reaching back to wherever this one ended.
+    else p.lavaTail = null;
+  } else if (isDown("KeyB") && p.bombCooldown <= 0) {
     dropBomb(world);
   }
 
@@ -281,7 +307,19 @@ export function ignitePlayer(world, burnSpec) {
 /** Ticks the fire the player is carrying, if any. */
 export function updatePlayerBurn(world) {
   const p = world.player;
-  if (!p.alive || !p.burn) return;
+  if (!p.alive) return;
+
+  // Standing in molten rock lights you, on precisely the terms it lights
+  // anything else — there is no arming delay and no exemption for the pilot
+  // who laid it. What keeps that survivable is geometry rather than mercy:
+  // a ribbon is born too narrow to reach the tail it came out of, and only
+  // reaches full width once you have flown on. Turn tightly enough for long
+  // enough and you will come back round into it, which is the cost of the
+  // weapon rather than a flaw in it.
+  const dps = hottestLavaTouching(world, p.x, p.y, PLAYER.radius);
+  if (dps > 0) ignitePlayer(world, { dps, duration: CANNON.burnDuration });
+
+  if (!p.burn) return;
 
   if (--p.burn.ticksLeft <= 0) { p.burn = null; return; }
   damagePlayer(world, p.burn.dps / 60);

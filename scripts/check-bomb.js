@@ -26,8 +26,11 @@
  */
 
 import { createWorld } from "../src/world.js";
-import { dropBomb } from "../src/entities/weapons.js";
+import { dropBomb, sprayLava } from "../src/entities/weapons.js";
 import { updateBombs } from "../src/entities/bombs.js";
+import {
+  updateLava, resolveRockContact, damageRockPoint,
+} from "../src/entities/lava.js";
 import { spawnEnemy, updateBurning } from "../src/entities/enemy.js";
 import { updatePlayerBurn } from "../src/entities/player.js";
 import {
@@ -514,6 +517,160 @@ for (const bombId of TIMED) {
     "a rung resolves below the floor");
 }
 
+// --- the sprayer -----------------------------------------------------------
+/**
+ * The one system that leaves terrain behind, which gives it failure modes
+ * none of the other six have.
+ *
+ * Four of these guard things that break silently — nothing on screen would
+ * tell you that lava had stopped burning the pilot, that rock had stopped
+ * stopping anything, that a wall had become indestructible, or that a tankful
+ * had started producing unbounded terrain. The fifth guards the number the
+ * whole weapon balances on: a ribbon is laid 44 m behind the tail and is born
+ * narrow, and if it were ever hot enough to reach the jet on the tick it
+ * appeared, the sprayer would set its own pilot alight on every press.
+ */
+function sprayWorld(bombId, { rung = 4 } = {}) {
+  const world = worldFor(bombId, { rung });
+  world.player.x = 0;
+  world.player.y = 0;
+  world.player.angle = 0; // nose east, so the ribbon runs west behind it
+  return world;
+}
+
+/** Hold the trigger for `ticks`, flying straight, and return the world. */
+function hold(world, ticks) {
+  for (let t = 0; t < ticks; t++) {
+    sprayLava(world, world.player);
+    world.player.x += Math.cos(world.player.angle) * world.player.speed;
+    world.player.y += Math.sin(world.player.angle) * world.player.speed;
+    updateLava(world);
+  }
+  return world;
+}
+
+for (const bombId of BOMB_IDS.filter((id) => MECHANIC(id) === "spray")) {
+  const spec = specFor(bombId, { rung: 4 });
+
+  console.log(`\n${spec.name} (maxed) — ${(spec.carried / TPS).toFixed(1)}s tank,`
+    + ` ${spec.damage}/s molten, setting after ${(spec.hardenTicks / TPS).toFixed(1)}s`
+    + ` into ${spec.rockHp} HP per 100 m`);
+
+  // 1. It burns the pilot. The easiest thing here to break without noticing,
+  //    and the thing that would quietly turn a high-risk weapon into a free
+  //    one — exactly as for the other six.
+  {
+    const world = hold(sprayWorld(bombId), 40);
+    const seg = world.lava.segments[0];
+    world.player.x = (seg.ax + seg.bx) / 2;
+    world.player.y = (seg.ay + seg.by) / 2;
+    const before = world.player.hp;
+    updateLava(world);
+    updatePlayerBurn(world);
+    check("molten lava sets the pilot who laid it alight",
+      world.player.burn !== null, "the player never caught fire");
+    check("and costs them hull for standing in it",
+      before - world.player.hp > 0, "the player took nothing");
+  }
+
+  // 2. It burns an enemy on the same terms, which is the other half of
+  //    "indiscriminate" and the half the weapon is actually bought for.
+  {
+    const world = hold(sprayWorld(bombId), 40);
+    const seg = world.lava.segments[0];
+    spawnEnemy(world, DUMMY);
+    const enemy = world.enemies[0];
+    enemy.x = (seg.ax + seg.bx) / 2;
+    enemy.y = (seg.ay + seg.by) / 2;
+    const before = enemy.hp;
+    updateLava(world);
+    updateBurning(world);
+    check("and sets an enemy standing in it alight too",
+      enemy.burn !== null && before - enemy.hp > 0, "the enemy was untouched");
+  }
+
+  // 3. Nothing is hot enough to reach the jet on the tick it is born. This is
+  //    the margin the whole weapon rests on: there is no arming delay, so if
+  //    this fails the sprayer immolates its own pilot on contact with B.
+  {
+    const world = sprayWorld(bombId);
+    let worst = Infinity;
+    // Across the throttle band, because width comes off airspeed and the
+    // fattest ribbons are laid at the speeds that turn tightest.
+    for (const speed of [PLAYER.minSpeed, 4.6, 8, 14, 20]) {
+      world.player.speed = speed;
+      world.player.lavaTail = null;
+      sprayLava(world, world.player);
+      const seg = world.lava.segments[world.lava.segments.length - 1];
+      const reach = Math.hypot(seg.bx - world.player.x, seg.by - world.player.y);
+      worst = Math.min(worst, reach - seg.r - PLAYER.radius);
+    }
+    check("a newborn ribbon never reaches the jet that laid it",
+      worst > 0, `tightest clearance ${worst.toFixed(1)} m`);
+  }
+
+  // 4. It sets, and what it sets into stops things. Rock is the first thing
+  //    in this game to occupy space, so nothing else in the suite would
+  //    notice it quietly stopping.
+  {
+    const world = hold(sprayWorld(bombId), 30);
+    for (let t = 0; t < spec.hardenTicks + 2; t++) updateLava(world);
+    check("the ribbon cools into rock",
+      world.lava.segments.every((s) => s.solid), "something is still molten");
+
+    const seg = world.lava.segments[0];
+    spawnEnemy(world, DUMMY);
+    const enemy = world.enemies[0];
+    // Aimed at the wall from one side, flown at it until it should be past.
+    enemy.x = seg.ax - 200;
+    enemy.y = seg.ay;
+    enemy.angle = 0;
+    for (let t = 0; t < 200; t++) {
+      enemy.x += Math.cos(enemy.angle) * enemy.speed;
+      resolveRockContact(world, enemy, enemy.radius);
+    }
+    check("and an aircraft flown at the wall does not end up on the far side",
+      enemy.x < seg.ax, `ended ${Math.round(enemy.x - seg.ax)} m past it`);
+  }
+
+  // 5. It can be destroyed. Rock never expires, so gunfire is the only way
+  //    terrain ever leaves the world — if this broke, a wall would be
+  //    permanent in the literal sense.
+  {
+    const world = hold(sprayWorld(bombId), 30);
+    for (let t = 0; t < spec.hardenTicks + 2; t++) updateLava(world);
+    const standing = world.lava.segments.length;
+    const seg = world.lava.segments[0];
+    let spent = 0;
+    for (let shot = 0; shot < 400 && world.lava.segments.length === standing; shot++) {
+      damageRockPoint(world, (seg.ax + seg.bx) / 2, (seg.ay + seg.by) / 2, 4, 8);
+      updateLava(world);
+      spent += 8;
+    }
+    check("sustained fire opens a hole in it",
+      world.lava.segments.length < standing, "400 rounds left the wall intact");
+    check("and a maxed wall is not opened by a single round",
+      spent > 8, `one round of 8 removed a segment`);
+  }
+
+  // 6. The tank is the only thing bounding the world. There is no cap on
+  //    terrain by design, so a drain that failed to drain would not look like
+  //    a bug — it would look like a very good weapon, right up until the
+  //    frame rate went.
+  {
+    for (const speed of [PLAYER.minSpeed, 20]) {
+      const world = sprayWorld(bombId);
+      world.player.speed = speed;
+      hold(world, spec.carried + 300);
+      check(`holding to empty at ${speed} lays exactly ${spec.carried} segments`,
+        world.lava.segments.length === spec.carried,
+        `laid ${world.lava.segments.length}`);
+      check("and the tank is empty rather than negative",
+        world.player.bombs === 0, `${world.player.bombs} left`);
+    }
+  }
+}
+
 // --- the heaviest thing in the sky should not fall to one bomb ------------
 console.log("\nTHE BOSS IS NOT A FORMALITY");
 const toughest = ENEMY_TYPES[DUMMY];
@@ -523,6 +680,10 @@ const heaviest = Math.max(...BOMB_IDS.map((id) => {
   // rate across the time something would have to sit in it.
   if (spec.trigger === "field") {
     return Math.round(spec.damage * (spec.fieldDuration + CANNON.burnDuration) / TPS);
+  }
+  // One pass through a ribbon, which is the most a single touch can cost.
+  if (spec.trigger === "spray") {
+    return Math.round((spec.damage * CANNON.burnDuration) / TPS);
   }
   return spec.damage;
 }));

@@ -5,9 +5,10 @@
 
 import { dist2 } from "../core/math.js";
 import { sfx } from "../core/audio.js";
-import { PICKUPS } from "../config.js";
+import { PICKUPS, TPS } from "../config.js";
 import { burst } from "./effects.js";
 import { showBanner } from "../world.js";
+import { nudgeOutOfRock } from "./lava.js";
 
 /** One colour per kind, shared with the renderer so the two cannot drift. */
 export const PICKUP_COLOUR = {
@@ -28,12 +29,16 @@ export const PICKUP_GLYPH = { repair: "+", ammo: "M", shield: "S" };
  */
 export function maybeDropPickup(world, x, y) {
   if (Math.random() >= PICKUPS.dropChance) return;
-  world.pickups.push({
+  const crate = {
     x, y,
     kind: pickKind(world),
     life: PICKUPS.life,
     bob: 0,
-  });
+  };
+  // Things die against walls, and a crate inside one could never be reached:
+  // nothing can fly in to collect it. Put it down beside the wall instead.
+  nudgeOutOfRock(world, crate, PICKUPS.pickupRadius);
+  world.pickups.push(crate);
 }
 
 function pickKind(world) {
@@ -80,7 +85,14 @@ export function updatePickups(world) {
 
       const parts = [];
       if (gainedMissiles) parts.push(`+${gainedMissiles} ${player.missile.short}`);
-      if (gainedBombs) parts.push(`+${gainedBombs} ${player.bomb.short}`);
+      // The sprayer's rack is a tank measured in ticks, so a crate puts back
+      // a slice of seconds. "+60 LAVA" would be a true number and a useless
+      // one; what the pilot needs to know is how much longer they may hold.
+      if (gainedBombs) {
+        parts.push(player.bomb.trigger === "spray"
+          ? `+${(gainedBombs / TPS).toFixed(1)}s ${player.bomb.short}`
+          : `+${gainedBombs} ${player.bomb.short}`);
+      }
       showBanner(world, parts.join(" · ") || "AMMO FULL", 60);
     }
 

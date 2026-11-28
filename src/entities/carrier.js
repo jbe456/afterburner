@@ -21,9 +21,10 @@
 
 import { steer, rand } from "../core/math.js";
 import {
-  ARENA_HALF, CARRIER, ENEMY_TYPES, ENEMY_TYPE_IDS, WAVES,
+  ARENA_HALF, CARRIER, ENEMY_TYPES, ENEMY_TYPE_IDS, WAVES, LAVA,
 } from "../config.js";
-import { spawnEnemyAt } from "./enemy.js";
+import { spawnEnemyAt, damageEnemy } from "./enemy.js";
+import { resolveRockContact, firstRockOnRay } from "./lava.js";
 import { fireSam } from "./weapons.js";
 
 /** Carriers turn back this far from the arena wall, as aircraft do. */
@@ -58,6 +59,17 @@ function updateCarrier(world, ship) {
   }
   ship.x += Math.cos(ship.angle) * ship.speed;
   ship.y += Math.sin(ship.angle) * ship.speed;
+
+  // A wall stops a ship exactly as it stops an aircraft. It does not steer
+  // around one — the heading it arrived on is still the only heading it has —
+  // it simply stops, and spends its battery digging through instead. See
+  // `fireBattery`: that is where a wall does its real damage to a carrier.
+  if (resolveRockContact(world, ship, ship.radius)) {
+    damageEnemy(world, ship, ship.speed * LAVA.impactDamagePerSpeed, ship.x, ship.y,
+      { quiet: true });
+    if (!world.enemies.includes(ship)) return;
+  }
+
   if (ship.flash > 0) ship.flash--;
 
   fireBattery(world, ship, type);
@@ -72,7 +84,25 @@ function updateCarrier(world, ship) {
  */
 function fireBattery(world, ship, type) {
   if (ship.samCooldown > 0) ship.samCooldown--;
-  if (!world.player.alive || ship.samCooldown > 0) return;
+  if (ship.samCooldown > 0) return;
+
+  // A ship that cannot get past a wall points its battery at the wall.
+  //
+  // This is the whole of what a carrier does about terrain, and it is also
+  // the best reason to build a wall in front of one: the same launcher cannot
+  // be shooting at you and digging at the same time. Walling a Supercarrier
+  // off does not stop it for long — its battery is the nastiest in the game,
+  // so it digs fastest — but for as long as it is digging it is stationary
+  // and silent, which is the longest any boss in this game is ever harmless.
+  const blockage = firstRockOnRay(
+    world, ship.x, ship.y, ship.angle, ship.radius + LAVA.shipLookahead);
+  if (blockage) {
+    fireSam(world, ship, type.sam, blockage);
+    ship.samCooldown = type.sam.cooldown;
+    return;
+  }
+
+  if (!world.player.alive) return;
 
   const range = Math.hypot(world.player.x - ship.x, world.player.y - ship.y);
   if (range > type.sam.range) return;
