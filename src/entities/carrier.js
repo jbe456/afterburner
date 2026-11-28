@@ -44,6 +44,13 @@ export function updateCarriers(world) {
 function updateCarrier(world, ship) {
   const type = ENEMY_TYPES[ship.type];
 
+  // A frozen ship is a statue: it does not steer, move, shoot, launch or
+  // service a deck, and every timer it holds — SAM, launch interval, swarm
+  // stagger — is held where it stood rather than running down out of sight.
+  // Returning before any of them is what guarantees that; a ship whose
+  // cooldowns kept ticking would thaw and immediately empty its whole deck.
+  if (ship.frozen > 0) { ship.frozen--; if (ship.flash > 0) ship.flash--; return; }
+
   // The only thing that ever changes its mind for it.
   if (Math.abs(ship.x) > ARENA_HALF - WALL_MARGIN
       || Math.abs(ship.y) > ARENA_HALF - WALL_MARGIN) {
@@ -191,6 +198,17 @@ function recover(world, ship) {
 function serviceDeck(world, plane) {
   const { ship, state } = plane.onDeck;
   const type = ENEMY_TYPES[plane.type];
+
+  // A frozen aircraft holds its deck state wherever it was: mid-approach it
+  // stops short of the ship, parked it stops repairing, rolling it stops
+  // rolling. The slot stays occupied the whole time, which is the point —
+  // freezing something on a deck denies the ship one of its three.
+  if (plane.frozen > 0) {
+    plane.frozen--;
+    plane.speed = 0;
+    if (plane.flash > 0) plane.flash--;
+    return;
+  }
 
   if (state === "approach") approach(plane, ship, type);
   else if (state === "repair") repair(plane, ship, type);

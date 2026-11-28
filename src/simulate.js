@@ -5,7 +5,7 @@
  */
 
 import { updatePlayer, updateWreckage, updatePlayerBurn } from "./entities/player.js";
-import { updateEnemy, updateBurning } from "./entities/enemy.js";
+import { updateEnemy, updateBurning, updatePoison } from "./entities/enemy.js";
 import { updateCarriers } from "./entities/carrier.js";
 import { updateBullets, updateMissiles, updateFlames } from "./entities/projectiles.js";
 import { updateBombs } from "./entities/bombs.js";
@@ -28,6 +28,9 @@ export function simulate(world) {
   updateMissiles(world);
   updateBombs(world);
   updateBurning(world);
+  // Alongside the fires and for the same reason: it damages, so it can kill,
+  // so it cannot run inside a loop over the list it might shorten.
+  updatePoison(world);
   updatePlayerBurn(world);
   updatePickups(world);
   updateEffects(world);

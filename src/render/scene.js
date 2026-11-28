@@ -312,9 +312,17 @@ function drawAircraft(ctx, world) {
 
   for (const e of enemies) {
     const type = ENEMY_TYPES[e.type];
+    // Three states can sit on one aircraft at once, so each gets its own
+    // channel rather than competing for the same ring: freeze recolours the
+    // hull, fire rings it close in and flickering, poison rings it further
+    // out and steady. Any combination of the three stays readable.
     drawHull(ctx, type.shape, e.x, e.y, e.angle, type.scale,
-      type.color, type.accent, e.flash > 0, 0.4, time);
+      e.frozen > 0 ? FROZEN_HULL : type.color,
+      e.frozen > 0 ? FROZEN_ACCENT : type.accent,
+      e.flash > 0, 0.4, time);
     if (e.burn) drawBurning(ctx, e, time);
+    if (e.poison > 0) drawPoisoned(ctx, e);
+    if (e.frozen > 0) drawFrozen(ctx, e, time);
     if (e.hp < e.maxHp) drawHealthPip(ctx, e);
   }
 
@@ -464,6 +472,51 @@ function drawBurning(ctx, e, time) {
   ctx.restore();
 }
 
+/** What a frozen hull is painted in, in place of its own colours. */
+const FROZEN_HULL = "#2f6f9e";
+const FROZEN_ACCENT = "#bfe6ff";
+
+/**
+ * The poison ring: steady where the fire's flickers, and further out so the
+ * two never sit on top of each other. It reads how heavily marked something
+ * is — one missile is faint, a full rack is solid — which is the only way to
+ * tell from outside how long a target has left.
+ */
+function drawPoisoned(ctx, e) {
+  // Saturates at five marks, by which point the target is dying fast enough
+  // that a brighter ring would tell you nothing you cannot already see.
+  const weight = Math.min(e.poison / 150, 1);
+  ctx.save();
+  ctx.globalAlpha = 0.35 + weight * 0.5;
+  ctx.strokeStyle = "#46d97a";
+  ctx.lineWidth = 1.5 + weight * 2;
+  ctx.beginPath();
+  ctx.arc(e.x, e.y, e.radius + 10, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Frost on a stopped aircraft. The hull is already recoloured, so this is
+ * only the spines that say it is held rather than merely painted blue —
+ * and they are still, because everything about the aircraft is.
+ */
+function drawFrozen(ctx, e, time) {
+  ctx.save();
+  ctx.globalAlpha = 0.5 + Math.sin(time * 0.08) * 0.12;
+  ctx.strokeStyle = "#bfe6ff";
+  ctx.lineWidth = 1.5;
+  const r = e.radius + 4;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * TAU;
+    ctx.beginPath();
+    ctx.moveTo(e.x + Math.cos(a) * r, e.y + Math.sin(a) * r);
+    ctx.lineTo(e.x + Math.cos(a) * (r + 5), e.y + Math.sin(a) * (r + 5));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawHealthPip(ctx, e) {
   if (e.carrier) return drawCarrierHealth(ctx, e);
   const w = Math.max(34, e.radius * 1.9), h = 3.5, y = e.y - e.radius - 16;
@@ -549,16 +602,27 @@ function drawLockReticle(ctx, world) {
 
 function drawMissiles(ctx, world) {
   for (const m of world.missiles) {
+    // The head is the warhead's colour and glows in it, so what is in the air
+    // is identifiable before it arrives. Enemy missiles declare no effect and
+    // keep the orange head they have always had.
+    const head = m.spec.colour ?? "#ff6b35";
+    const glows = m.spec.effect && m.spec.effect !== "blast";
+
     ctx.save();
     ctx.translate(m.x, m.y);
     ctx.rotate(m.angle);
     ctx.fillStyle = "#e8edf2";
     ctx.fillRect(-9, -2, 18, 4);
-    ctx.fillStyle = "#ff6b35";
+    if (glows) {
+      ctx.shadowColor = head;
+      ctx.shadowBlur = 12;
+    }
+    ctx.fillStyle = head;
     ctx.beginPath();
     ctx.moveTo(9, -2); ctx.lineTo(14, 0); ctx.lineTo(9, 2);
     ctx.closePath();
     ctx.fill();
+    ctx.shadowBlur = 0;
     ctx.fillStyle = "#9fb0c0";
     ctx.fillRect(-9, -5, 4, 10);
     ctx.restore();

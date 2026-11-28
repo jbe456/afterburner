@@ -9,7 +9,7 @@
 
 import {
   ARMOUR, ARMOUR_IDS, ENGINES, ENGINE_IDS, WEAPONS, WEAPON_IDS,
-  MISSILES, MISSILE_IDS,
+  MISSILES, MISSILE_IDS, WARHEAD_COLOUR,
   BOMBS, BOMB_IDS, SYSTEMS, SYSTEM_IDS, DEFAULT_LOADOUT, PLAYER, KMH_PER_SPEED_UNIT, TPS,
   BOMB, fuseRungLocked, maxFuseRung,
   ENEMY_TYPES, ENEMY_TYPE_IDS, enemyDps, resolveWeapons,
@@ -172,10 +172,10 @@ const isTrack = (slot) =>
   slot === "weapon" || slot === "missile" || slot === "bomb" || slot === "system";
 
 /**
- * A track whose bench opens with a switch over several systems. Two of them
- * switch over one thing today and are drawn as switches anyway: the row is
- * honest about the shape of the bay, and the second warhead or device
- * changes nothing here.
+ * A track whose bench opens with a switch over several systems. The system
+ * bay switches over one device today and is drawn as a switch anyway: the row
+ * is honest about the shape of the bay, and the second device changes nothing
+ * here — exactly as the second and third warheads changed nothing here.
  */
 const SWITCHES = {
   weapon: { ids: WEAPON_IDS, table: WEAPONS, name: (spec) => spec.label },
@@ -414,7 +414,9 @@ const missileRung = (prop) => {
 
 function bayArt(slot) {
   if (slot === "system") return systemArt(chosen.system);
-  if (slot === "missile") return missileArt(missileRung("guidance"));
+  if (slot === "missile") {
+    return missileArt(missileRung("guidance"), WARHEAD_COLOUR[MISSILES[chosen.missile].effect]);
+  }
   if (!isLadder(slot)) return weaponArt(chosen[slot]);
   return ladderArt(slot, IDS[slot].indexOf(chosen[slot]), IDS[slot].length);
 }
@@ -460,13 +462,14 @@ function benchHint(slot) {
   if (slot === "bomb") {
     return `${BOMB_IDS.length} systems — the others keep their rungs`;
   }
-  // One warhead and one device so far, so there is nothing to say about
-  // keeping rungs. Both count ladders rather than fittings, which stays true
-  // as their bays fill.
+  // The missile bay fills the same way the bomb bay does: every warhead keeps
+  // its own rungs, so switching away and back returns you to the one you
+  // built rather than a stock one.
   if (slot === "missile") {
-    return `${Object.keys(MISSILES[chosen.missile].props).length} ladders,`
-      + " and only one way up";
+    return `${MISSILE_IDS.length} warheads — the others keep their rungs`;
   }
+  // One device so far, so there is nothing to say about keeping rungs. It
+  // counts ladders rather than fittings, which stays true as the bay fills.
   if (slot === "system") {
     return `${Object.keys(SYSTEMS[chosen.system].props).length} ladders,`
       + " and only one way up";
@@ -883,13 +886,22 @@ function weaponArt(id) {
  * canards to steer with, then the radar arc that lets it look behind you.
  *
  * Generated from the rung rather than drawn three times, so a fourth mode
- * would not need a fourth drawing. It is drawn from the rung and not from
- * the fitted warhead because what is on the rails is the thing that changes
- * shape; a second warhead would layer over this rather than replace it.
+ * would not need a fourth drawing.
+ *
+ * It is drawn from the GUIDANCE rung and not from the fitted warhead because
+ * the airframe is one airframe for all three — what the rungs change is the
+ * seeker on the front of it, and that is the same climb whatever is riding
+ * behind it.
+ *
+ * The head is the exception, painted in the warhead's own colour: the same
+ * green or blue the missile flies in, leaves on what it hit, and fills its
+ * HUD rack with. Four places, one table, and the hangar is where you first
+ * meet it.
  */
-function missileArt(rung) {
+function missileArt(rung, head) {
   const parts = [
     `<polygon class="main" points="17,0 7,-3.4 -12,-3.4 -12,3.4 7,3.4"/>`,
+    `<polygon fill="${head}" points="17,0 7,-3.4 7,3.4"/>`,
     `<polygon class="dim" points="-12,-3.4 -19,-9.5 -14,-3.4"/>`,
     `<polygon class="dim" points="-12,3.4 -19,9.5 -14,3.4"/>`,
   ];

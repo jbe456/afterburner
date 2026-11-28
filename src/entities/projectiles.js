@@ -10,7 +10,7 @@ import { dist2, angDiff, steer, rand } from "../core/math.js";
 import { sfx } from "../core/audio.js";
 import { PLAYER } from "../config.js";
 import { burst, explode, addShake } from "./effects.js";
-import { damageEnemy, ignite } from "./enemy.js";
+import { damageEnemy, ignite, poisonEnemy, freezeEnemy } from "./enemy.js";
 import { damagePlayer, ignitePlayer } from "./player.js";
 
 export function updateBullets(world) {
@@ -141,17 +141,27 @@ export function updateMissiles(world) {
     m.x += Math.cos(m.angle) * m.speed;
     m.y += Math.sin(m.angle) * m.speed;
 
+    // Smoke takes the warhead's colour, so what is coming at something is
+    // legible from the trail alone without waiting to see what it does.
     world.particles.push({
       x: m.x - Math.cos(m.angle) * 9,
       y: m.y - Math.sin(m.angle) * 9,
       vx: rand(-0.4, 0.4), vy: rand(-0.4, 0.4),
       life: 22, maxLife: 22,
-      color: m.friendly ? "#c8d4e0" : "#e0a0a0",
+      color: !m.friendly ? "#e0a0a0"
+        : spec.effect && spec.effect !== "blast" ? spec.colour
+        : "#c8d4e0",
       size: 5,
     });
 
     if (--m.life <= 0) {
-      explode(world, m.x, m.y, false); // burned out, self-destructs
+      // Burned out. A warhead with no blast in it has nothing to go off with,
+      // so it fizzles in its own colour rather than borrowing an explosion.
+      if (spec.effect && spec.effect !== "blast") {
+        burst(world, m.x, m.y, 8, spec.colour, 2.4, 2, 20);
+      } else {
+        explode(world, m.x, m.y, false);
+      }
       missiles.splice(i, 1);
       continue;
     }
@@ -204,6 +214,22 @@ function detonateIfHit(world, m) {
     if (dist2(m, e) < (e.radius + spec.hitRadius) ** 2) { struck = e; break; }
   }
   if (!struck) return false;
+
+  // The one question this file asks about which warhead it is holding. Two of
+  // the three deal nothing on contact and splash nothing, so they leave their
+  // mark on exactly what they touched and that is the whole of the impact.
+  if (spec.effect === "poison") {
+    poisonEnemy(struck, spec.potency);
+    burst(world, m.x, m.y, 14, "#46d97a", 3.4, 3, 26);
+    sfx.hit();
+    return true;
+  }
+  if (spec.effect === "freeze") {
+    freezeEnemy(struck, spec.freezeTicks);
+    burst(world, m.x, m.y, 14, "#5fb9ff", 3.4, 3, 26);
+    sfx.hit();
+    return true;
+  }
 
   explode(world, m.x, m.y, spec.splashRadius > 150);
 

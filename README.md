@@ -49,10 +49,12 @@ There is one airframe, and every fitting on it is now climbed. Hull and engine
 are single ladders you **upgrade** rung by rung; the four armament bays are all
 **switches**, each carrying one of what it switches between, with property
 ladders under whatever is fitted. The forward weapon switches over three
-systems, the bomb over **six**, and the missile and the system over one apiece
-— drawn as switches anyway, because the shape of a bay is not a function of how
-full it happens to be, and the second warhead or device will not change a line
-of the bench.
+systems, the bomb over **six**, the missile over **three** warheads, and the
+system over one — the last drawn as a switch anyway, because the shape of a
+bay is not a function of how full it happens to be, and the second device will
+not change a line of the bench. The missile bay is the proof: it was built as
+a switch holding one warhead, and taking the second and third cost it two
+entries in a table.
 
 The sixth bay is the **system**, and it is the only one that holds nothing that
 shoots. A system is a device you trigger with `C`.
@@ -180,15 +182,27 @@ You start on the cannon at its weakest: two wing guns, regular rounds.
 ### The missile
 
 The rails hold a **warhead**, carried one at a time, and the bay is a switch
-exactly like the bomb row — with **one warhead** on it today, `EXPLOSIVE`.
-It is drawn as a switch anyway, for the same reason the system bay is: the
-row is honest about the shape of the bay, and the second warhead will not
-change a line of the bench.
+exactly like the bomb row. Three warheads sit on it: `EXPLOSIVE`, `POISON` and
+`FREEZE`. One is fitted per sortie, and the choice is made in the hangar before
+you launch — there is one trigger, one rack and one ammo pool however it is
+loaded.
 
-What is climbed underneath is the airframe the warhead rides, built the way
-the forward weapons are. The rocket pod, the heat-seeker and the radar shot
-that used to be three separate fittings are now the three rungs of
-**GUIDANCE** — the only one of the four properties that is not a quantity.
+What is climbed underneath is the airframe the warhead rides, one for all
+three, built the way the forward weapons are. The rocket pod, the heat-seeker
+and the radar shot that used to be three separate fittings are now the three
+rungs of **GUIDANCE** — the only one of the four properties that is not a
+quantity.
+
+What separates one warhead from another is never a rung:
+
+| | |
+| --- | --- |
+| **EXPLOSIVE** | a blast and a splash, delivered the instant it arrives |
+| **POISON** | no blast at all; a mark that drains until the target is dead |
+| **FREEZE** | no blast and no damage; the target simply stops |
+
+All three climb GUIDANCE, AMMO and REACH. The fourth ladder is whatever that
+warhead's effect is measured in.
 
 | | | |
 | --- | --- | --- |
@@ -196,6 +210,68 @@ that used to be three separate fittings are now the three rungs of
 | **AMMO** | 3, 10, 17, 23, 30 | what the rack holds |
 | **DAMAGE** | 30, 60, 90, 120, 150 | and the splash that scales with it |
 | **REACH** | 800 – 2500 m | how far the motor carries it |
+
+#### Poison
+
+| | | |
+| --- | --- | --- |
+| **AMMO** | 2, 3, 4, 5, 6 | how many aircraft you can sentence |
+| **POTENCY** | 10, 20, 30, 40, 50 /s | what each mark drains |
+
+A poison missile deals **nothing** on contact and splashes nothing. It leaves
+a mark that **never lifts**: there is no duration, no stack cap and no timer,
+only a running total of damage per second that an aircraft carries until it
+hits the ground. Marks **add** — two missiles drain twice as fast — which is
+the opposite of the rule fires follow, and deliberately: a fire is a state one
+source or another owns, so the fiercer wins, while poison is a rate, and rates
+sum.
+
+The consequence is the whole weapon. **Every poison missile is a kill on
+anything**, a Supercarrier included, given long enough. So AMMO here is not
+"how much damage do I hold" but how many aircraft you can condemn in one
+sortie, and a missile spent on a 16 hp Scout buys exactly as much as one spent
+on a 6,000 hp Supercarrier. At the top rungs you carry six death sentences, or
+you spend the whole rack on one ship for 300 dps and kill it in twenty seconds.
+
+What it pays for that: nothing dies *now*. The target keeps flying and keeps
+shooting for as long as it takes, there is no splash to catch the aircraft
+beside it, and overkill is total — three missiles and a long wait to kill
+something one explosive would have deleted on arrival. It is the right answer
+to a carrier and the wrong answer to a swarm.
+
+#### Freeze
+
+| | | |
+| --- | --- | --- |
+| **AMMO** | 4, 6, 8, 10, 12 | how many windows you carry |
+| **DURATION** | 2, 4, 6, 8 s | how long each one holds |
+
+A freeze missile deals **no damage at all, ever**. What it does is stop an
+aircraft dead: it cannot steer, cannot move and cannot fire, and it takes
+damage the whole time from anything else you or the world is doing to it.
+Fires and poison already on it keep running. Missiles it launched before it
+froze keep flying — they are their own entities, and a frozen launcher
+recalling its ordnance would be magic.
+
+Frozen is a **state**, not a rate, so it cannot be held twice. A second hit
+**resets** the window to its full length rather than adding to it — exactly
+how `ignite` refreshes a fire — so a hit three seconds into an eight second
+freeze leaves eight, extending it by three. The ceiling on one target is
+therefore one rung, and the only way to hold something longer than that is to
+keep spending missiles on it.
+
+Against a **carrier** it is total. A frozen ship does not move, does not fire
+its SAM battery, launches nothing, repairs nothing, and every timer it holds —
+SAM, launch interval, swarm stagger — is held where it stood rather than
+running down out of sight. A ship whose cooldowns kept ticking under the ice
+would thaw and immediately empty its deck, which is the opposite of what the
+missile was spent on.
+
+Aircraft already sitting on a frozen ship's deck are **not** frozen with it;
+they are their own entities and are frozen separately or not at all. A
+separately-frozen aircraft holds its own deck timer, which keeps its slot
+occupied — so freezing something that is not even flying denies the ship one
+of its three slots.
 
 A missile answers to its warhead wherever a fitting is named — the bay card,
 the loadout recap, the resupply toast — and never to how it is guided. The
@@ -212,15 +288,24 @@ REACH against the acceleration ramp rather than divided by top speed, because
 a missile is still speeding up through its first second; every rung burns out
 within one tick of travel of its stated distance.
 
-Rate of fire is deliberately **not** a ladder. It is a flat 90 ticks for
-everything, which at the top rung is 100 dps — half a maxed cannon. A RATE
-ladder would multiply with DAMAGE, and a ceiling that is the product of two
-rungs is how the cannon once reached 15,000 dps. The cost of that decision
-lands on the bottom rung: unguided rockets reload seven times slower than the
-Hydra pod they replace.
+Rate of fire is deliberately **not** a ladder, and deliberately not declared
+per warhead either. It is a flat 90 ticks for all three, which at the
+explosive's top rung is 100 dps — half a maxed cannon. A RATE ladder would
+multiply with DAMAGE, and a ceiling that is the product of two rungs is how
+the cannon once reached 15,000 dps. The same trap sits under both new
+warheads, one rung deeper: a short cooldown on the poison would have
+multiplied with POTENCY *and* with the number of marks alive at once, and a
+short one on the freeze would have let a single rack hold a carrier still
+indefinitely. What bounds those two instead is how few of them the rack holds,
+which is a number you can read off the bay card before you launch.
 
-A crate puts **3** back on the rails whatever the rack holds — a full reload
-at the bottom of the AMMO ladder, a tenth of one at the top.
+The cost of that decision lands on the bottom rung: unguided rockets reload
+seven times slower than the Hydra pod they replace.
+
+A crate is scaled to what one missile of that warhead is worth, so resupply is
+declared **per warhead**: **3** for the explosive, **2** for the freeze, and
+**1** for the poison — where a single round is a guaranteed kill, a crate is a
+reprieve rather than a reload.
 
 Note that missile reach **fell**. The AMRAAM used to fly 4,338 m and the
 Sidewinder 2,871; nothing now exceeds 2,500. The cap was not always there.
@@ -238,10 +323,30 @@ the motor can carry it**. Acquisition is clamped to REACH, so an all-aspect
 warhead on an 800 m airframe looks 800 m, not 2600. A missile that chases what
 it can never reach does nothing but empty the rack.
 
+A warhead is visible before it arrives. The head of the missile, its exhaust
+trail, the ring it leaves on what it hit and the rack it came off are all
+drawn from one table — amber for the explosive, **green** for the poison,
+**blue** for the freeze. On the target itself the three states each get their
+own channel so any combination of them stays readable: a fire flickers in a
+ring close to the hull, a poison mark rings it further out and steady with its
+weight showing how heavily marked it is, and a freeze recolours the hull
+itself and frosts it rather than adding a third ring.
+
 `check-weapons.js` pins the mechanics that are invisible when they break —
 pierce depth, ignition and its damage-over-time, each GUIDANCE rung guiding as
 advertised, burn-out landing on REACH, acquisition never outrunning it, and a
 full rack staying under a Supercarrier's hull.
+
+`check-warheads.js` does the same for the two that do not explode, where every
+single failure is silent: that neither deals a point of impact damage or
+splashes anything, that poison marks add rather than refresh and never expire,
+that a freeze resets rather than stacks and can never exceed one rung, that a
+frozen aircraft neither moves nor fires while still burning and still rotting,
+and that a frozen carrier holds its timers rather than running them down. Each
+of those is measured against a control flown in the same world with no warhead
+on it, so the claim is "it stopped" *and* "it would not have" — a check that
+passed because the thing it was watching was never going to happen anyway is
+no check at all.
 
 ### Bombs
 
@@ -598,7 +703,7 @@ src/
 │   └── storage.js      Best-score persistence
 ├── entities/           Game rules; each exports plain functions taking `world`
 │   ├── player.js       Flight model, weapons handling, missile lock
-│   ├── enemy.js        Spawning, AI state machine, damage resolution
+│   ├── enemy.js        Spawning, AI state machine, damage, burn, poison, freeze
 │   ├── weapons.js      Firing: trigger pull to projectile
 │   ├── projectiles.js  Flight and impact of bullets and missiles
 │   ├── carrier.js      Carriers: transit, launching, the deck, the SAM battery
@@ -616,10 +721,12 @@ scripts/
 ├── build.js            Single-file bundler
 ├── check-balance.js    Asserts every ladder's order holds, and the fuse gate opens
 ├── check-weapons.js    Asserts pierce, ignition, guidance and reach behave
+├── check-warheads.js   Asserts the mark never lifts and the freeze never stacks
 ├── check-bomb.js       Asserts each bomb's mechanic, fuse gate and friendly fire
 ├── check-hangar.js     Asserts every bay renders and the fuse gate is visible
 ├── check-waves.js      Asserts every wave is populated, capped and escalating
-└── check-carrier.js    Asserts decks, launching, repair and sinking behave
+├── check-carrier.js    Asserts decks, launching, repair and sinking behave
+└── check-system.js     Asserts the ring lasts its rung and puts fires out
 ```
 
 ## How a frame works

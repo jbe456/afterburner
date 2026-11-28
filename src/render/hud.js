@@ -117,7 +117,16 @@ function drawInstruments(ctx, world) {
   ctx.fillText(detail, 108, 94);
   ctx.font = `11px ${MONO}`;
 
-  drawRack(ctx, "MSL", 114, p.missiles, p.missile, "#ffd166", "square");
+  // The rack takes the warhead's own colour, so which of the three is fitted
+  // is answered by the HUD without reading a word of it — and it is the same
+  // colour the heads in the air and the rings on what they hit are drawn in.
+  //
+  // The explosive keeps its amber rather than its blast orange, which sits a
+  // few degrees off the bomb row immediately below it. Two rows that differ
+  // only by a shade are two rows you have to read, and the point of the
+  // colour is not having to.
+  drawRack(ctx, "MSL", 114, p.missiles, p.missile,
+    p.missile.effect === "blast" ? "#ffd166" : p.missile.colour, "square");
   drawRack(ctx, "BMB", 134, p.bombs, p.bomb, "#ff6b4a", "round");
   // Charges only. How long the ring has left is the ring's own job — it is
   // drawn around the aircraft, where you are already looking.

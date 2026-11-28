@@ -419,19 +419,30 @@ export const CANNON = {
 
 // --- missiles ---------------------------------------------------------------
 /**
- * The rails hold a warhead, carried one at a time, and the bay is a switch
- * from the start even though it carries one warhead today — the same shape
- * the system bay takes, for the same reason: the second warhead will not
- * change a line of the bench.
+ * The rails hold a warhead, carried one at a time, and the bay is a switch —
+ * the same shape the system bay takes. Three warheads sit on it now, and the
+ * bench did not change to take the second and third: they are three entries
+ * in this table and nothing else.
  *
- * What is climbed underneath is the airframe the warhead rides. The three
- * missiles that used to sit here — a rocket pod, an IR seeker and a radar
- * shot — survive as the three rungs of GUIDANCE, the only one of the four
- * ladders that is not a quantity.
+ * What is climbed underneath is the airframe the warhead rides, one for all
+ * three. The missiles that used to sit here — a rocket pod, an IR seeker and
+ * a radar shot — survive as the three rungs of GUIDANCE, the only one of the
+ * four ladders that is not a quantity.
  *
- * Everything else about a missile is derived from those four in
- * `resolveMissile`: how long it stays in the air, what its splash does, how
- * far its seeker can see. Nothing downstream declares a missile's numbers.
+ * What separates one warhead from another is never a rung:
+ *
+ *   explosive   a blast and a splash, delivered the instant it arrives
+ *   poison      no blast at all; a mark that drains until the target is dead
+ *   freeze      no blast and no damage; the target simply stops
+ *
+ * — so `effect` is declared per warhead, while GUIDANCE, AMMO and REACH are
+ * climbed on all three. The third ladder is whatever that warhead's effect is
+ * measured in. Everything else is derived in `resolveMissile`: how long it
+ * stays in the air, what its splash does, how far its seeker can see.
+ *
+ * Rate of fire is deliberately shared and deliberately not a ladder; see
+ * MISSILE.cooldown below for why. The two new warheads are bounded by how
+ * few of them you carry instead.
  */
 export const MISSILES = {
   explosive: {
@@ -439,6 +450,9 @@ export const MISSILES = {
     name: "EXPLOSIVE",
     short: "EXPLOSIVE",
     blurb: "A blast at the end of a motor",
+    effect: "blast",
+    /** Missiles a crate puts back on the rails. Scaled to what one is worth. */
+    resupply: 3,
     props: {
       guidance: {
         label: "GUIDANCE",
@@ -454,6 +468,88 @@ export const MISSILES = {
         label: "DAMAGE",
         tiers: steps(30, 150, 5, 5),
         format: (v) => `${v}`,
+      },
+      reach: {
+        label: "REACH",
+        tiers: steps(800, 2500, 5, 50),
+        format: (v) => `${v} m`,
+      },
+    },
+  },
+
+  /**
+   * A mark that never lifts. One hit adds POTENCY to a drain that runs until
+   * the target is dead, so every poison missile is a kill on anything given
+   * long enough — a carrier included.
+   *
+   * That is why it carries six. AMMO is not "how much damage do I hold" here,
+   * it is how many aircraft you can sentence in one sortie, and a missile
+   * spent on a Wasp buys exactly as much as one spent on a Leviathan. The
+   * ceiling on the weapon is the rack, not the warhead.
+   */
+  poison: {
+    id: "poison",
+    name: "POISON",
+    short: "POISON",
+    blurb: "A mark that does not lift",
+    effect: "poison",
+    resupply: 1,
+    props: {
+      guidance: {
+        label: "GUIDANCE",
+        tiers: [0, 1, 2],
+        format: (v) => ["UNGUIDED", "IR SEEKER", "ALL-ASPECT"][v],
+      },
+      ammo: {
+        label: "AMMO",
+        tiers: [2, 3, 4, 5, 6],
+        format: (v) => `${v}`,
+      },
+      potency: {
+        label: "POTENCY",
+        tiers: [10, 20, 30, 40, 50],
+        format: (v) => `${v}/s`,
+      },
+      reach: {
+        label: "REACH",
+        tiers: steps(800, 2500, 5, 50),
+        format: (v) => `${v} m`,
+      },
+    },
+  },
+
+  /**
+   * Stops a target dead: it cannot move and it cannot shoot, and it takes
+   * damage the whole time. The warhead itself does none.
+   *
+   * Freezing is a state rather than a rate, so it cannot be held twice —
+   * a second hit resets the window to its full length rather than adding to
+   * it, exactly as `ignite` refreshes a fire. That makes the ceiling per
+   * target the DURATION rung itself, and the only way to hold something
+   * longer is to keep spending missiles on it.
+   */
+  freeze: {
+    id: "freeze",
+    name: "FREEZE",
+    short: "FREEZE",
+    blurb: "Nothing moves, nothing fires",
+    effect: "freeze",
+    resupply: 2,
+    props: {
+      guidance: {
+        label: "GUIDANCE",
+        tiers: [0, 1, 2],
+        format: (v) => ["UNGUIDED", "IR SEEKER", "ALL-ASPECT"][v],
+      },
+      ammo: {
+        label: "AMMO",
+        tiers: [4, 6, 8, 10, 12],
+        format: (v) => `${v}`,
+      },
+      duration: {
+        label: "DURATION",
+        tiers: [2, 4, 6, 8],
+        format: (v) => `${v} s`,
       },
       reach: {
         label: "REACH",
@@ -491,10 +587,18 @@ export const MISSILE = {
   /** Ticks before the warhead arms, so it can't detonate on the launch rail. */
   armingDelay: 10,
   /**
-   * Ticks between launches, the same whatever is fitted. Rate of fire is
-   * deliberately not a ladder: it would multiply with DAMAGE, and a ceiling
-   * that is the product of two rungs is how the cannon once reached 15,000
-   * dps. At the top rung this is 100 dps, half of a maxed cannon.
+   * Ticks between launches, the same whatever is fitted — including the two
+   * warheads that deal no impact damage at all. Rate of fire is deliberately
+   * not a ladder: it would multiply with DAMAGE, and a ceiling that is the
+   * product of two rungs is how the cannon once reached 15,000 dps. For the
+   * explosive at its top rung this is 100 dps, half of a maxed cannon.
+   *
+   * It is shared rather than declared per warhead for the same reason. A
+   * short cooldown on the poison would have multiplied with POTENCY and with
+   * the stack count at once — three rungs deep — and a short one on the
+   * freeze would have let a rack hold a carrier still indefinitely. What
+   * bounds those two is how few of them the rack holds, which is a number you
+   * can read off the bay card before you launch.
    */
    cooldown: 90,
   /** One airframe, so one speed ramp: units per tick. */
@@ -502,8 +606,6 @@ export const MISSILE = {
   accel: 0.28,
   maxSpeed: 14,
   hitRadius: 16,
-  /** Missiles a crate puts back on the rails, whatever the rack holds. */
-  resupply: 3,
   /** Splash is a fixed share of the warhead, over a radius that grows with it. */
   splashShare: 0.45,
   splashRadiusBase: 60,
@@ -528,6 +630,17 @@ function lifeForReach(reach) {
 }
 
 /**
+ * The colour a warhead is known by, in the air and on the HUD. One table, so
+ * the missile's nose, its exhaust, the ring it leaves on what it hit and the
+ * rack it came off can never disagree about which warhead is fitted.
+ */
+export const WARHEAD_COLOUR = {
+  blast: "#ff6b35",
+  poison: "#46d97a",
+  freeze: "#5fb9ff",
+};
+
+/**
  * Turn a loadout's rungs into the one concrete missile the jet carries. The
  * shape matches what the old per-model specs exposed, so the flight code and
  * the enemy missiles — which still declare their own — stay identical.
@@ -535,6 +648,11 @@ function lifeForReach(reach) {
  * A missile answers to its warhead everywhere a fitting is named: the bay
  * card, the recap and the resupply toast. How it is guided is a ladder, and
  * reads as one — the bay draws GUIDANCE as a bar like any other property.
+ *
+ * All three warheads come back with the same fields. The two that deal no
+ * impact damage report `damage: 0` and a splash of nothing rather than
+ * omitting them, so projectiles.js never has to ask what it is holding before
+ * it can read a number — it asks once, about `effect`, and that is all.
  */
 export function resolveMissile(loadout) {
   const id = MISSILES[loadout.missile] ? loadout.missile : DEFAULT_LOADOUT.missile;
@@ -547,20 +665,28 @@ export function resolveMissile(loadout) {
   };
 
   const guidance = GUIDANCE[value("guidance")];
-  const damage = value("damage");
   const reach = value("reach");
+  // Only the explosive has a DAMAGE ladder; the others deal none on contact.
+  const damage = warhead.props.damage ? value("damage") : 0;
 
   return {
     id,
     name: warhead.name,
     short: warhead.short,
+    effect: warhead.effect,
+    colour: WARHEAD_COLOUR[warhead.effect],
     carried: value("ammo"),
-    resupply: MISSILE.resupply,
+    resupply: warhead.resupply,
     cooldown: MISSILE.cooldown,
     damage,
     splashDamage: Math.round(damage * MISSILE.splashShare),
-    splashRadius: Math.round(
+    splashRadius: damage === 0 ? 0 : Math.round(
       MISSILE.splashRadiusBase + damage * MISSILE.splashRadiusPerDamage),
+    /** Poison only: damage per second this warhead adds to the mark it leaves. */
+    potency: warhead.props.potency ? value("potency") : 0,
+    /** Freeze only: seconds held, and the same figure in ticks to run it with. */
+    freezeSeconds: warhead.props.duration ? value("duration") : 0,
+    freezeTicks: warhead.props.duration ? Math.round(value("duration") * TPS) : 0,
     turnRate: guidance.turnRate,
     /**
      * A seeker cannot be allowed to see past the airframe: chasing something
@@ -974,7 +1100,7 @@ export const DEFAULT_LOADOUT = {
   bomb: "frag",
   /** Which forward weapon is carried. Only one, ever. */
   weapon: "cannon",
-  /** The only warhead there is, which is still chosen rather than assumed. */
+  /** The warhead that does the plainest thing, as the frag bomb is. */
   missile: "explosive",
   /** The only device there is, which is still chosen rather than assumed. */
   system: "ring",

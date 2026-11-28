@@ -89,6 +89,14 @@ export function spawnEnemyAt(world, typeName, x, y, angle) {
     flash: 0,
     /** Set by incendiary rounds: {ticksLeft, dps}. */
     burn: null,
+    /**
+     * Damage per second from poison warheads, which never lifts. A plain
+     * running total rather than a list of stacks: poison is a rate, and two
+     * rates are one rate, so there is nothing a second number would record.
+     */
+    poison: 0,
+    /** Ticks left frozen. Freezing is a state, so there is only ever one. */
+    frozen: 0,
     /** Set while this aircraft belongs to a carrier's deck; see carrier.js. */
     onDeck: null,
   };
@@ -114,6 +122,16 @@ export function updateEnemy(world, e) {
   // its own pass. Two plain fields rather than an import, so neither file
   // depends on the other.
   if (e.carrier || e.onDeck) return;
+
+  // Frozen is the whole of this function and nothing else: no steering, no
+  // movement, no trigger. Returning here rather than zeroing a dozen fields
+  // is what makes "it cannot move and it cannot fire" one readable claim
+  // instead of a list that a later weapon could quietly fall off.
+  //
+  // What it deliberately does not touch: fires and poison already on the
+  // aircraft, which tick in their own passes, and missiles it launched before
+  // it froze, which are their own entities and keep flying.
+  if (tickFrozen(e)) return;
 
   const type = ENEMY_TYPES[e.type];
   const player = world.player;
@@ -268,6 +286,74 @@ export function ignite(world, e, burnSpec) {
     return;
   }
   e.burn = { ticksLeft: burnSpec.duration, dps: burnSpec.dps };
+}
+
+/**
+ * Add a poison warhead's drain to whatever is already running on a target.
+ *
+ * The opposite rule to the one above, and deliberately: a fire is a state
+ * that one source or another owns, so the fiercer wins; poison is a rate, so
+ * rates add. There is no duration because there is no end — the mark runs
+ * until the aircraft is dead, which is what makes a single poison missile a
+ * kill on anything, and why the rack holds six rather than thirty.
+ */
+export function poisonEnemy(e, potency) {
+  e.poison += potency;
+}
+
+/**
+ * Stop an aircraft, or reset a freeze already on it.
+ *
+ * Frozen is binary — nothing is more frozen than frozen — so a second hit
+ * cannot add to the first and instead resets the window to its full length,
+ * the way `ignite` refreshes a fire. A hit three seconds into an eight
+ * second freeze therefore leaves eight, extending it by three. The ceiling
+ * on one target is one rung, and holding something longer than that costs a
+ * missile every time.
+ */
+export function freezeEnemy(e, ticks) {
+  e.frozen = Math.max(e.frozen, ticks);
+}
+
+/**
+ * One tick of a freeze, run before anything the aircraft would otherwise do.
+ * @returns true while it is still held, which is the caller's cue to stop.
+ */
+function tickFrozen(e) {
+  if (e.frozen <= 0) return false;
+  e.frozen--;
+  // Held still rather than coasting: "cannot move" reads as a bug if the
+  // aircraft keeps sliding across the sky on its last heading.
+  e.speed = 0;
+  if (e.flash > 0) e.flash--;
+  return true;
+}
+
+/**
+ * Ticks every poison mark in the world. Its own pass for the same reason
+ * `updateBurning` is: damage here can kill, and killing mutates the list.
+ *
+ * Nothing expires and nothing is cleared, so unlike a fire there is no state
+ * to retire — an aircraft carrying poison carries it to the ground.
+ */
+export function updatePoison(world) {
+  for (let i = world.enemies.length - 1; i >= 0; i--) {
+    const e = world.enemies[i];
+    if (e.poison <= 0) continue;
+
+    // Quietly, or a target holding six marks would be six hit sounds and six
+    // showers of sparks every single tick.
+    damageEnemy(world, e, e.poison / 60, e.x, e.y, { quiet: true });
+
+    if (world.time % 5 === 0) {
+      world.particles.push({
+        x: e.x + rand(-8, 8), y: e.y + rand(-8, 8),
+        vx: rand(-0.25, 0.25), vy: rand(-0.5, -0.1),
+        life: 30, maxLife: 30,
+        color: Math.random() < 0.6 ? "#46d97a" : "#9bf0b8", size: 4,
+      });
+    }
+  }
 }
 
 /**
